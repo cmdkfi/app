@@ -34,3 +34,8 @@ near-sdk = { version = "5.29.1", features = ["unstable", "unit-testing"] }
 near-workspaces = "0.23.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 anyhow = "1"
+# Factory test only: publish the vault as a Global Contract with a raw signed transaction (near-workspaces 0.23
+# has no API for it; research H). Same versions as near-workspaces already pulls in.
+near-primitives = "0.37.4"
+near-crypto = "0.37.4"
+near-jsonrpc-client = "0.22.0"

@@ -1,9 +1,11 @@
 //! Sandbox tests (near-workspaces 0.23, nearcore sandbox 2.13.4): owner messages, policy, the agent's
-//! function-call key, cancel and sweep_eth, the transaction allowlist. The Chain Signatures contract is replaced
-//! by `mock-signer/` (same `sign` arguments and response JSON); the real signer path runs on testnet
-//! (research_notes, prototype results).
+//! function-call key, cancel and sweep_eth, the transaction allowlist, and the keyless factory (`factory/`) creating
+//! vaults from the vault published as a Global Contract. The Chain Signatures contract is replaced by
+//! `mock-signer/` (same `sign` and `derived_public_key` arguments and response JSON); the real signer path runs on
+//! testnet (research_notes, prototype results).
 //!
 //! Build first:  (cd mock-signer && cargo near build non-reproducible-wasm) && cargo near build non-reproducible-wasm
+//!               (cd factory && cargo near build non-reproducible-wasm)
 //! Run:          cargo test --test sandbox -- --nocapture
 //! Owner messages are signed with `cast wallet sign` from throwaway keystores made per test in the temp dir
 //! (deleted at the end); no key is stored in the repository or passed on a command line.
@@ -970,5 +972,332 @@ async fn signing_path() -> Result<()> {
     }
 
     env.print_gas("signing_path");
+    Ok(())
+}
+
+// ======================================================================== factory
+
+const FACTORY_PATH: &str = "cmdk-base";
+
+/// Sandbox only: publish `code` as a Global Contract by hash with a raw signed `DeployGlobalContract` transaction
+/// from `root` (near-workspaces 0.23 has no API for it; research H, recipe (a)). Runs before any near-workspaces
+/// transaction from `root`, because near-workspaces caches the nonce of each key it signs with. Returns sha256(code).
+async fn publish_global(worker: &Worker<Sandbox>, root: &Account, code: Vec<u8>) -> Result<[u8; 32]> {
+    use near_jsonrpc_client::{methods, JsonRpcClient};
+    use near_primitives::action::{Action, DeployGlobalContractAction, GlobalContractDeployMode};
+    use near_primitives::transaction::{SignedTransaction, Transaction, TransactionV0};
+    use near_primitives::views::TxExecutionStatus::{self, Final};
+    use near_primitives::views::{FinalExecutionOutcomeViewEnum as E, FinalExecutionStatus};
+    let size = code.len();
+    let code_hash = near_primitives::hash::hash(&code);
+    let sk = near_crypto::SecretKey::from_str(&root.secret_key().to_string())?;
+    let nonce = worker.view_access_key(root.id(), &root.secret_key().public_key()).await?.nonce + 1;
+    let block_hash = near_primitives::hash::CryptoHash(worker.view_block().await?.hash().0);
+    let before = root.view_account().await?.balance;
+    let action = DeployGlobalContractAction { code: code.into(), deploy_mode: GlobalContractDeployMode::CodeHash };
+    let tx = Transaction::V0(TransactionV0 {
+        signer_id: root.id().clone(),
+        public_key: sk.public_key(),
+        nonce,
+        receiver_id: root.id().clone(),
+        block_hash,
+        actions: vec![Action::DeployGlobalContract(action)],
+    });
+    let signature = sk.sign(tx.get_hash_and_size().0.as_ref());
+    let signed_transaction = SignedTransaction::new(signature, tx);
+    let tx_hash = signed_transaction.get_hash();
+    // Submitted without waiting (a long server-side wait can time out on a slow run), then polled to FINAL.
+    let client = JsonRpcClient::connect(worker.rpc_addr());
+    let send = methods::send_tx::RpcSendTransactionRequest { signed_transaction, wait_until: TxExecutionStatus::None };
+    client.call(send).await?;
+    let mut outcome = None;
+    for _ in 0..WAIT_BLOCKS {
+        let info = methods::tx::TransactionInfo::TransactionId { tx_hash, sender_account_id: root.id().clone() };
+        let status = methods::tx::RpcTransactionStatusRequest { transaction_info: info, wait_until: Final };
+        if let Ok(r) = client.call(status).await {
+            if let Some(o) = r.final_execution_outcome {
+                outcome = Some(o);
+                break;
+            }
+        }
+        worker.fast_forward(1).await?;
+    }
+    let o = match outcome.expect("publish: no FINAL outcome within the wait") {
+        E::FinalExecutionOutcome(o) => o,
+        E::FinalExecutionOutcomeWithReceipt(o) => o.final_outcome,
+    };
+    assert!(matches!(o.status, FinalExecutionStatus::SuccessValue(_)), "publish: {:?}", o.status);
+    // The distribution receipt is asynchronous (research H): wait until the node serves the code by its hash.
+    let hash58 = near_sdk::bs58::encode(code_hash.0).into_string();
+    let code = rpc_wait(worker, json!({"request_type": "view_global_contract_code", "finality": "final",
+                                       "code_hash": hash58}), "global contract code").await?;
+    assert_eq!(code["hash"].as_str().unwrap(), hash58);
+    let after = settled_balance(worker, root.id()).await?;
+    let outcomes: Vec<_> = std::iter::once(&o.transaction_outcome).chain(o.receipts_outcome.iter()).collect();
+    let gas: u64 = outcomes.iter().map(|x| x.outcome.gas_burnt.as_gas()).sum();
+    // tokens_burnt includes the per-byte code burn (0.0001 NEAR per byte, research H), not only gas.
+    let burnt: u128 = outcomes.iter().map(|x| x.outcome.tokens_burnt.as_yoctonear()).sum();
+    let receipts =
+        outcomes.iter().map(|x| format!("{}:{:.3}", x.outcome.executor_id, x.outcome.gas_burnt.as_gas() as f64 / 1e12));
+    let receipts = receipts.collect::<Vec<_>>().join(" ");
+    let delta = before.as_yoctonear() - after.as_yoctonear();
+    let tgas = gas as f64 / 1e12;
+    let what = format!("publish vault Global Contract, {size} bytes");
+    println!("GAS factory | {what} | receipts {receipts} | {gas} | {tgas:.3} Tgas");
+    let code_burn = size as u128 * 100_000_000_000_000_000_000;
+    println!(
+        "factory publish burn | root balance -{:.6} NEAR | tokens_burnt {:.6} NEAR | code 0.0001 NEAR x {size} = \
+         {:.4} NEAR | rest (gas) {:.6} NEAR",
+        delta as f64 / 1e24, burnt as f64 / 1e24, code_burn as f64 / 1e24, (delta - code_burn) as f64 / 1e24
+    );
+    Ok(code_hash.0)
+}
+
+/// Upper bound, in blocks, for every wait in the factory test.
+const WAIT_BLOCKS: usize = 20;
+
+/// A JSON-RPC `query` with curl, the same request DEPLOY.md runs against testnet: `result`, or `Err` with the
+/// RPC error (for example an account not yet visible at finality "final").
+fn rpc_query(worker: &Worker<Sandbox>, params: &Value) -> std::result::Result<Value, Value> {
+    let body = json!({"jsonrpc": "2.0", "id": "cmdk", "method": "query", "params": params}).to_string();
+    let out = Command::new("curl")
+        .args(["-s", &worker.rpc_addr(), "-H", "Content-Type: application/json", "-d", &body])
+        .output()
+        .unwrap();
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    match v.get("error") {
+        Some(e) => Err(e.clone()),
+        None => Ok(v["result"].clone()),
+    }
+}
+
+/// `rpc_query` until it answers, one block between tries, at most `WAIT_BLOCKS` blocks.
+async fn rpc_wait(worker: &Worker<Sandbox>, params: Value, what: &str) -> Result<Value> {
+    let mut last = Value::Null;
+    for _ in 0..WAIT_BLOCKS {
+        match rpc_query(worker, &params) {
+            Ok(v) => return Ok(v),
+            Err(e) => last = e,
+        }
+        worker.fast_forward(1).await?;
+    }
+    panic!("{what}: not served within {WAIT_BLOCKS} blocks: {last}");
+}
+
+/// The account once a view at the default (optimistic) finality shows it, one block between tries.
+async fn visible_account(worker: &Worker<Sandbox>, id: &AccountId) -> Result<near_workspaces::types::AccountDetails> {
+    for _ in 0..WAIT_BLOCKS {
+        if let Ok(a) = worker.view_account(id).await {
+            return Ok(a);
+        }
+        worker.fast_forward(1).await?;
+    }
+    panic!("{id}: account not visible within {WAIT_BLOCKS} blocks");
+}
+
+/// The account's balance once it has stopped changing over two blocks (gas refunds of earlier calls landed).
+async fn settled_balance(worker: &Worker<Sandbox>, id: &AccountId) -> Result<NearToken> {
+    let mut b = worker.view_account(id).await?.balance;
+    for _ in 0..WAIT_BLOCKS / 2 {
+        worker.fast_forward(2).await?;
+        let next = worker.view_account(id).await?.balance;
+        if next == b {
+            return Ok(b);
+        }
+        b = next;
+    }
+    panic!("{id}: balance still changing after {WAIT_BLOCKS} blocks");
+}
+
+async fn create_vault(relayer: &Account, factory: &AccountId, owner: &str, policy: Value)
+    -> Result<ExecutionFinalResult> {
+    Ok(relayer
+        .call(factory, "create_vault")
+        .args_json(json!({"owner": owner, "policy": policy}))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(150))
+        .transact()
+        .await?)
+}
+
+fn print_receipts(what: &str, r: &ExecutionFinalResult) {
+    let receipts =
+        r.receipt_outcomes().iter().map(|o| format!("{}:{:.3}", o.executor_id, o.gas_burnt.as_gas() as f64 / 1e12));
+    let receipts = receipts.collect::<Vec<_>>().join(" ");
+    let g = r.total_gas_burnt.as_gas();
+    println!("GAS factory | {what} | receipts {receipts} | {g} | {:.3} Tgas", g as f64 / 1e12);
+}
+
+#[tokio::test]
+async fn factory() -> Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    // 1. The vault code as a Global Contract by hash.
+    let code_hash = publish_global(&worker, &root, std::fs::read("target/near/cmdk_vault.wasm")?).await?;
+
+    // 2. Mock signer, factory, init, then the factory's only key is deleted.
+    let signer = worker.dev_deploy(&std::fs::read("mock-signer/target/near/cmdk_mock_signer.wasm")?).await?;
+    let fac = root.create_subaccount("factory").initial_balance(NearToken::from_near(10)).transact().await?;
+    let fac = fac.into_result()?;
+    let factory = fac.deploy(&std::fs::read("factory/target/near/cmdk_factory.wasm")?).await?.into_result()?;
+    // DEPLOY.md step 2's check (the code is served under its hash) ran inside `publish_global`.
+    let hash58 = near_sdk::bs58::encode(code_hash).into_string();
+    let r = factory
+        .call("init")
+        .args_json(json!({"code_hash": hash58, "signer": signer.id(), "path": FACTORY_PATH, "morpho": MORPHO}))
+        .transact()
+        .await?;
+    assert!(r.is_success(), "{:?}", r.into_result().err());
+    let r = fac.batch(fac.id()).delete_key(fac.secret_key().public_key()).transact().await?;
+    assert!(r.is_success(), "{:?}", r.into_result().err());
+    assert!(worker.view_access_keys(factory.id()).await?.is_empty(), "factory is keyless");
+    let fa = worker.view_account(factory.id()).await?;
+    let near = fa.balance.as_yoctonear() as f64 / 1e24;
+    println!("factory | {} | keys 0 | storage_usage {} bytes | balance {near:.6} NEAR | code hash {hash58}",
+        factory.id(), fa.storage_usage);
+
+    let relayer = root.create_subaccount("relayer").initial_balance(NearToken::from_near(50)).transact().await?;
+    let relayer = relayer.into_result()?;
+    // init cannot run a second time, from anyone.
+    let again = json!({"code_hash": hash58, "signer": relayer.id(), "path": "other", "morpho": MORPHO});
+    expect_fail(relayer.call(factory.id(), "init").args_json(again).transact().await?, "already been initialized");
+
+    // 3. create_vault from the relayer.
+    let dir = std::env::temp_dir().join(format!("cmdk-vault-sandbox-factory-{}", std::process::id()));
+    std::fs::create_dir_all(&dir)?;
+    let (owner, other) = (Wallet::new(&dir), Wallet::new(&dir));
+    let m = |id: &str, loan: &str, exec: &str| {
+        json!({"id": id, "loan_token": loan, "collateral_token": WETH, "executor": exec,
+               "slice_max": SLICE.to_string()})
+    };
+    let policy = json!({"cooldown_secs": COOLDOWN, "markets": [m(LIVE, USDC, EXEC), m(BACKUP, USDC, EXEC)]});
+    let r = create_vault(&relayer, factory.id(), &owner.address, policy.clone()).await?;
+    assert!(r.is_success(), "{:?}", r.clone().into_result().err());
+    print_receipts("create_vault v1 (derived_public_key, on_derived_key, batch with init)", &r);
+    for l in r.logs() {
+        println!("factory log | {l}");
+    }
+    let v1: AccountId = factory.view("vault_id").args_json(json!({"n": 1})).await?.json()?;
+    assert_eq!(v1.as_str(), format!("v1.{}", factory.id()));
+    let a = visible_account(&worker, &v1).await?;
+    assert_eq!(a.contract_state, near_workspaces::ContractState::GlobalHash(near_workspaces::CryptoHash(code_hash)));
+    assert!(worker.view_access_keys(&v1).await?.is_empty(), "vault is keyless");
+    // DEPLOY.md step 7's checks, as raw RPC at finality "final": waits until the final block includes v1.
+    let q = json!({"request_type": "view_account", "finality": "final", "account_id": v1});
+    let va = rpc_wait(&worker, q, "v1 at finality final").await?;
+    assert_eq!(va["global_contract_hash"].as_str().unwrap(), hash58, "{va}");
+    assert_eq!(va["code_hash"].as_str().unwrap(), "11111111111111111111111111111111", "{va}");
+    for id in [&v1, factory.id()] {
+        let q = json!({"request_type": "view_access_key_list", "finality": "final", "account_id": id});
+        let keys = rpc_wait(&worker, q, "access key list").await?;
+        assert_eq!(keys["keys"], json!([]), "{id}: {keys}");
+    }
+    let near = a.balance.as_yoctonear() as f64 / 1e24;
+    println!("factory vault | {v1} | storage_usage {} bytes | balance {near:.6} NEAR | keys 0", a.storage_usage);
+    let q = json!({"predecessor": v1, "path": FACTORY_PATH});
+    let base: String = signer.view("derived_address").args_json(q).await?.json()?;
+    let st: Value = worker.view(&v1, "get_state").await?.json()?;
+    assert_eq!(st["owner"].as_str().unwrap(), owner.address.to_lowercase());
+    assert_eq!(st["base_address"].as_str().unwrap(), base.to_lowercase());
+    assert_eq!(st["path"].as_str().unwrap(), FACTORY_PATH);
+    assert_eq!(st["signer"].as_str().unwrap(), signer.id().as_str());
+    assert_eq!(st["morpho"].as_str().unwrap(), MORPHO.to_lowercase());
+    assert!(r.logs().contains(&format!("creating vault: {v1} {}", base.to_lowercase()).as_str()));
+
+    // 4. The created vault works: one owner message, three transactions from its Base address.
+    let vault = Contract::from_secret_key(v1.clone(), SecretKey::from_random(KeyType::ED25519), &worker);
+    let (nonce, gas) = (Default::default(), Default::default());
+    let (worker2, signer2, relayer2) = (worker.clone(), signer.clone(), relayer.clone());
+    let env = Env { worker: worker2, vault, signer: signer2, relayer: relayer2, owner, other, base, nonce, dir, gas };
+    let r = env.owner("setup", json!({"market": LIVE, "authorize": true}), 3).await?;
+    env.record("owner_call setup on v1, 3 mock signatures", &r);
+    let txs = signed(&r);
+    assert_eq!(txs.len(), 3);
+    for t in &txs {
+        assert_eq!(t["from"].as_str().unwrap(), env.base.to_lowercase());
+        let d = decode_signed(t["raw"].as_str().unwrap());
+        assert_eq!(t["hash"].as_str().unwrap(), d["hash"].as_str().unwrap());
+    }
+    env.print_gas("factory");
+
+    // 5. A second vault: another account and another Base address.
+    let r = create_vault(&relayer, factory.id(), &env.other.address, policy.clone()).await?;
+    assert!(r.is_success(), "{:?}", r.clone().into_result().err());
+    let v2: AccountId = factory.view("vault_id").args_json(json!({"n": 2})).await?.json()?;
+    visible_account(&worker, &v2).await?;
+    let st2: Value = worker.view(&v2, "get_state").await?.json()?;
+    assert_ne!(st2["base_address"], st["base_address"]);
+    let cfg: Value = factory.view("get_config").await?.json()?;
+    assert_eq!(cfg["count"], 2);
+    assert_eq!(cfg["code_hash"].as_str().unwrap(), hash58);
+    println!("factory vault | {v2} | base {} | config {cfg}", st2["base_address"]);
+
+    // 6. A policy the vault would refuse is refused by the factory in the entry call: the protocol returns the
+    // deposit, no promise is made, no vault number is used.
+    let zero = "0x0000000000000000000000000000000000000000";
+    let bad = json!({"cooldown_secs": COOLDOWN, "markets": [m(LIVE, USDC, zero)]});
+    // Balances are read once they have settled, so that refunds of earlier and of this call are inside the window.
+    let (rb, fb) = (settled_balance(&worker, relayer.id()).await?, settled_balance(&worker, factory.id()).await?);
+    let r = create_vault(&relayer, factory.id(), &env.owner.address, bad).await?;
+    print_receipts("create_vault, zero executor (refused in the entry call)", &r);
+    assert_eq!(r.receipt_outcomes().iter().filter(|o| o.executor_id == *signer.id()).count(), 0, "no signer call");
+    let (ra, fa) = (settled_balance(&worker, relayer.id()).await?, settled_balance(&worker, factory.id()).await?);
+    let e = fail(r);
+    assert!(e.contains("zero executor"), "{e}");
+    let v3: AccountId = factory.view("vault_id").args_json(json!({"n": 3})).await?.json()?;
+    let v3_exists = worker.view_account(&v3).await.is_ok();
+    let cfg: Value = factory.view("get_config").await?.json()?;
+    let d = |a: NearToken, b: NearToken| (a.as_yoctonear() as f64 - b.as_yoctonear() as f64) / 1e24;
+    println!(
+        "factory refused | relayer {:+.6} NEAR | factory {:+.6} NEAR | {v3} exists: {v3_exists} | count {}",
+        d(ra, rb), d(fa, fb), cfg["count"]
+    );
+    assert!(!v3_exists, "no account");
+    assert_eq!(cfg["count"], 2, "no vault number used");
+    // Bounds, not equalities: the 2 NEAR deposit is back; what is gone is gas (150 Tgas prepaid is 0.015 NEAR).
+    assert!(d(ra, rb) < 0.0 && d(ra, rb) > -0.1, "deposit returned, only gas spent: {}", d(ra, rb));
+    assert!(d(fa, fb) < 0.1, "nothing stays in the factory: {}", d(fa, fb));
+    // The other checks the factory repeats from the vault's init, each refused the same way.
+    let dup = json!({"cooldown_secs": COOLDOWN, "markets": [m(LIVE, USDC, EXEC), m(LIVE, USDC, EXEC)]});
+    let short = json!({"cooldown_secs": COOLDOWN, "markets": [m("0x01", USDC, EXEC)]});
+    let token = json!({"cooldown_secs": COOLDOWN, "markets": [m(LIVE, "0x12", EXEC)]});
+    let cases = [
+        ("bad owner", "0x1234", policy.clone(), "owner: expected 20 bytes of hex"),
+        ("no markets", env.owner.address.as_str(), json!({"cooldown_secs": COOLDOWN, "markets": []}), "no markets"),
+        ("duplicate", env.owner.address.as_str(), dup, "duplicate market"),
+        ("short id", env.owner.address.as_str(), short, "market id: expected 32 bytes of hex"),
+        ("bad token", env.owner.address.as_str(), token, "loan_token: expected 20 bytes of hex"),
+    ];
+    for (name, owner, p, want) in cases {
+        let e = fail(create_vault(&relayer, factory.id(), owner, p).await?);
+        assert!(e.contains(want), "{name}: {e}");
+        println!("factory refused | {name} | {want}");
+    }
+    let cfg: Value = factory.view("get_config").await?.json()?;
+    assert_eq!(cfg["count"], 2, "no vault number used");
+
+    // 7. The signer call fails (a second factory whose `signer` has no contract): the deposit goes back to the
+    // caller and no account is created.
+    let f2 = root.create_subaccount("factory2").initial_balance(NearToken::from_near(5)).transact().await?;
+    let f2 = f2.into_result()?.deploy(&std::fs::read("factory/target/near/cmdk_factory.wasm")?).await?.into_result()?;
+    let args = json!({"code_hash": hash58, "signer": relayer.id(), "path": FACTORY_PATH, "morpho": MORPHO});
+    let r = f2.call("init").args_json(args).transact().await?;
+    assert!(r.is_success(), "{:?}", r.into_result().err());
+    let cfg2: Value = f2.view("get_config").await?.json()?;
+    assert_eq!(cfg2["signer"].as_str().unwrap(), relayer.id().as_str(), "factory2 initialised before use");
+    let rb = settled_balance(&worker, relayer.id()).await?;
+    let policy = json!({"cooldown_secs": COOLDOWN, "markets": [m(LIVE, USDC, EXEC)]});
+    let r = create_vault(&relayer, f2.id(), &env.owner.address, policy).await?;
+    print_receipts("create_vault on factory2, signer call fails", &r);
+    assert!(r.is_success(), "{:?}", r.clone().into_result().err());
+    let f2v1 = format!("v1.{}", f2.id());
+    let want = format!("derived_public_key failed for {f2v1}; deposit returned to {}", relayer.id());
+    assert!(r.logs().contains(&want.as_str()), "{:?}", r.logs());
+    // The returned deposit is a Transfer receipt from `on_derived_key`; wait until it and the refunds landed.
+    let ra = settled_balance(&worker, relayer.id()).await?;
+    let exists = worker.view_account(&AccountId::from_str(&f2v1)?).await.is_ok();
+    println!("factory signer failure | relayer {:+.6} NEAR | {f2v1} exists: {exists}", d(ra, rb));
+    assert!(!exists);
+    assert!(d(ra, rb) < 0.0 && d(ra, rb) > -0.1, "deposit returned, only gas spent: {}", d(ra, rb));
     Ok(())
 }

@@ -43,6 +43,15 @@ impl MockSigner {
         self.payloads.clone()
     }
 
+    /// Same arguments and format as the real signer's view: `"secp256k1:" + base58(x || y)` (64 bytes, no 0x04)
+    /// of the key `sign` uses for (predecessor, path); `predecessor` defaults to the caller, `domain_id` to 0.
+    pub fn derived_public_key(&self, path: String, predecessor: Option<AccountId>, domain_id: Option<u64>) -> String {
+        require!(domain_id.unwrap_or(0) == 0, "mock signer: domain 0 only");
+        let predecessor = predecessor.unwrap_or_else(env::predecessor_account_id);
+        let pk = key(predecessor.as_str(), &path).verifying_key().to_encoded_point(false);
+        format!("secp256k1:{}", near_sdk::bs58::encode(&pk.as_bytes()[1..]).into_string())
+    }
+
     /// The EVM address of the key `sign` uses for (predecessor, path).
     pub fn derived_address(&self, predecessor: AccountId, path: String) -> String {
         let pk = key(predecessor.as_str(), &path).verifying_key().to_encoded_point(false);
