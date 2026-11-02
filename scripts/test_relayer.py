@@ -1,8 +1,8 @@
 #!/usr/bin/env python3 -I
 """Unit tests of relayer.py; no network (every chain call goes to FakeChain).
 
-  cd /Users/vf/cmdk/app && python3 -I -m unittest scripts/test_relayer.py
-  (or from scripts/: python3 -I -m unittest test_relayer.py)
+  python3 -I -m unittest discover -s scripts -p test_relayer.py     (from the repository root)
+  python3 -I scripts/test_relayer.py
 """
 import base64, json, os, shutil, subprocess, sys, tempfile, threading, time, unittest, urllib.error, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -31,6 +31,29 @@ def vault_state(markets=None):
     return {'owner': OWNER, 'owner_nonce': 4, 'signer': 'v1.signer-prod.testnet', 'path': 'cmdk-base', 'base_address': BASE,
             'morpho': MORPHO, 'cooldown_secs': 120, 'last_agent_action': 0, 'approved': None, 'agent': None,
             'markets': markets if markets is not None else [market(LIVE, USDC), market(BACKUP, USDC), market(DEMO, DUSDC)]}
+
+
+CORRIDOR = {'target': '5', 'act': '7', 'floor': '3', 'sell_budget': '2', 'migrate_allowed': True, 'exit_allowed': True}
+MEASUREMENT = {'mrtd': 'aa' * 48, 'rtmr0': 'bb' * 48, 'rtmr1': 'cc' * 48, 'rtmr2': 'dd' * 48, 'compose_hash': 'ee' * 32,
+               'os_image_hash': 'ff' * 32}
+
+
+def part(mid, approve=True, authorize=True, corridor=None):
+    p = {'market': mid, 'approve': approve, 'authorize': authorize}
+    if corridor is not None:
+        p['corridor'] = corridor
+    return p
+
+
+def setup_args(*parts, measurement=None):
+    a = {'markets': list(parts)}
+    if measurement is not None:
+        a['measurement'] = measurement
+    return a
+
+
+# The Create vault message: live set up and authorized, backup on the same tokens and executor, both corridors.
+CREATE = setup_args(part(LIVE, corridor=CORRIDOR), part(BACKUP, False, False, CORRIDOR), measurement=MEASUREMENT)
 
 
 def message(method, args, nonce=5, expiry=None, **over):
@@ -177,19 +200,33 @@ class TestMessage(unittest.TestCase):
         return R.parse_message(msg, sig, VAULT, last, int(time.time()))
 
     def test_valid(self):
-        m = self.parse(message('setup', {'market': LIVE, 'authorize': True}))
+        m = self.parse(message('setup', setup_args(part(LIVE))))
         self.assertEqual(m['method'], 'setup')
+        self.parse(message('setup', CREATE))
+        self.parse(message('setup', dict(setup_args(dict(part(LIVE), corridor=None)), measurement=None)))   # null = absent
+        self.parse(message('setup', setup_args(measurement={'anything': 'the vault validates'})))
 
     def test_refusals(self):
-        bad = [message('setup', {'market': LIVE, 'authorize': True}, protocol='prime-vault/1'),
-               message('setup', {'market': LIVE, 'authorize': True}, network='mainnet'),
-               message('setup', {'market': LIVE, 'authorize': True}, vault='v2.factory.cmdk.testnet'),
-               message('setup', {'market': LIVE, 'authorize': True}, nonce=4),
-               message('setup', {'market': LIVE, 'authorize': True}, expiry=int(time.time()) + 5),
+        ok = setup_args(part(LIVE))
+        no_approve = {'market': LIVE, 'authorize': True}
+        bad_corridor = dict(CORRIDOR, sell_budget=2)
+        bad = [message('setup', ok, protocol='prime-vault/1'),
+               message('setup', ok, network='mainnet'),
+               message('setup', ok, vault='v2.factory.cmdk.testnet'),
+               message('setup', ok, nonce=4),
+               message('setup', ok, expiry=int(time.time()) + 5),
                message('nope', {}),
-               message('setup', {'market': LIVE}),
-               message('setup', {'market': LIVE, 'authorize': True, 'extra': 1}),
-               message('setup', {'market': LIVE, 'authorize': 'true'}),
+               message('setup', {'market': LIVE, 'authorize': True}),                      # the old shape
+               message('setup', {}),
+               message('setup', {'markets': part(LIVE)}),
+               message('setup', setup_args(no_approve)),
+               message('setup', setup_args(dict(part(LIVE), extra=1))),
+               message('setup', dict(ok, extra=1)),
+               message('setup', setup_args(dict(part(LIVE), authorize='true'))),
+               message('setup', setup_args(part('0x1234'))),
+               message('setup', setup_args(part(LIVE, corridor=bad_corridor))),
+               message('setup', setup_args(part(LIVE, corridor=dict(CORRIDOR, market=LIVE)))),
+               message('setup', setup_args(part(LIVE), measurement='aa')),
                message('repay', {'market': LIVE, 'amount': 5}),
                message('close', {'market': '0x1234'}),
                message('withdraw', {'token': USDC, 'amount': '1', 'destination': '0x12'}),
@@ -212,10 +249,11 @@ class TestPlan(unittest.TestCase):
         return [p['kind'] for p in R.plan_txs(method, args, st or vault_state())]
 
     def test_counts(self):
-        self.assertEqual(self.count('setup', {'market': LIVE, 'authorize': True}), ['approve', 'approve', 'setAuthorization'])
-        self.assertEqual(self.count('setup', {'market': LIVE, 'authorize': False}), ['approve', 'approve'])
-        corridor = {'market': LIVE, 'target': '5', 'act': '7', 'floor': '3', 'sell_budget': '2',
-                    'migrate_allowed': True, 'exit_allowed': True}
+        self.assertEqual(self.count('setup', setup_args(part(LIVE))), ['approve', 'approve', 'setAuthorization'])
+        self.assertEqual(self.count('setup', setup_args(part(LIVE, authorize=False))), ['approve', 'approve'])
+        self.assertEqual(self.count('setup', CREATE), ['approve', 'approve', 'setAuthorization', 'setCorridor', 'setCorridor'])
+        self.assertEqual(self.count('setup', setup_args(measurement=MEASUREMENT)), [])
+        corridor = dict(CORRIDOR, market=LIVE)
         self.assertEqual(self.count('set_corridor', corridor), ['setCorridor'])
         self.assertEqual(self.count('open', {'market': LIVE, 'collateral_in': '1', 'target_ltv': '5'}), ['open'])
         self.assertEqual(self.count('repay', {'market': LIVE, 'amount': '1'}), ['repay'])
@@ -229,12 +267,31 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(R.plan_txs('cancel', {}, vault_state())[0]['to'], BASE)
 
     def test_targets(self):
-        p = R.plan_txs('setup', {'market': DEMO, 'authorize': True}, vault_state())
+        p = R.plan_txs('setup', setup_args(part(DEMO)), vault_state())
         self.assertEqual([x['to'] for x in p], [DUSDC, WETH, MORPHO])
+        p = R.plan_txs('setup', CREATE, vault_state())
+        self.assertEqual([x['to'] for x in p], [USDC, WETH, MORPHO, EXEC, EXEC])
+
+    def test_setup_deduplicates(self):
+        # The vault's rule: a call identical to one already in the message is left out. Live and backup share USDC,
+        # WETH and the executor; demo shares WETH and the executor.
+        p = R.plan_txs('setup', setup_args(part(LIVE), part(BACKUP), part(DEMO)), vault_state())
+        self.assertEqual([(x['kind'], x['to']) for x in p],
+                         [('approve', USDC), ('approve', WETH), ('setAuthorization', MORPHO), ('approve', DUSDC)])
+        p = R.plan_txs('setup', setup_args(part(LIVE, authorize=False), part(BACKUP, authorize=False)), vault_state())
+        self.assertEqual([x['to'] for x in p], [USDC, WETH])
+        # Another executor is another spender: its approvals and authorization are not duplicates.
+        st = vault_state([market(LIVE, USDC), market(BACKUP, USDC, EXEC2)])
+        p = R.plan_txs('setup', setup_args(part(LIVE), part(BACKUP)), st)
+        self.assertEqual([x['to'] for x in p], [USDC, WETH, MORPHO, USDC, WETH, MORPHO])
 
     def test_refusals(self):
         st = vault_state()
-        for method, args in (('setup', {'market': '0x' + '01' * 32, 'authorize': True}),
+        for method, args in (('setup', setup_args(part('0x' + '01' * 32))),
+                             ('setup', setup_args()),
+                             ('setup', setup_args(part(LIVE, False, False))),
+                             ('setup', setup_args(part(LIVE), part(BACKUP, False, False, CORRIDOR), part(LIVE.upper().replace('0X', '0x')))),
+                             ('setup', setup_args(part(LIVE, corridor=dict(CORRIDOR, floor=str(2 ** 64))))),
                              ('withdraw', {'token': '0x' + '01' * 20, 'amount': '1', 'destination': OWNER}),
                              ('withdraw', {'token': USDC, 'amount': '0', 'destination': OWNER}),
                              ('withdraw', {'token': USDC, 'amount': '1', 'destination': '0x' + '00' * 20}),
@@ -271,12 +328,35 @@ class TestFlags(unittest.TestCase):
         R.check_flags(method, args, list(plan), facts)
 
     def test_setup(self):
-        self.check('setup', {'authorize': True}, {'authorized': False})
-        self.check('setup', {'authorize': False}, {'authorized': True})
+        def facts(authorized, *allowances, executor=EXEC):
+            return {'executor': executor, 'authorized': authorized, 'allowances': dict(zip((USDC, WETH), allowances))}
+
+        def check(args, *parts):
+            self.check('setup', args, {'markets': list(parts)})
+
+        fresh, ready = facts(False, 0, 0), facts(True, 5, 5)
+        check(setup_args(part(LIVE)), fresh)
+        check(setup_args(part(LIVE, authorize=False)), facts(True, 0, 0))
+        check(setup_args(part(LIVE, authorize=False)), ready)                       # a repeated approve is allowed
+        check(setup_args(part(LIVE, False, False, CORRIDOR)), ready)
+        check(CREATE, fresh, fresh)                                                 # backup covered by live
+        check(setup_args(part(LIVE, authorize=False), part(BACKUP, False, True)), fresh, fresh)
         with self.assertRaisesRegex(R.Refused, 'would revert'):
-            self.check('setup', {'authorize': True}, {'authorized': True})
+            check(setup_args(part(LIVE)), facts(True, 0, 0))
+        with self.assertRaisesRegex(R.Refused, 'would revert'):
+            check(setup_args(part(LIVE, authorize=False), part(BACKUP)), ready, ready)
         with self.assertRaisesRegex(R.Refused, 'authorize true'):
-            self.check('setup', {'authorize': False}, {'authorized': False})
+            check(setup_args(part(LIVE, authorize=False)), fresh)
+        with self.assertRaisesRegex(R.Refused, 'authorize true'):
+            check(setup_args(part(LIVE, False, False, CORRIDOR)), facts(False, 5, 5))
+        with self.assertRaisesRegex(R.Refused, 'approve true'):
+            check(setup_args(part(LIVE, approve=False)), fresh)
+        with self.assertRaisesRegex(R.Refused, 'approve true'):
+            check(setup_args(part(LIVE, False, False, CORRIDOR)), facts(True, 5, 0))
+        # Per executor: a second executor needs its own authorization and approvals.
+        with self.assertRaisesRegex(R.Refused, 'executor %s' % EXEC2):
+            check(setup_args(part(LIVE), part(BACKUP, False, False)), fresh, facts(False, 0, 0, executor=EXEC2))
+        check(setup_args(part(LIVE), part(BACKUP)), fresh, facts(False, 0, 0, executor=EXEC2))
 
     def test_set_executor(self):
         self.check('set_executor', {'revoke_authorization': True}, {'authorized_old': True})
@@ -332,7 +412,7 @@ class TestFeesAndGas(unittest.TestCase):
     def test_compose_params(self):
         c = FakeChain()
         c.base_fee, c.priority, c.pending_nonce = 5 * 10 ** 6, 10 ** 5, 41
-        plan = R.plan_txs('setup', {'market': LIVE, 'authorize': True}, vault_state())
+        plan = R.plan_txs('setup', setup_args(part(LIVE)), vault_state())
         txs = R.compose_params(c, BASE, plan)
         self.assertEqual([t['nonce'] for t in txs], [41, 42, 43])
         self.assertEqual([t['gas_limit'] for t in txs], [80000, 80000, 80000])
@@ -564,9 +644,13 @@ class TestHttp(unittest.TestCase):
         c = FakeChain()
         c.authorized.add((BASE, EXEC))
         self.start(c)
-        code, out = self.owner_call('setup', {'market': LIVE, 'authorize': True})
+        code, out = self.owner_call('setup', setup_args(part(LIVE)))
         self.assertEqual((code, out['ok']), (400, False))
         self.assertIn('would revert', out['error'])
+        code, out = self.owner_call('setup', setup_args(part(LIVE, False, False, CORRIDOR)))
+        self.assertEqual((code, out['ok']), (400, False))
+        self.assertIn('approve true', out['error'])
+        self.assertEqual(c.sent_cmds, [])
         code, out = self.owner_call('close', {'market': LIVE})
         self.assertEqual((code, out['ok']), (200, True))      # close with no debt pulls nothing: allowed
         self.assertEqual(c.sent_cmds[0][4:6], [VAULT, 'owner_call'])
@@ -584,7 +668,7 @@ class TestHttp(unittest.TestCase):
     def test_owner_call_broadcasts_in_nonce_order(self):
         c = FakeChain()
         self.start(c)
-        code, out = self.owner_call('setup', {'market': LIVE, 'authorize': True})
+        code, out = self.owner_call('setup', setup_args(part(LIVE)))
         self.assertEqual((code, out['ok'], len(out['signed']), len(out['receipts'])), (200, True, 3, 3))
         args = json.loads(c.sent_cmds[0][c.sent_cmds[0].index('json-args') + 1])
         self.assertEqual([t['nonce'] for t in args['txs']], [7, 8, 9])
@@ -598,11 +682,28 @@ class TestHttp(unittest.TestCase):
         c = FakeChain()
         c.statuses = [1, 0, 1]
         self.start(c)
-        code, out = self.owner_call('setup', {'market': LIVE, 'authorize': True})
+        code, out = self.owner_call('setup', setup_args(part(LIVE)))
         self.assertEqual((out['ok'], len(out['receipts']), out['receipts'][1]['status']), (False, 2, 0))
         self.assertEqual(len(c.sent_raws), 2)
         self.assertEqual(out['held'], ['0x%064x' % 9])
         self.assertIn('reverted', out['error'])
+
+    def test_owner_call_create_vault(self):
+        # One signature: five Base transactions at consecutive nonces, broadcast in order; then the same message
+        # once Morpho has the authorization is refused before NEAR.
+        c = FakeChain()
+        self.start(c)
+        code, out = self.owner_call('setup', CREATE)
+        self.assertEqual((code, out['ok'], len(out['signed']), len(out['receipts'])), (200, True, 5, 5))
+        args = json.loads(c.sent_cmds[0][c.sent_cmds[0].index('json-args') + 1])
+        self.assertEqual([t['nonce'] for t in args['txs']], [7, 8, 9, 10, 11])
+        self.assertEqual([t['gas_limit'] for t in args['txs']], [80000, 80000, 80000, 120000, 120000])
+        self.assertEqual([raw_nonce(r) for r in c.sent_raws], [7, 8, 9, 10, 11])
+        c.authorized.add((BASE, EXEC))
+        code, out = self.owner_call('setup', CREATE)
+        self.assertEqual((code, out['ok']), (400, False))
+        self.assertIn('would revert', out['error'])
+        self.assertEqual(len(c.sent_cmds), 1)
 
     def test_owner_call_no_base_transaction(self):
         c = FakeChain()

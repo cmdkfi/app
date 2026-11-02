@@ -82,7 +82,7 @@ SEL = {
 
 # Owner methods: the exact argument fields the vault accepts (deny_unknown_fields) and their kinds.
 OWNER_ARGS = {
-    'setup': ('market', 'authorize'),
+    'setup': None,                   # {markets: [...], measurement?}; checked by check_setup_args
     'set_corridor': ('market', 'target', 'act', 'floor', 'sell_budget', 'migrate_allowed', 'exit_allowed'),
     'open': ('market', 'collateral_in', 'target_ltv'),
     'repay': ('market', 'amount'),
@@ -94,9 +94,11 @@ OWNER_ARGS = {
     'approve_measurement': None,     # a Measurement; the vault validates it, no Base transaction
     'revoke_agent': (),
 }
+SETUP_MARKET = ('market', 'approve', 'authorize')                 # plus `corridor`, optional
+CORRIDOR = ('target', 'act', 'floor', 'sell_budget', 'migrate_allowed', 'exit_allowed')
 ARG_KIND = {
     'market': 'id', 'token': 'addr', 'destination': 'addr', 'executor': 'addr',
-    'authorize': 'bool', 'migrate_allowed': 'bool', 'exit_allowed': 'bool', 'revoke_authorization': 'bool',
+    'approve': 'bool', 'authorize': 'bool', 'migrate_allowed': 'bool', 'exit_allowed': 'bool', 'revoke_authorization': 'bool',
     'target': 'u128', 'act': 'u128', 'floor': 'u128', 'sell_budget': 'u128', 'collateral_in': 'u128',
     'target_ltv': 'u128', 'amount': 'u128',
 }
@@ -193,10 +195,10 @@ def check_u128(v, what):
     return int(v)
 
 
-def check_keys(d, keys, what):
+def check_keys(d, keys, what, optional=()):
     if not isinstance(d, dict):
         raise Refused('%s: expected an object' % what)
-    missing, extra = set(keys) - set(d), set(d) - set(keys)
+    missing, extra = set(keys) - set(d), set(d) - set(keys) - set(optional)
     if missing or extra:
         raise Refused('%s: missing %s, unknown %s' % (what, sorted(missing), sorted(extra)))
 
@@ -255,6 +257,26 @@ def check_arg(name, v):
     return check_u128(v, name)
 
 
+def check_setup_args(a):
+    """setup's args as the vault parses them: {markets: [{market, approve, authorize, corridor?}], measurement?},
+    unknown fields refused, `corridor` and `measurement` optional (absent or null). The vault validates the
+    measurement itself (as approve_measurement's args)."""
+    check_keys(a, ('markets',), 'args of setup', optional=('measurement',))
+    if not isinstance(a['markets'], list):
+        raise Refused('args of setup: markets: expected a list')
+    for i, p in enumerate(a['markets']):
+        w = 'args of setup: markets[%d]' % i
+        check_keys(p, SETUP_MARKET, w, optional=('corridor',))
+        for k in SETUP_MARKET:
+            check_arg(k, p[k])
+        if p.get('corridor') is not None:
+            check_keys(p['corridor'], CORRIDOR, w + '.corridor')
+            for k in CORRIDOR:
+                check_arg(k, p['corridor'][k])
+    if a.get('measurement') is not None and not isinstance(a['measurement'], dict):
+        raise Refused('args of setup: measurement: expected an object')
+
+
 def parse_message(message, signature, vault, last_nonce, now):
     """The owner message's own fields, checked as the vault will check them (except the signature recovery),
     so a message the vault would refuse never costs NEAR gas."""
@@ -276,7 +298,9 @@ def parse_message(message, signature, vault, last_nonce, now):
     if m['method'] not in OWNER_ARGS:
         raise Refused('unknown method %r' % m['method'])
     fields = OWNER_ARGS[m['method']]
-    if fields is not None:
+    if m['method'] == 'setup':
+        check_setup_args(m['args'])
+    elif fields is not None:
         check_keys(m['args'], fields, 'args of ' + m['method'])
         for k in fields:
             check_arg(k, m['args'][k])
@@ -321,6 +345,35 @@ def set_executor_plan(args, st):
     return plan + [{'kind': 'approve', 'to': t, 'value': 0} for t in tokens_of(used)]
 
 
+def setup_plan(args, st):
+    """The vault's setup: per market part, in order, approve(executor) on the loan and collateral token if
+    `approve`, setAuthorization(executor, true) if `authorize`, setCorridor if `corridor`; a call identical to
+    one already planned (same token and executor, same executor) is left out. Refused when it produces nothing
+    and carries no measurement, or lists a market twice."""
+    plan, seen, emitted = [], [], set()
+    for p in args['markets']:
+        mk = find_market(st, p['market'])
+        if mk['id'].lower() in seen:
+            raise Refused('setup: market listed twice')
+        seen.append(mk['id'].lower())
+        ex = mk['executor'].lower()
+        calls = [(('approve', t, ex), {'kind': 'approve', 'to': t, 'value': 0}) for t in tokens_of([mk])] if p['approve'] else []
+        if p['authorize']:
+            calls.append((('setAuthorization', ex), {'kind': 'setAuthorization', 'to': st['morpho'], 'value': 0}))
+        for key, tx in calls:
+            if key not in emitted:
+                emitted.add(key)
+                plan.append(tx)
+        c = p.get('corridor')
+        if c is not None:
+            if any(int(c[k]) > U64_MAX for k in ('target', 'act', 'floor', 'sell_budget')):
+                raise Refused('setup: corridor value above uint64')
+            plan.append({'kind': 'setCorridor', 'to': mk['executor'], 'value': 0})
+    if not plan and args.get('measurement') is None:
+        raise Refused('setup: empty (no Base transaction and no measurement)')
+    return plan
+
+
 def plan_txs(method, args, st):
     """One entry {kind, to, value} per Base transaction the vault will build for this owner method, in the
     vault's order; `kind` keys the gas table. Mirrors owner_call in vault/src/lib.rs."""
@@ -328,6 +381,8 @@ def plan_txs(method, args, st):
         return []
     if method == 'set_executor':
         return set_executor_plan(args, st)
+    if method == 'setup':
+        return setup_plan(args, st)
     if method == 'cancel':
         return [{'kind': 'cancel', 'to': st['base_address'], 'value': 0}]
     if method == 'sweep_eth':
@@ -342,10 +397,6 @@ def plan_txs(method, args, st):
             raise Refused('withdraw: zero destination or zero amount')
         return [{'kind': 'transfer', 'to': token, 'value': 0}]
     mk = find_market(st, args['market'])
-    if method == 'setup':
-        plan = [{'kind': 'approve', 'to': mk['loan_token'], 'value': 0},
-                {'kind': 'approve', 'to': mk['collateral_token'], 'value': 0}]
-        return plan + ([{'kind': 'setAuthorization', 'to': st['morpho'], 'value': 0}] if args['authorize'] else [])
     if method == 'set_corridor':
         if any(int(args[k]) > U64_MAX for k in ('target', 'act', 'floor', 'sell_budget')):
             raise Refused('set_corridor: corridor value above uint64')
@@ -353,14 +404,34 @@ def plan_txs(method, args, st):
     return [{'kind': method, 'to': mk['executor'], 'value': 0}]       # open, repay, close
 
 
+def check_setup_flags(args, f):
+    """setup's flags against Base, per executor: an authorization in the message while Morpho already has it
+    reverts; none while Morpho lacks it leaves the markets unusable. Per (token, executor) of every listed market:
+    an allowance of 0 that no part of the message approves leaves the market unusable. A repeated approve is
+    allowed (it does not revert; the vault emits it once per message)."""
+    parts = list(zip(args['markets'], f['markets']))
+    for ex in dict.fromkeys(x['executor'] for _, x in parts):
+        auth = any(p['authorize'] for p, x in parts if x['executor'] == ex)
+        on = next(x['authorized'] for _, x in parts if x['executor'] == ex)
+        if auth and on:
+            raise Refused('setup: authorize is true for executor %s but Morpho already has isAuthorized(vault, '
+                          'executor) = true, so setAuthorization would revert; sign again with authorize false on '
+                          'every market of that executor' % ex)
+        if not auth and not on:
+            raise Refused('setup: Morpho has no authorization for executor %s and no market in the message '
+                          'authorizes it; sign again with authorize true on one of its markets' % ex)
+    approved = {(t, x['executor']) for p, x in parts if p['approve'] for t in x['allowances']}
+    for p, x in parts:
+        for t, a in x['allowances'].items():
+            if a == 0 and (t, x['executor']) not in approved:
+                raise Refused('setup: market %s: the allowance of token %s to the executor is 0 and no market in the '
+                              'message approves it; sign again with approve true' % (p['market'], t))
+
+
 def check_flags(method, args, plan, f):
     """Refuse when the message disagrees with Base (`f`: the facts read by base_facts)."""
-    if method == 'setup' and args['authorize'] == f['authorized']:
-        if f['authorized']:
-            raise Refused('setup: authorize is true but Morpho already has isAuthorized(vault, executor) = true, so '
-                          'setAuthorization would revert; sign again with authorize false')
-        raise Refused('setup: authorize is false but Morpho has no authorization for the executor; sign again with '
-                      'authorize true')
+    if method == 'setup':
+        check_setup_flags(args, f)
     if method == 'set_executor' and plan and args['revoke_authorization'] != f['authorized_old']:
         if f['authorized_old']:
             raise Refused('set_executor: revoke_authorization is false but Morpho still authorizes the old executor; '
@@ -556,11 +627,17 @@ def base_facts(chain, method, args, st):
     base, morpho = st['base_address'], st['morpho']
     if method == 'set_executor':
         return {'authorized_old': read_authorized(chain, morpho, base, find_market(st, args['market'])['executor'])}
-    if method not in ('setup', 'open', 'close', 'repay'):
+    if method == 'setup':
+        parts = []
+        for p in args['markets']:
+            mk = find_market(st, p['market'])
+            ex = mk['executor'].lower()
+            parts.append({'executor': ex, 'authorized': read_authorized(chain, morpho, base, ex),
+                          'allowances': {t: read_allowance(chain, t, base, ex) for t in tokens_of([mk])}})
+        return {'markets': parts}
+    if method not in ('open', 'close', 'repay'):
         return {}
     mk = find_market(st, args['market'])
-    if method == 'setup':
-        return {'authorized': read_authorized(chain, morpho, base, mk['executor'])}
     if method == 'open':
         return {'authorized': read_authorized(chain, morpho, base, mk['executor']),
                 'collateral_allowance': read_allowance(chain, mk['collateral_token'], base, mk['executor'])}

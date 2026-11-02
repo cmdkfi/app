@@ -79,7 +79,7 @@ pub struct Market {
     pub previous_executors: Vec<Addr>,
     /// Largest `reduce` amount (loan-token units) the agent may propose in one call.
     pub slice_max: u128,
-    /// Set by the owner's `set_corridor`, cleared by `set_executor`: the agent is refused until then (§4.1).
+    /// Set by the owner's `setup` or `set_corridor`, cleared by `set_executor`: the agent is refused until then (§4.1).
     pub corridor_set: bool,
 }
 
@@ -127,11 +127,31 @@ pub enum Caller {
 struct MarketArg {
     market: String,
 }
+/// Create vault in one owner signature: per market, in order, the approvals, the Morpho authorization and the
+/// corridor, each optional; and the measurement, optional.
 #[derive(Deserialize)]
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]
 struct SetupArgs {
+    markets: Vec<SetupMarket>,
+    measurement: Option<Measurement>,
+}
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct SetupMarket {
     market: String,
+    approve: bool,
     authorize: bool,
+    corridor: Option<Corridor>,
+}
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct Corridor {
+    target: U128,
+    act: U128,
+    floor: U128,
+    sell_budget: U128,
+    migrate_allowed: bool,
+    exit_allowed: bool,
 }
 #[derive(Deserialize)]
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]
@@ -254,42 +274,55 @@ impl Vault {
         self.owner_nonce = m.nonce;
         let dl = w_u128((now_secs() + DEADLINE_SECS) as u128);
         let calls: Vec<(Addr, u128, Vec<u8>)> = match m.method.as_str() {
-            // `authorize`: set by the relayer after reading Morpho's `isAuthorized(vault address, executor)`, since
+            // Create vault in one signature. Per market, in the given order: approve(executor, max) on the loan and
+            // collateral token if `approve`; setAuthorization(executor, true) on Morpho if `authorize`; setCorridor
+            // if `corridor`. A call identical to one already in this message (same token and spender, same
+            // executor) is not repeated. `approve`, `authorize`: set by the relayer after reading Base, since
             // `setAuthorization` reverts when the value is already set (a second market on the same executor).
             "setup" => {
                 let a: SetupArgs = args(m.args);
-                let mk = self.market(&a.market).clone();
-                let mut calls = vec![
-                    (mk.loan_token, 0, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
-                    (mk.collateral_token, 0, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
-                ];
-                if a.authorize {
-                    let auth = calldata(SEL_SET_AUTHORIZATION, &[w_addr(&mk.executor), w_bool(true)]);
-                    calls.push((self.morpho, 0, auth));
+                let mut calls: Vec<(Addr, u128, Vec<u8>)> = vec![];
+                for (k, p) in a.markets.iter().enumerate() {
+                    let id = id32(&p.market);
+                    require!(a.markets[..k].iter().all(|o| id32(&o.market) != id), "market listed twice");
+                    let i = self.market_index(&p.market);
+                    let mk = &self.markets[i];
+                    let (exec, tokens) = (mk.executor, [mk.loan_token, mk.collateral_token]);
+                    let mut add = |c: (Addr, u128, Vec<u8>)| {
+                        if !calls.contains(&c) {
+                            calls.push(c);
+                        }
+                    };
+                    if p.approve {
+                        for t in tokens {
+                            add((t, 0, calldata(SEL_APPROVE, &[w_addr(&exec), W_MAX])));
+                        }
+                    }
+                    if p.authorize {
+                        add((self.morpho, 0, calldata(SEL_SET_AUTHORIZATION, &[w_addr(&exec), w_bool(true)])));
+                    }
+                    if let Some(c) = &p.corridor {
+                        calls.push(self.corridor_call(i, c, dl));
+                    }
+                }
+                require!(!calls.is_empty() || a.measurement.is_some(), "empty setup");
+                if let Some(ms) = a.measurement {
+                    self.approve_measurement(ms);
                 }
                 calls
             }
             "set_corridor" => {
                 let a: CorridorArgs = args(m.args);
                 let i = self.market_index(&a.market);
-                let w64 = |v: U128| {
-                    require!(v.0 <= u64::MAX as u128, "corridor value above uint64");
-                    w_u128(v.0)
+                let c = Corridor {
+                    target: a.target,
+                    act: a.act,
+                    floor: a.floor,
+                    sell_budget: a.sell_budget,
+                    migrate_allowed: a.migrate_allowed,
+                    exit_allowed: a.exit_allowed,
                 };
-                let mk = &mut self.markets[i];
-                mk.corridor_set = true;
-                let words = [
-                    mk.id,
-                    w64(a.target),
-                    w64(a.act),
-                    w64(a.floor),
-                    w64(a.sell_budget),
-                    w_bool(a.migrate_allowed),
-                    w_bool(a.exit_allowed),
-                    w_bool(false), // `set`: the executor sets it itself
-                    dl,
-                ];
-                vec![(mk.executor, 0, calldata(SEL_SET_CORRIDOR, &words))]
+                vec![self.corridor_call(i, &c, dl)]
             }
             "open" => {
                 let a: OpenArgs = args(m.args);
@@ -362,9 +395,7 @@ impl Vault {
                 }
             }
             "approve_measurement" => {
-                let a: Measurement = args(m.args);
-                a.validate().unwrap_or_else(|e| env::panic_str(&e));
-                self.approved = Some(a);
+                self.approve_measurement(args(m.args));
                 vec![]
             }
             "revoke_agent" => {
@@ -535,6 +566,33 @@ impl Vault {
         let m = self.market(id);
         require!(m.corridor_set, "no corridor set for this market on its executor");
         m.clone()
+    }
+
+    /// The executor's `setCorridor` for market `i`, and the vault's record that the market's corridor is set.
+    fn corridor_call(&mut self, i: usize, c: &Corridor, dl: [u8; 32]) -> (Addr, u128, Vec<u8>) {
+        let w64 = |v: U128| {
+            require!(v.0 <= u64::MAX as u128, "corridor value above uint64");
+            w_u128(v.0)
+        };
+        let mk = &mut self.markets[i];
+        mk.corridor_set = true;
+        let words = [
+            mk.id,
+            w64(c.target),
+            w64(c.act),
+            w64(c.floor),
+            w64(c.sell_budget),
+            w_bool(c.migrate_allowed),
+            w_bool(c.exit_allowed),
+            w_bool(false), // `set`: the executor sets it itself
+            dl,
+        ];
+        (mk.executor, 0, calldata(SEL_SET_CORRIDOR, &words))
+    }
+
+    fn approve_measurement(&mut self, a: Measurement) {
+        a.validate().unwrap_or_else(|e| env::panic_str(&e));
+        self.approved = Some(a);
     }
 
     fn is_token(&self, a: &Addr) -> bool {

@@ -44,21 +44,38 @@ Example: `curl -s localhost:8787/fund-agent -d '{"implicit_account":"'$IMPLICIT'
 `WAITING implicit_account=...`. It tops the account up to 0.15 NEAR plus 0.01, at most 0.5 NEAR per account
 per 24 hours.
 
-**Owner call.** The relayer reads `get_state`, counts the Base transactions the method produces (setup 2, or 3
-with `authorize`; set_corridor, open, repay, close, withdraw, cancel, sweep_eth 1; set_executor 0 while another
+**Owner call.** The relayer reads `get_state`, counts the Base transactions the method produces (setup: see
+below; set_corridor, open, repay, close, withdraw, cancel, sweep_eth 1; set_executor 0 while another
 market still uses the old executor, else 1 for the revoke if flagged plus 1 per distinct token of the markets
 that used it; approve_measurement, revoke_agent 0), composes one `TxParams` each (nonce = pending count at the
 vault's Base address, consecutive; `max_fee_per_gas = min(2 x base fee + priority, 2 gwei)`; gas limit from the
 table in `relayer.py`, because the calldata does not exist before the vault signs), calls `owner_call` with 300
 Tgas, and broadcasts every returned transaction at once in nonce order, waiting for each receipt.
 
+**Create vault is one `setup` message.** Its args:
+`{"markets": [{"market": "0x..", "approve": true, "authorize": true, "corridor": {"target", "act", "floor",
+"sell_budget", "migrate_allowed", "exit_allowed"}}, ...], "measurement": {approve_measurement's fields}}`.
+`market`, `approve`, `authorize` are required in every part; `corridor` and `measurement` are optional (absent
+or null). Per part, in order, the vault emits approve(executor, max) on the loan and the collateral token if
+`approve`, `setAuthorization(executor, true)` if `authorize`, `setCorridor` if `corridor` (and marks the
+market's corridor set); a call identical to one already in the message (same token and executor, same
+executor) is emitted once. The measurement is stored as `approve_measurement` stores it, with no Base
+transaction. Live and backup share tokens and executor, so the Create vault message (live with `approve` and
+`authorize`, backup with both false, a corridor on each, the measurement) is 5 Base transactions: approve
+USDC, approve WETH, setAuthorization, setCorridor live, setCorridor backup. A setup with no Base transaction
+and no measurement, or with a market listed twice, is refused.
+
 ## Pre-checks before a message reaches the chain
 
 - Message: JSON with exactly the vault's fields; `protocol` `cmdk-vault/1`, `network` `testnet`, the vault id,
   nonce above `owner_nonce`, at least 30 s before expiry, a known method with exactly its argument fields and
   types; signature 65 bytes of hex. Market, token and destination as the vault checks them.
-- Flags against Base: `setup.authorize` must equal "Morpho `isAuthorized(vault, executor)` is false";
-  `set_executor.revoke_authorization` must equal "Morpho still authorizes the old executor" when a revoke is due.
+- Flags against Base, `setup`: per executor of the listed markets, "some part has `authorize`" must equal
+  "Morpho `isAuthorized(vault, executor)` is false" (true while already set reverts; false while unset leaves
+  the markets unusable). Per (token, executor) of every listed market, an allowance of 0 must be approved by
+  some part (`approve` true); `approve` true on an allowance already set is allowed (approve does not revert).
+  The app reads both from `GET /vault` (`morpho_authorized`, `loan_allowance`, `collateral_allowance`).
+- Flags against Base, `set_executor`: `revoke_authorization` must equal "Morpho still authorizes the old executor" when a revoke is due.
 - `close`, `repay` (item 14): loan-token allowance to the executor and loan-token balance at least the debt
   (or the repay amount) plus 1%; `repay` with no debt is refused. `open`: Morpho authorization and collateral
   allowance at least `collateral_in`.

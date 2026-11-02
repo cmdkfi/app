@@ -1,6 +1,6 @@
 //! Sandbox tests (near-workspaces 0.23, nearcore sandbox 2.13.4): owner messages, policy, the agent's
-//! function-call key, cancel and sweep_eth, the transaction allowlist, and the keyless factory (`factory/`) creating
-//! vaults from the vault published as a Global Contract. The Chain Signatures contract is replaced by
+//! function-call key, cancel and sweep_eth, the transaction allowlist, Create vault in one `setup` message, and
+//! the keyless factory (`factory/`) creating vaults from the vault published as a Global Contract. The Chain Signatures contract is replaced by
 //! `mock-signer/` (same `sign` and `derived_public_key` arguments and response JSON); the real signer path runs on
 //! testnet (research_notes, prototype results).
 //!
@@ -290,7 +290,7 @@ async fn owner_messages() -> Result<()> {
     let env = setup("owner").await?;
 
     // A valid message: setup() produces three signed transactions from the vault's Base address.
-    let a = json!({"market": LIVE, "authorize": true});
+    let a = json!({"markets": [{"market": LIVE, "approve": true, "authorize": true}]});
     let r = env.owner("setup", a, 3).await?;
     env.record("owner_call setup, 3 mock signatures", &r);
     let txs = signed(&r);
@@ -377,7 +377,7 @@ async fn owner_messages() -> Result<()> {
     assert_eq!(env.state().await?.owner_nonce, 10);
 
     // setup() without the Morpho authorization (the relayer read it as already set): the two approvals only.
-    let a = json!({"market": LIVE, "authorize": false});
+    let a = json!({"markets": [{"market": LIVE, "approve": true, "authorize": false}]});
     let r = env.owner("setup", a, 2).await?;
     env.record("owner_call setup, 2 mock signatures", &r);
     let txs = signed(&r);
@@ -389,7 +389,7 @@ async fn owner_messages() -> Result<()> {
     }
     assert_eq!(env.state().await?.owner_nonce, 11);
     // setup() without `authorize` is refused; the nonce stays.
-    expect_fail(env.owner("setup", json!({"market": LIVE}), 3).await?, "bad args");
+    expect_fail(env.owner("setup", json!({"markets": [{"market": LIVE, "approve": true}]}), 3).await?, "bad args");
     assert_eq!(env.state().await?.owner_nonce, 11);
 
     env.print_gas("owner_messages");
@@ -492,7 +492,7 @@ async fn policy() -> Result<()> {
     want.sort();
     assert_eq!(tokens, want, "allowance 0 on USDC, WETH and dUSDC");
     // setup() for the new executor, then the agent waits for set_corridor (agent_key test covers the refusal).
-    let a = json!({"market": LIVE, "authorize": true});
+    let a = json!({"markets": [{"market": LIVE, "approve": true, "authorize": true}]});
     let r = env.owner("setup", a, 3).await?;
     let d = decode_signed(signed(&r)[0]["raw"].as_str().unwrap());
     assert_eq!(&word_hex(d["input"].as_str().unwrap(), 0)[24..], &EXEC2[2..].to_lowercase());
@@ -876,44 +876,14 @@ fn panic_msg(e: &str) -> &str {
     e.find(k).and_then(|i| e[i + k.len()..].split('\\').next()).unwrap_or(e)
 }
 
-// What this proves: every 32-byte payload the vault sends to the signer is keccak256(0x02 || rlp(the 9 unsigned
-// EIP-1559 fields)) of a transaction the vault returns in the same call, at the same position, and nothing else
-// is sent for signing. It holds by construction: `sign` builds `unsigned = build_for_signing()` once, decodes
-// those bytes back and runs `check_tx` on them, then hashes the same `unsigned` bytes into `payload_v2.Ecdsa`;
-// `on_signed` signs nothing and only assembles the returned signatures onto the same `BaseTx`. So no raw hash, no
-// legacy or type-4 (EIP-7702) transaction, and no bytes that did not pass `check_tx` reach the signer. The test
-// checks the payloads the mock signer recorded against the signed transactions, independently of the vault's
-// code (rlp re-encoding of the signed list, `cast keccak`), and shows the decoder refusing the other shapes.
-#[tokio::test]
-async fn signing_path() -> Result<()> {
-    let env = setup("signing").await?;
-
-    // A mix of owner calls: 3 + 1 + 1 + 1 + 1 transactions.
-    let corridor = json!({"market": LIVE, "target": "500000000000000000", "act": "700000000000000000",
-        "floor": "300000000000000000", "sell_budget": "200000000000000000",
-        "migrate_allowed": true, "exit_allowed": true});
-    let calls = [
-        ("setup", json!({"market": LIVE, "authorize": true}), 3),
-        ("set_corridor", corridor, 1),
-        ("withdraw", json!({"token": WETH, "amount": "1000", "destination": STRANGER}), 1),
-        ("cancel", json!({}), 1),
-        ("sweep_eth", json!({"amount": "1000000000000000"}), 1),
-    ];
-    let mut txs = vec![];
-    for (method, args, n) in calls {
-        let r = env.owner(method, args, n).await?;
-        env.record(&format!("owner_call {method}, {n} mock signature{}", if n == 1 { "" } else { "s" }), &r);
-        let got = signed(&r);
-        assert_eq!(got.len(), n, "{method}");
-        txs.extend(got);
-    }
-    assert_eq!(txs.len(), 7);
-
-    // Nothing was signed that was not returned.
-    let payloads: Vec<String> = env.signer.view("payloads").await?.json()?;
+/// V3's check on the transactions one owner call returned and the payloads the mock signer recorded for them:
+/// each payload is keccak256(0x02 || rlp(unsigned)) of the returned transaction at the same position, checked
+/// independently of the vault's code (rlp re-encoding of the signed list, `cast keccak`). Returns the unsigned
+/// bytes (hex, 0x02 || rlp) of each transaction.
+async fn check_payloads(env: &Env, txs: &[Value], payloads: &[String]) -> Result<Vec<String>> {
     assert_eq!(payloads.len(), txs.len(), "one signer payload per returned transaction");
-
-    for (i, (t, payload)) in txs.iter().zip(&payloads).enumerate() {
+    let mut out = vec![];
+    for (i, (t, payload)) in txs.iter().zip(payloads).enumerate() {
         let raw = hex::decode(&t["raw"].as_str().unwrap()[2..])?;
         assert_eq!(raw[0], 0x02, "tx {i}: type-2 envelope");
         let r = Rlp::new(&raw[1..]);
@@ -938,7 +908,49 @@ async fn signing_path() -> Result<()> {
         let d = decode_signed(t["raw"].as_str().unwrap());
         assert_eq!(t["hash"].as_str().unwrap(), d["hash"].as_str().unwrap(), "tx {i}: hash");
         assert_eq!(t["hash"].as_str().unwrap(), keccak(t["raw"].as_str().unwrap()), "tx {i}: hash = keccak(raw)");
+        out.push(unsigned);
     }
+    Ok(out)
+}
+
+// What this proves: every 32-byte payload the vault sends to the signer is keccak256(0x02 || rlp(the 9 unsigned
+// EIP-1559 fields)) of a transaction the vault returns in the same call, at the same position, and nothing else
+// is sent for signing. It holds by construction: `sign` builds `unsigned = build_for_signing()` once, decodes
+// those bytes back and runs `check_tx` on them, then hashes the same `unsigned` bytes into `payload_v2.Ecdsa`;
+// `on_signed` signs nothing and only assembles the returned signatures onto the same `BaseTx`. So no raw hash, no
+// legacy or type-4 (EIP-7702) transaction, and no bytes that did not pass `check_tx` reach the signer. The test
+// checks the payloads the mock signer recorded against the signed transactions, independently of the vault's
+// code (rlp re-encoding of the signed list, `cast keccak`), and shows the decoder refusing the other shapes.
+#[tokio::test]
+async fn signing_path() -> Result<()> {
+    let env = setup("signing").await?;
+
+    // A mix of owner calls: 3 + 1 + 1 + 1 + 1 transactions.
+    let corridor = json!({"market": LIVE, "target": "500000000000000000", "act": "700000000000000000",
+        "floor": "300000000000000000", "sell_budget": "200000000000000000",
+        "migrate_allowed": true, "exit_allowed": true});
+    let calls = [
+        ("setup", json!({"markets": [{"market": LIVE, "approve": true, "authorize": true}]}), 3),
+        ("set_corridor", corridor, 1),
+        ("withdraw", json!({"token": WETH, "amount": "1000", "destination": STRANGER}), 1),
+        ("cancel", json!({}), 1),
+        ("sweep_eth", json!({"amount": "1000000000000000"}), 1),
+    ];
+    let mut txs = vec![];
+    for (method, args, n) in calls {
+        let r = env.owner(method, args, n).await?;
+        env.record(&format!("owner_call {method}, {n} mock signature{}", if n == 1 { "" } else { "s" }), &r);
+        let got = signed(&r);
+        assert_eq!(got.len(), n, "{method}");
+        txs.extend(got);
+    }
+    assert_eq!(txs.len(), 7);
+
+    // Nothing was signed that was not returned.
+    let payloads: Vec<String> = env.signer.view("payloads").await?.json()?;
+    assert_eq!(payloads.len(), txs.len(), "one signer payload per returned transaction");
+
+    check_payloads(&env, &txs, &payloads).await?;
 
     // Other shapes are refused by the decoder before any check or signature.
     let p =
@@ -972,6 +984,134 @@ async fn signing_path() -> Result<()> {
     }
 
     env.print_gas("signing_path");
+    Ok(())
+}
+
+// ======================================================================== Create vault in one signature
+
+/// The six corridor values of one `setup` market part (the same words `set_corridor` takes, without `market`).
+fn corridor(target: &str) -> Value {
+    json!({"target": target, "act": "700000000000000000", "floor": "300000000000000000",
+           "sell_budget": "200000000000000000", "migrate_allowed": true, "exit_allowed": false})
+}
+
+#[tokio::test]
+async fn create_vault_setup() -> Result<()> {
+    let env = setup("create").await?;
+    let st: Value = env.vault.view("get_state").await?.json()?;
+    assert!(st["markets"].as_array().unwrap().iter().all(|m| m["corridor_set"] == false));
+    assert!(st["approved"].is_null());
+
+    // The full Create vault message: live set up and authorized, backup on the same tokens and executor (nothing
+    // to approve or authorize again), corridors on both, the measurement. One signature, five Base transactions.
+    let full = json!({"markets": [
+        {"market": LIVE, "approve": true, "authorize": true, "corridor": corridor("500000000000000000")},
+        {"market": BACKUP, "approve": false, "authorize": false, "corridor": corridor("450000000000000000")}],
+        "measurement": e_measurement()});
+    let before = env.now().await?;
+    let r = env.owner("setup", full, 5).await?;
+    env.record("owner_call setup (Create vault: live + backup, measurement), 5 mock signatures", &r);
+    let txs = signed(&r);
+    assert_eq!(txs.len(), 5);
+    let auth = format!("0xeecea000{:0>64}{:0>64}", &EXEC[2..].to_lowercase(), "1");
+    let approve = format!("0x095ea7b3{:0>64}{}", &EXEC[2..].to_lowercase(), "f".repeat(64));
+    let now = env.now().await?;
+    for (i, t) in txs.iter().enumerate() {
+        assert_eq!(t["from"].as_str().unwrap(), env.base.to_lowercase());
+        assert_eq!(t["nonce"].as_u64().unwrap(), i as u64);
+        let d = decode_signed(t["raw"].as_str().unwrap());
+        let (to, data) = (d["to"].as_str().unwrap().to_lowercase(), d["input"].as_str().unwrap().to_string());
+        match i {
+            0 | 1 => assert_eq!((to, data), ([USDC, WETH][i].to_lowercase(), approve.clone()), "tx {i}"),
+            2 => assert_eq!((to, data), (MORPHO.to_lowercase(), auth.clone()), "tx {i}"),
+            _ => {
+                assert_eq!((to, &data[..10]), (EXEC.to_lowercase(), "0x253616b9"), "tx {i}");
+                assert_eq!(word_hex(&data, 0), [LIVE, BACKUP][i - 3][2..], "tx {i}: market");
+                assert_eq!(u256_of(&data, 1), [5 * WAD / 10, 45 * WAD / 100][i - 3], "tx {i}: target");
+                assert_eq!((u256_of(&data, 2), u256_of(&data, 3), u256_of(&data, 4)), (7 * WAD / 10, 3 * WAD / 10, 2 * WAD / 10));
+                assert_eq!((u256_of(&data, 5), u256_of(&data, 6), u256_of(&data, 7)), (1, 0, 0), "tx {i}: flags, `set`");
+                let dl = u256_of(&data, 8) as u64;
+                assert!(dl > before && dl <= now + 600, "tx {i}: deadline {dl} is block time + 600 s");
+            }
+        }
+    }
+    // Every signer payload is the hash of the type-2 transaction returned at its position (V3), and nothing else.
+    let payloads: Vec<String> = env.signer.view("payloads").await?.json()?;
+    let unsigned = check_payloads(&env, &txs, &payloads).await?;
+    // None of the five could be signed for the agent.
+    for (i, u) in unsigned.iter().enumerate() {
+        assert!(env.check_hex(u, "agent").await?.starts_with("ERR "), "tx {i}: refused for the agent");
+    }
+    // The vault's state: corridor set on both markets (not on demo), the measurement stored as approve_measurement does.
+    let st: Value = env.vault.view("get_state").await?.json()?;
+    let set: Vec<bool> = st["markets"].as_array().unwrap().iter().map(|m| m["corridor_set"].as_bool().unwrap()).collect();
+    assert_eq!(set, vec![true, true, false]);
+    assert_eq!(st["approved"], e_measurement());
+    assert_eq!(st["owner_nonce"], 1);
+
+    // De-duplication: approve and authorize on all three markets. Live and backup share USDC, WETH and EXEC; demo
+    // shares WETH and EXEC. One approval per (token, executor), one authorization: USDC, WETH, Morpho, dUSDC.
+    let all = |m: &str| json!({"market": m, "approve": true, "authorize": true});
+    let r = env.owner("setup", json!({"markets": [all(LIVE), all(BACKUP), all(DEMO)]}), 4).await?;
+    env.record("owner_call setup (three markets, de-duplicated), 4 mock signatures", &r);
+    let got: Vec<(String, String)> = signed(&r)
+        .iter()
+        .map(|t| {
+            let d = decode_signed(t["raw"].as_str().unwrap());
+            (d["to"].as_str().unwrap().to_lowercase(), d["input"].as_str().unwrap().to_string())
+        })
+        .collect();
+    let want: Vec<(String, String)> = [(USDC, &approve), (WETH, &approve), (MORPHO, &auth), (DUSDC, &approve)]
+        .iter()
+        .map(|(to, data)| (to.to_lowercase(), data.to_string()))
+        .collect();
+    assert_eq!(got, want);
+    // Approve on both live and backup, no authorization: one approval pair.
+    let pair = |m: &str| json!({"market": m, "approve": true, "authorize": false});
+    let r = env.owner("setup", json!({"markets": [pair(LIVE), pair(BACKUP)]}), 2).await?;
+    let got: Vec<String> = signed(&r).iter().map(|t| decode_signed(t["raw"].as_str().unwrap())["to"].as_str().unwrap().to_lowercase()).collect();
+    assert_eq!(got, vec![USDC.to_lowercase(), WETH.to_lowercase()]);
+    // The measurement alone: stored, no Base transaction.
+    let r = env.owner("setup", json!({"markets": [], "measurement": e_measurement()}), 0).await?;
+    assert!(signed(&r).is_empty());
+    let n = env.state().await?.owner_nonce;
+    assert_eq!(n, 4);
+
+    // Refusals; the nonce stays.
+    let none = json!({"market": LIVE, "approve": false, "authorize": false});
+    expect_fail(env.owner("setup", json!({"markets": []}), 0).await?, "empty setup");
+    expect_fail(env.owner("setup", json!({"markets": [none]}), 0).await?, "empty setup");
+    let twice = json!({"markets": [pair(LIVE), {"market": format!("0x{}", LIVE[2..].to_uppercase()), "approve": false,
+        "authorize": false, "corridor": corridor("500000000000000000")}]});
+    expect_fail(env.owner("setup", twice, 3).await?, "market listed twice");
+    expect_fail(env.owner("setup", json!({"markets": [pair(UNKNOWN_MARKET)]}), 2).await?, "market not in the allowlist");
+    let bad_m = json!({"markets": [], "measurement": {"mrtd": "00", "rtmr0": "", "rtmr1": "", "rtmr2": "", "compose_hash": "", "os_image_hash": ""}});
+    expect_fail(env.owner("setup", bad_m, 0).await?, "mrtd: expected 48 bytes");
+    let mut high = corridor("500000000000000000");
+    high["floor"] = json!("18446744073709551616");
+    expect_fail(env.owner("setup", json!({"markets": [{"market": LIVE, "approve": false, "authorize": false, "corridor": high}]}), 1).await?, "corridor value above uint64");
+    let extra = json!({"markets": [{"market": LIVE, "approve": true, "authorize": true, "executor": STRANGER}]});
+    expect_fail(env.owner("setup", extra, 3).await?, "bad args");
+    expect_fail(env.owner("setup", json!({"markets": [pair(LIVE)], "to": STRANGER}), 2).await?, "bad args");
+    expect_fail(env.owner("setup", json!({"markets": [{"market": LIVE, "authorize": true}]}), 1).await?, "bad args");
+    expect_fail(env.owner("setup", json!({"market": LIVE, "authorize": true}), 3).await?, "bad args");
+    // The parameter count is the de-duplicated one.
+    expect_fail(env.owner("setup", json!({"markets": [all(LIVE), all(BACKUP)]}), 6).await?, "expected 3 transaction parameter sets, got 6");
+    assert_eq!(env.state().await?.owner_nonce, n);
+
+    // The agent key cannot call setup: owner_call is outside its permission, so the protocol refuses it.
+    let agent = env.patch_agent(env.now().await? + 86400).await?;
+    let m = env.message("setup", json!({"markets": [all(LIVE)]}), n + 1, env.now().await? + 600);
+    let as_agent = agent
+        .call(env.vault.id(), "owner_call")
+        .args_json(json!({"message": m, "signature": env.owner.sign(&m), "txs": params(0, 3)}))
+        .transact()
+        .await;
+    let e = format!("{as_agent:?}");
+    assert!(e.contains("MethodNameMismatch"), "agent key on owner_call setup: {e}");
+    assert_eq!(env.state().await?.owner_nonce, n);
+
+    env.print_gas("create_vault_setup");
     Ok(())
 }
 
@@ -1209,7 +1349,8 @@ async fn factory() -> Result<()> {
     let (nonce, gas) = (Default::default(), Default::default());
     let (worker2, signer2, relayer2) = (worker.clone(), signer.clone(), relayer.clone());
     let env = Env { worker: worker2, vault, signer: signer2, relayer: relayer2, owner, other, base, nonce, dir, gas };
-    let r = env.owner("setup", json!({"market": LIVE, "authorize": true}), 3).await?;
+    let a = json!({"markets": [{"market": LIVE, "approve": true, "authorize": true}]});
+    let r = env.owner("setup", a, 3).await?;
     env.record("owner_call setup on v1, 3 mock signatures", &r);
     let txs = signed(&r);
     assert_eq!(txs.len(), 3);
