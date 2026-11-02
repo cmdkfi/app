@@ -103,13 +103,11 @@ contract ExecutorForkTest is ForkBase {
         assertGe(atTarget, 0.5e18, "never below target");
         assertLe(atTarget, 0.5005e18, "within pool slippage of target");
 
-        // price recovers a little: LTV now below target; the call ends the session and, with no budget, is refused
+        // price recovers a little: LTV now below target; with no budget the call cannot sell, but it ends the session
         _warp(COOLDOWN);
         _demoPrice(1620);
         assertLt(exec.ltvOf(alice, DEMO_ID), 0.5e18);
-        vm.prank(alice);
-        vm.expectRevert(Executor.SellBudget.selector);
-        exec.reduce(DEMO_ID, 1e6, _dl());
+        _demoReduceEndsSession(1e6);
         _assertExecutorEmpty();
     }
 
@@ -126,7 +124,7 @@ contract ExecutorForkTest is ForkBase {
     }
 
     /// A fill below the oracle leaves LTV a hair above target. That is within TARGET_TOLERANCE (0.1 pp), so the next
-    /// call ends the session and is discretionary: with budget 0 it is refused instead of selling dust.
+    /// call ends the session and is discretionary: with budget 0 it sells nothing instead of selling dust.
     function test_reduce_session_ends_within_tolerance_of_target() public {
         _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0, true, true));
         _open(alice, DEMO_ID, 1e18, 0.5e18);
@@ -140,17 +138,21 @@ contract ExecutorForkTest is ForkBase {
         assertGt(exec.sessionStart(alice, DEMO_ID), 0, "session open after the clamped slice");
 
         _warp(COOLDOWN);
+        _demoReduceEndsSession(10_000e6); // session ended: discretionary, budget 0, nothing sold
+
+        // no session stored now: the same call is refused for the budget
+        _warp(COOLDOWN);
         vm.prank(alice);
-        vm.expectRevert(Executor.SellBudget.selector); // session ended: discretionary, budget 0
+        vm.expectRevert(Executor.SellBudget.selector);
         exec.reduce(DEMO_ID, 10_000e6, _dl());
         (uint256 c2,) = _pos(alice, DEMO_ID);
         assertEq(c2, c1, "no collateral sold");
 
-        // the revert rolled back the session end; with a budget the same call succeeds and the end is visible
+        // with a budget the same call is a discretionary sale
         _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0.2e18, true, true));
         vm.prank(alice);
         exec.reduce(DEMO_ID, 1e6, _dl());
-        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "session ended");
+        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "no session");
         assertGt(exec.soldInWindow(alice, WETH), 0, "the sale was discretionary");
     }
 
@@ -180,17 +182,13 @@ contract ExecutorForkTest is ForkBase {
         assertEq(exec.sessionStart(alice, DEMO_ID), started, "session continues");
         assertGe(exec.ltvOf(alice, DEMO_ID), 0.5e18, "not below target");
 
-        // LTV 50.05%: inside the tolerance, the call ends the session and is discretionary
+        // LTV 50.05%: inside the tolerance, the call ends the session and is discretionary: budget 0, nothing sold
         _warp(COOLDOWN);
         _demoPriceForLtv(0.5005e18);
         l = exec.ltvOf(alice, DEMO_ID);
         assertGt(l, 0.5e18, "above target");
         assertLe(l, 0.5e18 + 0.001e18, "within the tolerance");
-        vm.prank(alice);
-        vm.expectRevert(Executor.SellBudget.selector);
-        exec.reduce(DEMO_ID, 10_000e6, _dl());
-        (uint256 c2,) = _pos(alice, DEMO_ID);
-        assertEq(c2, c1, "no collateral sold");
+        _demoReduceEndsSession(10_000e6);
     }
 
     /// Set the demo oracle (and pool) to the price at which alice's demo position has LTV `l` (WAD).
@@ -210,9 +208,99 @@ contract ExecutorForkTest is ForkBase {
         exec.reduce(DEMO_ID, 200e6, _dl()); // 75% -> about 71%... session started
         _demoPrice(1700); // now below the act line, above target
         _warp(24 hours);
+        _demoReduceEndsSession(10e6); // the session has lapsed: discretionary, budget 0; the stored start is cleared
+    }
+
+    /// alice's reduce on demo that cannot sell (budget or floor) but finds a stored session: no revert, the session
+    /// ends, SessionEnded carries the LTV the call saw, nothing is sold and the cooldown starts.
+    function _demoReduceEndsSession(uint256 amount) internal {
+        assertGt(exec.sessionStart(alice, DEMO_ID), 0, "a session is stored");
+        morpho.accrueInterest(demo); // the call accrues first; accruing here makes ltvOf the LTV the call sees
+        uint256 l = exec.ltvOf(alice, DEMO_ID);
+        (uint256 c0, uint256 d0) = _pos(alice, DEMO_ID);
+        uint256 s0 = exec.soldInWindow(alice, WETH);
+        vm.expectEmit(true, true, true, true, address(exec));
+        emit Executor.SessionEnded(alice, DEMO_ID, l);
         vm.prank(alice);
-        vm.expectRevert(Executor.SellBudget.selector); // the session has lapsed: discretionary, budget 0
-        exec.reduce(DEMO_ID, 10e6, _dl());
+        exec.reduce(DEMO_ID, amount, _dl());
+        (uint256 c1, uint256 d1) = _pos(alice, DEMO_ID);
+        assertEq(c1, c0, "no collateral sold");
+        assertEq(d1, d0, "no debt repaid");
+        assertEq(exec.soldInWindow(alice, WETH), s0, "soldInWindow unchanged");
+        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "session ended");
+        assertEq(exec.lastAgentCall(alice), vm.getBlockTimestamp(), "an agent call: the cooldown starts");
+        _assertExecutorEmpty();
+    }
+
+    /// Review Low 1, scenario E: after a session sells to target the price recovers fully and an observing call that
+    /// cannot sell (budget 0) still ends the session. Ten hours later a drop that stays below the act line is
+    /// discretionary and refused for the budget; a drop above the act line still gets a protective sale.
+    function test_reduce_observing_call_ends_the_session_without_selling() public {
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0, true, true));
+        _open(alice, DEMO_ID, 1e18, 0.5e18);
+        _demoPrice(1600); // LTV 75%: above the act line
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        assertGt(exec.sessionStart(alice, DEMO_ID), 0, "session open after the protective sale");
+        assertLe(exec.ltvOf(alice, DEMO_ID), 0.5005e18, "sold to target");
+
+        // full recovery, LTV about 33%: the observing call sells nothing and ends the session
+        _warp(COOLDOWN);
+        _demoPriceForLtv(0.33e18);
+        _demoReduceEndsSession(1e6);
+
+        // ten hours later, LTV about 53%: below the act line, no session, budget 0: refused
+        _warp(10 hours);
+        _demoPriceForLtv(0.53e18);
+        uint256 l = exec.ltvOf(alice, DEMO_ID);
+        assertGt(l, 0.5e18 + 0.001e18, "above target + tolerance");
+        assertLt(l, 0.7e18, "below the act line");
+        (uint256 c0,) = _pos(alice, DEMO_ID);
+        vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        (uint256 c1,) = _pos(alice, DEMO_ID);
+        assertEq(c1, c0, "no collateral sold");
+        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "no session");
+
+        // the honest path: a drop above the act line gets a protective sale and opens a new session
+        _demoPriceForLtv(0.75e18);
+        uint256 now_ = vm.getBlockTimestamp(); // not block.timestamp: via-IR may re-read it at the use
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        (uint256 c2,) = _pos(alice, DEMO_ID);
+        assertLt(c2, c1, "protective sale with budget 0");
+        assertEq(exec.sessionStart(alice, DEMO_ID), now_, "new session");
+        assertEq(exec.soldInWindow(alice, WETH), 0, "protective sales do not use the budget");
+        assertGe(exec.ltvOf(alice, DEMO_ID), 0.5e18, "not below target");
+        _assertExecutorEmpty();
+    }
+
+    /// A session call that finds LTV below the floor cannot sell either: it ends the session the same way. Without a
+    /// stored session the same call is refused BelowFloor.
+    function test_reduce_below_floor_with_session_ends_it_without_selling() public {
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.45e18, 0.2e18, true, true));
+        _open(alice, DEMO_ID, 1e18, 0.5e18);
+        _demoPrice(1600); // LTV 75%: above the act line
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        assertGt(exec.sessionStart(alice, DEMO_ID), 0, "session open after the protective sale");
+        assertLe(exec.ltvOf(alice, DEMO_ID), 0.5005e18, "sold to target");
+
+        // recovery to LTV about 40%, below the 45% floor
+        _warp(COOLDOWN);
+        _demoPriceForLtv(0.4e18);
+        assertLt(exec.ltvOf(alice, DEMO_ID), 0.45e18, "below the floor");
+        _demoReduceEndsSession(10_000e6);
+
+        _warp(COOLDOWN);
+        (uint256 c0,) = _pos(alice, DEMO_ID);
+        vm.prank(alice);
+        vm.expectRevert(Executor.BelowFloor.selector);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        (uint256 c1,) = _pos(alice, DEMO_ID);
+        assertEq(c1, c0, "no collateral sold");
+        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "no session");
     }
 
     /// The owner's open ends the session: a re-lever below the act line two hours after a protective sale is not

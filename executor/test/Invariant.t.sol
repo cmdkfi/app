@@ -45,6 +45,7 @@ contract ExecutorInvariant is ForkBase {
     uint256[NF] oks;
     uint256 protectiveOk;
     uint256 discretionaryOk;
+    uint256 sessionEndOk; // reduces that sold nothing and only ended a stored session
     uint256 unequalBudgetOk; // discretionary reduces with unequal budgets among the active corridors
     uint256 invalidCorridorTried;
 
@@ -214,6 +215,7 @@ contract ExecutorInvariant is ForkBase {
         amount = bound(amount, 1, 3000e6);
         uint256 soldBefore = exec.soldInWindow(u, ct);
         (uint256 collBefore,) = _pos(u, ids[i]);
+        bool hadSession = exec.sessionStart(u, ids[i]) != 0;
         uint256[4] memory ob = _balances(_other(u));
         uint256[4] memory mb = _balances(u);
         vm.prank(u);
@@ -225,7 +227,13 @@ contract ExecutorInvariant is ForkBase {
             uint256 ltvAfter = exec.ltvOf(u, ids[i]);
             uint256 sold = exec.soldInWindow(u, ct);
             Executor.Corridor memory c = _corr(u, i);
-            if (exec.sessionStart(u, ids[i]) != 0) {
+            if (collAfter == collBefore) {
+                // no sale: a discretionary call that could not sell ended the stored session
+                sessionEndOk++;
+                _expect(hadSession, "reduce succeeded without selling and without a stored session");
+                _expect(exec.sessionStart(u, ids[i]) == 0, "reduce without a sale left the session stored");
+                _expect(sold == soldBefore, "reduce without a sale changed soldInWindow");
+            } else if (exec.sessionStart(u, ids[i]) != 0) {
                 protectiveOk++;
                 _expect(ltvAfter >= c.target, "protective reduce went below target");
                 _expect(sold == soldBefore, "protective reduce changed soldInWindow");
@@ -372,6 +380,7 @@ contract ExecutorInvariant is ForkBase {
         }
         console.log("reduce protective ok", protectiveOk);
         console.log("reduce discretionary ok", discretionaryOk);
+        console.log("reduce session ended without a sale ok", sessionEndOk);
         console.log("reduce discretionary ok, unequal active budgets", unequalBudgetOk);
         console.log("invalid corridors tried", invalidCorridorTried);
     }

@@ -92,6 +92,7 @@ contract Executor {
         address indexed caller, bytes32 indexed from, bytes32 indexed to, uint256 fraction, uint256 debtMoved, uint256 collateralMoved
     );
     event Exited(address indexed caller, bytes32 indexed market, uint256 repaid, uint256 fromIdle, uint256 collateralSold, uint256 collateralOut);
+    event SessionEnded(address indexed caller, bytes32 indexed market, uint256 ltv); // by a reduce that cannot sell
     event Repaid(address indexed caller, bytes32 indexed market, uint256 repaid);
     event Closed(address indexed caller, bytes32 indexed market, uint256 repaid, uint256 collateralOut);
 
@@ -266,14 +267,25 @@ contract Executor {
             // worth more than (WAD - target) / TARGET_TOLERANCE loan units (500, 0.0005 USDC, at a 50% target);
             // below that Morpho itself refuses a zero repay
         } else {
+            bool hadSession = sessionStart[msg.sender][id] != 0; // live or lapsed
             delete sessionStart[msg.sender][id]; // a call that finds LTV within TARGET_TOLERANCE of target ends the session
             maxAmount = M.repayToLtv(debt, v, c.floor);
-            if (maxAmount == 0) revert BelowFloor();
-            (uint256 base, uint256 budget) = _activeCollateral(msg.sender, mp.collateralToken);
-            uint256 budgetColl = M.remainingBudget(base, _soldInWindow(msg.sender, mp.collateralToken), budget);
-            uint256 budgetAmount = M.worstCaseOut(budgetColl, price);
-            if (budgetAmount == 0) revert SellBudget();
-            if (budgetAmount < maxAmount) maxAmount = budgetAmount;
+            if (maxAmount != 0) {
+                (uint256 base, uint256 budget) = _activeCollateral(msg.sender, mp.collateralToken);
+                uint256 budgetColl = M.remainingBudget(base, _soldInWindow(msg.sender, mp.collateralToken), budget);
+                uint256 budgetAmount = M.worstCaseOut(budgetColl, price);
+                if (budgetAmount == 0 && !hadSession) revert SellBudget();
+                if (budgetAmount < maxAmount) maxAmount = budgetAmount;
+            } else if (!hadSession) {
+                revert BelowFloor();
+            }
+            if (maxAmount == 0) {
+                // an observing call must end the session even when it cannot sell, or a recovery that no successful
+                // call observes keeps the budget exemption alive
+                lastAgentCall[msg.sender] = block.timestamp;
+                emit SessionEnded(msg.sender, id, ltvBefore);
+                return;
+            }
         }
         if (amount > maxAmount) amount = maxAmount;
 
