@@ -93,7 +93,7 @@ contract ExecutorForkTest is ForkBase {
             _warp(COOLDOWN);
         }
         assertLt(last, 0.7e18, "third slice is below the act line, session continues");
-        assertEq(exec.soldInWindow(alice), 0, "protective sales do not use the budget");
+        assertEq(exec.soldInWindow(alice, WETH), 0, "protective sales do not use the budget");
 
         // ask for far more than needed: clamped so LTV stops at target
         vm.prank(alice);
@@ -166,7 +166,7 @@ contract ExecutorForkTest is ForkBase {
         _open(alice, DEMO_ID, 1e18, 0.5e18); // LTV 50% < act 70%
         vm.prank(alice);
         exec.reduce(DEMO_ID, 100e6, _dl());
-        uint256 sold = exec.soldInWindow(alice);
+        uint256 sold = exec.soldInWindow(alice, WETH);
         assertApproxEqRel(sold, uint256(100e6) * 1e36 / 2400e24, 0.001e18, "about 100/2400 WETH sold");
         assertEq(exec.sessionStart(alice, DEMO_ID), 0, "no session below the act line");
 
@@ -175,14 +175,14 @@ contract ExecutorForkTest is ForkBase {
             _warp(COOLDOWN);
             vm.prank(alice);
             try exec.reduce(DEMO_ID, 10_000e6, _dl()) {} catch {}
-            assertLe(exec.soldInWindow(alice), 0.2e18, "never more than the budget");
+            assertLe(exec.soldInWindow(alice, WETH), 0.2e18, "never more than the budget");
             assertGt(exec.ltvOf(alice, DEMO_ID), 0.3e18, "never below the floor");
         }
-        assertGe(exec.soldInWindow(alice), 0.199e18, "budget used up");
+        assertGe(exec.soldInWindow(alice, WETH), 0.199e18, "budget used up");
 
         // a new window restores the budget
         _warp(24 hours);
-        assertEq(exec.soldInWindow(alice), 0);
+        assertEq(exec.soldInWindow(alice, WETH), 0);
         vm.prank(alice);
         exec.reduce(DEMO_ID, 10e6, _dl());
     }
@@ -223,7 +223,7 @@ contract ExecutorForkTest is ForkBase {
         _mockFeed(ETH_USD, ethUsdAnswer, block.timestamp - 5000);
         vm.prank(alice);
         exec.reduce(LIVE_ID, 50e6, _dl());
-        assertGt(exec.soldInWindow(alice), 0);
+        assertGt(exec.soldInWindow(alice, WETH), 0);
     }
 
     // ------------------------------------------------------------ minimum output
@@ -239,7 +239,7 @@ contract ExecutorForkTest is ForkBase {
         _alignPool(demoPool, WETH, 2400e24, 9_950);
         vm.prank(alice);
         exec.reduce(DEMO_ID, 100e6, _dl());
-        uint256 sold = exec.soldInWindow(alice);
+        uint256 sold = exec.soldInWindow(alice, WETH);
         assertLe(sold * 2400e24 * 99 / 100, uint256(100e6) * 1e36, "filled no worse than oracle minus 1%");
     }
 
@@ -624,7 +624,7 @@ contract ExecutorForkTest is ForkBase {
             uint256 a = bound(amounts[i], 1e6, 2_000e6);
             vm.prank(alice);
             try exec.reduce(DEMO_ID, a, _dl()) {} catch {}
-            assertLe(exec.soldInWindow(alice), limit, "sold within the budget");
+            assertLe(exec.soldInWindow(alice, WETH), limit, "sold within the budget");
             assertGe(exec.ltvOf(alice, DEMO_ID), 0.05e18, "not below the floor");
             _warp(COOLDOWN);
         }

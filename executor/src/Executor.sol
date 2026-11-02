@@ -47,7 +47,7 @@ contract Executor {
     uint256 internal constant WINDOW = 24 hours;
     uint256 internal constant SESSION = 24 hours;
     uint256 internal constant MAX_MOVES = 2; // per rolling WINDOW
-    uint256 internal constant SALE_SLOTS = 16; // discretionary sales remembered per caller (rolling WINDOW)
+    uint256 internal constant SALE_SLOTS = 16; // discretionary sales remembered per caller and collateral token (rolling WINDOW)
     uint256 internal constant DUST_DEBT = 1000; // loan units (0.001 USDC): a smaller remainder moves with a migrate
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
@@ -66,8 +66,8 @@ contract Executor {
     mapping(address => uint256) public lastAgentCall;
     mapping(address => uint64[MAX_MOVES]) internal _moves; // ring of move times
     mapping(address => uint256) internal _moveHead;
-    mapping(address => Sale[SALE_SLOTS]) internal _sales; // ring of discretionary sales
-    mapping(address => uint256) internal _saleHead;
+    mapping(address => mapping(address => Sale[SALE_SLOTS])) internal _sales; // ring of discretionary sales per caller and collateral token
+    mapping(address => mapping(address => uint256)) internal _saleHead;
 
     bool transient _locked;
     address transient _pool; // the pool a swap callback may come from
@@ -266,7 +266,11 @@ contract Executor {
             delete sessionStart[msg.sender][id]; // a call that finds LTV at or below target ends the session
             maxAmount = M.repayToLtv(debt, v, c.floor);
             if (maxAmount == 0) revert BelowFloor();
-            uint256 budgetColl = M.remainingBudget(_totalCollateral(msg.sender, mp.collateralToken), _soldInWindow(msg.sender), c.sellBudget);
+            uint256 budgetColl = M.remainingBudget(
+                _totalCollateral(msg.sender, mp.collateralToken),
+                _soldInWindow(msg.sender, mp.collateralToken),
+                c.sellBudget
+            );
             uint256 budgetAmount = M.worstCaseOut(budgetColl, price);
             if (budgetAmount == 0) revert SellBudget();
             if (budgetAmount < maxAmount) maxAmount = budgetAmount;
@@ -276,7 +280,7 @@ contract Executor {
         _collateralSold = 0;
         MORPHO.repay(mp, amount, 0, msg.sender, abi.encode(Op.SellForRepay, msg.sender, id, price));
         uint256 sold = _collateralSold;
-        if (!protective) _recordSale(msg.sender, sold);
+        if (!protective) _recordSale(msg.sender, mp.collateralToken, sold);
         lastAgentCall[msg.sender] = block.timestamp;
 
         (, uint256 debtAfter,) = _borrow(id, msg.sender);
@@ -426,8 +430,8 @@ contract Executor {
         return M.ltv(debt, M.value(_collateral(id, user), IOracle(mp.oracle).price()));
     }
 
-    function soldInWindow(address user) external view returns (uint256) {
-        return _soldInWindow(user);
+    function soldInWindow(address user, address token) external view returns (uint256) {
+        return _soldInWindow(user, token);
     }
 
     function movesInWindow(address user) external view returns (uint256 n) {
@@ -538,21 +542,21 @@ contract Executor {
         if (received < minOut) revert Slippage();
     }
 
-    function _soldInWindow(address user) internal view returns (uint256 sum) {
-        Sale[SALE_SLOTS] storage s = _sales[user];
+    function _soldInWindow(address user, address token) internal view returns (uint256 sum) {
+        Sale[SALE_SLOTS] storage s = _sales[user][token];
         for (uint256 i; i < SALE_SLOTS; ++i) {
             if (s[i].time != 0 && block.timestamp < uint256(s[i].time) + WINDOW) sum += s[i].collateral;
         }
     }
 
-    function _recordSale(address user, uint256 collateral) internal {
-        uint256 h = _saleHead[user];
-        Sale storage slot = _sales[user][h];
+    function _recordSale(address user, address token, uint256 collateral) internal {
+        uint256 h = _saleHead[user][token];
+        Sale storage slot = _sales[user][token][h];
         // the oldest slot must have left the window, so the rolling sum stays exact
         if (slot.time != 0 && block.timestamp < uint256(slot.time) + WINDOW) revert SellBudget();
         slot.time = uint64(block.timestamp);
         slot.collateral = uint192(collateral);
-        _saleHead[user] = (h + 1) % SALE_SLOTS;
+        _saleHead[user][token] = (h + 1) % SALE_SLOTS;
     }
 
     function _recordMove(address user) internal {
