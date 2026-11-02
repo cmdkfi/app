@@ -31,7 +31,7 @@ def main():
     if addr.lower() != st['owner'].lower():
         raise SystemExit('the test wallet %s is not the vault owner %s' % (addr, st['owner']))
     nonce = a.nonce if a.nonce is not None else st['owner_nonce'] + 1
-    msg = json.dumps({'protocol': 'prime-vault/1', 'network': 'testnet', 'vault': a.vault, 'method': a.method,
+    msg = json.dumps({'protocol': 'cmdk-vault/1', 'network': 'testnet', 'vault': a.vault, 'method': a.method,
                       'args': json.loads(a.args), 'nonce': nonce, 'expiry': int(time.time()) + a.ttl}, separators=(',', ':'))
     # no check=True: CalledProcessError would print the command line, key included
     p = subprocess.run([relayer.CAST, 'wallet', 'sign', '--private-key', k, msg], capture_output=True, text=True)

@@ -94,7 +94,7 @@ def live_sale_only(a):
     print('  LTV live %.4f' % ltv(LIVE))
     wait_cooldown(a.anvil)
     tx('reduce live 0.2 USDC (discretionary)', EXEC, 'reduce(bytes32,uint256,uint256)', LIVE, 200000, dl())
-    print('  LTV live %.4f, sold in window %d wei' % (ltv(LIVE), int(rp.call(EXEC, 'soldInWindow(address)(uint256)', ME)[0])))
+    print('  LTV live %.4f, sold in window %d wei' % (ltv(LIVE), int(rp.call(EXEC, 'soldInWindow(address,address)(uint256)', ME, WETH)[0])))
     o, po, sq, tick, liq = m.read()
     print('  live pool after the sale %+.3f%% vs oracle, tick %d' % (100 * (po / o - 1), tick))
     wait_cooldown(a.anvil)
@@ -148,7 +148,7 @@ def main():
     if a.live_sale:
         wait_cooldown(a.anvil)
         tx('reduce live 0.2 USDC (discretionary)', EXEC, 'reduce(bytes32,uint256,uint256)', LIVE, 200000, dl())
-        print('  LTV live %.4f, sold in window %d wei' % (ltv(LIVE), int(rp.call(EXEC, 'soldInWindow(address)(uint256)', ME)[0])))
+        print('  LTV live %.4f, sold in window %d wei' % (ltv(LIVE), int(rp.call(EXEC, 'soldInWindow(address,address)(uint256)', ME, WETH)[0])))
     wait_cooldown(a.anvil)
     tx('exit live (idle USDC, no sale)', EXEC, 'exit(bytes32,uint256)', LIVE, dl())
 
