@@ -129,6 +129,12 @@ struct MarketArg {
 }
 #[derive(Deserialize)]
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct SetupArgs {
+    market: String,
+    authorize: bool,
+}
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
 struct CorridorArgs {
     market: String,
     target: U128,
@@ -163,6 +169,7 @@ struct WithdrawArgs {
 struct SetExecutorArgs {
     market: String,
     executor: String,
+    revoke_authorization: bool,
 }
 #[derive(Deserialize)]
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]
@@ -247,13 +254,20 @@ impl Vault {
         self.owner_nonce = m.nonce;
         let dl = w_u128((now_secs() + DEADLINE_SECS) as u128);
         let calls: Vec<(Addr, u128, Vec<u8>)> = match m.method.as_str() {
+            // `authorize`: set by the relayer after reading Morpho's `isAuthorized(vault address, executor)`, since
+            // `setAuthorization` reverts when the value is already set (a second market on the same executor).
             "setup" => {
-                let mk = self.market(&args::<MarketArg>(m.args).market).clone();
-                vec![
+                let a: SetupArgs = args(m.args);
+                let mk = self.market(&a.market).clone();
+                let mut calls = vec![
                     (mk.loan_token, 0, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
                     (mk.collateral_token, 0, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
-                    (self.morpho, 0, calldata(SEL_SET_AUTHORIZATION, &[w_addr(&mk.executor), w_bool(true)])),
-                ]
+                ];
+                if a.authorize {
+                    let auth = calldata(SEL_SET_AUTHORIZATION, &[w_addr(&mk.executor), w_bool(true)]);
+                    calls.push((self.morpho, 0, auth));
+                }
+                calls
             }
             "set_corridor" => {
                 let a: CorridorArgs = args(m.args);
@@ -327,11 +341,16 @@ impl Vault {
                 mk.corridor_set = false;
                 // Step 1 of the §4.1 sequence: revoke the old executor once no market uses it any more: Morpho
                 // authorization off, and allowance 0 on every token of every market that used it.
+                // `revoke_authorization`: set by the relayer after reading Morpho's `isAuthorized(vault address, old
+                // executor)`, since `setAuthorization(old, false)` reverts when the value is already false.
                 if self.markets.iter().any(|o| o.executor == old) {
                     vec![]
                 } else {
-                    let revoke = calldata(SEL_SET_AUTHORIZATION, &[w_addr(&old), w_bool(false)]);
-                    let mut calls = vec![(self.morpho, 0, revoke)];
+                    let mut calls = vec![];
+                    if a.revoke_authorization {
+                        let revoke = calldata(SEL_SET_AUTHORIZATION, &[w_addr(&old), w_bool(false)]);
+                        calls.push((self.morpho, 0, revoke));
+                    }
                     for o in self.markets.iter().filter(|o| o.previous_executors.contains(&old)) {
                         for t in [o.loan_token, o.collateral_token] {
                             if !calls.iter().any(|(to, _, _)| *to == t) {

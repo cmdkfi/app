@@ -277,7 +277,8 @@ async fn owner_messages() -> Result<()> {
     let env = setup("owner").await?;
 
     // A valid message: setup() produces three signed transactions from the vault's Base address.
-    let r = env.owner("setup", json!({"market": LIVE}), 3).await?;
+    let a = json!({"market": LIVE, "authorize": true});
+    let r = env.owner("setup", a, 3).await?;
     env.record("owner_call setup, 3 mock signatures", &r);
     let txs = signed(&r);
     assert_eq!(txs.len(), 3);
@@ -362,6 +363,22 @@ async fn owner_messages() -> Result<()> {
     // Nonce unchanged by all the failures.
     assert_eq!(env.state().await?.owner_nonce, 10);
 
+    // setup() without the Morpho authorization (the relayer read it as already set): the two approvals only.
+    let a = json!({"market": LIVE, "authorize": false});
+    let r = env.owner("setup", a, 2).await?;
+    env.record("owner_call setup, 2 mock signatures", &r);
+    let txs = signed(&r);
+    assert_eq!(txs.len(), 2);
+    for (t, to) in txs.iter().zip([USDC, WETH]) {
+        let d = decode_signed(t["raw"].as_str().unwrap());
+        assert_eq!(d["to"].as_str().unwrap().to_lowercase(), to.to_lowercase(), "{d}");
+        assert_eq!(&d["input"].as_str().unwrap()[..10], "0x095ea7b3");
+    }
+    assert_eq!(env.state().await?.owner_nonce, 11);
+    // setup() without `authorize` is refused; the nonce stays.
+    expect_fail(env.owner("setup", json!({"market": LIVE}), 3).await?, "bad args");
+    assert_eq!(env.state().await?.owner_nonce, 11);
+
     env.print_gas("owner_messages");
     Ok(())
 }
@@ -432,12 +449,18 @@ async fn policy() -> Result<()> {
     env.nonce.set(env.nonce.get() + 1);
 
     // set_executor: a pointer change per market; the old executor is revoked once no market uses it, on every token.
-    let r = env.owner("set_executor", json!({"market": LIVE, "executor": EXEC2}), 0).await?;
+    // Without `revoke_authorization` the message is refused and the nonce stays.
+    let n = env.state().await?.owner_nonce;
+    let no_flag = json!({"market": LIVE, "executor": EXEC2});
+    expect_fail(env.owner("set_executor", no_flag, 0).await?, "bad args");
+    assert_eq!(env.state().await?.owner_nonce, n);
+    let move_to = |m: &str, e: &str, revoke: bool| json!({"market": m, "executor": e, "revoke_authorization": revoke});
+    let r = env.owner("set_executor", move_to(LIVE, EXEC2, true), 0).await?;
     assert_eq!(signed(&r).len(), 0, "EXEC still serves backup and demo");
     let st = env.state().await?;
     assert_eq!((st.markets[0].executor, st.markets[0].previous_executors.clone(), st.markets[0].corridor_set), (a20(EXEC2), vec![a20(EXEC)], false));
-    signed(&env.owner("set_executor", json!({"market": BACKUP, "executor": EXEC2}), 0).await?);
-    let r = env.owner("set_executor", json!({"market": DEMO, "executor": EXEC2}), 4).await?;
+    signed(&env.owner("set_executor", move_to(BACKUP, EXEC2, true), 0).await?);
+    let r = env.owner("set_executor", move_to(DEMO, EXEC2, true), 4).await?;
     env.record("owner_call set_executor (last market), 4 mock signatures", &r);
     let txs = signed(&r);
     let got: Vec<(String, String)> = txs
@@ -456,9 +479,27 @@ async fn policy() -> Result<()> {
     want.sort();
     assert_eq!(tokens, want, "allowance 0 on USDC, WETH and dUSDC");
     // setup() for the new executor, then the agent waits for set_corridor (agent_key test covers the refusal).
-    let r = env.owner("setup", json!({"market": LIVE}), 3).await?;
+    let a = json!({"market": LIVE, "authorize": true});
+    let r = env.owner("setup", a, 3).await?;
     let d = decode_signed(signed(&r)[0]["raw"].as_str().unwrap());
     assert_eq!(&word_hex(d["input"].as_str().unwrap(), 0)[24..], &EXEC2[2..].to_lowercase());
+    // Every market back to EXEC, the last move with `revoke_authorization: false` (the relayer read EXEC2 as not
+    // authorized on Morpho): the allowance resets only, on every token of every market EXEC2 served.
+    signed(&env.owner("set_executor", move_to(LIVE, EXEC, true), 0).await?);
+    signed(&env.owner("set_executor", move_to(BACKUP, EXEC, true), 0).await?);
+    let r = env.owner("set_executor", move_to(DEMO, EXEC, false), 3).await?;
+    env.record("owner_call set_executor (no revoke), 3 mock signatures", &r);
+    let txs = signed(&r);
+    assert_eq!(txs.len(), 3);
+    let approve0 = format!("0x095ea7b3{:0>64}{:0>64}", &EXEC2[2..].to_lowercase(), "0");
+    let mut tokens = vec![];
+    for t in &txs {
+        let d = decode_signed(t["raw"].as_str().unwrap());
+        assert_eq!(d["input"].as_str().unwrap(), approve0, "{d}");
+        tokens.push(d["to"].as_str().unwrap().to_lowercase());
+    }
+    tokens.sort();
+    assert_eq!(tokens, want, "allowance 0 on USDC, WETH and dUSDC; no setAuthorization");
 
     // approve_measurement: validated and stored; revoke_agent clears it.
     expect_fail(env.owner("approve_measurement", json!({"mrtd": "00", "rtmr0": "", "rtmr1": "", "rtmr2": "", "compose_hash": "", "os_image_hash": ""}), 0).await?, "mrtd: expected 48 bytes");
@@ -800,7 +841,8 @@ async fn allowlist() -> Result<()> {
     // After the owner moves every market to a new executor: the old one may only be revoked.
     for m in [LIVE, BACKUP, DEMO] {
         let n = if m == DEMO { 4 } else { 0 };
-        signed(&env.owner("set_executor", json!({"market": m, "executor": EXEC2}), n).await?);
+        let a = json!({"market": m, "executor": EXEC2, "revoke_authorization": true});
+        signed(&env.owner("set_executor", a, n).await?);
     }
     assert_eq!(env.check(&tx(USDC, calldata(SEL_APPROVE, &[w_addr(&a20(EXEC)), w_u128(0)])), "owner").await?, ok);
     assert!(env.check(&tx(USDC, calldata(SEL_APPROVE, &[w_addr(&a20(EXEC)), w_u128(1)])), "owner").await?.contains("approve: spender is not"));
