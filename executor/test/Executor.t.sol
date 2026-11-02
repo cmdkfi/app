@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {ForkBase} from "./Base.t.sol";
 import {Executor} from "../src/Executor.sol";
 import {MarketParams, IOracle, IERC20} from "../src/Interfaces.sol";
+import {CorridorMath as M} from "../src/CorridorMath.sol";
 
 contract ExecutorForkTest is ForkBase {
     // ------------------------------------------------------------ open
@@ -279,6 +280,143 @@ contract ExecutorForkTest is ForkBase {
         vm.prank(alice);
         exec.reduce(LIVE_ID, 50e6, _dl());
         assertGt(exec.soldInWindow(alice, WETH), 0);
+    }
+
+    /// A stale ETH/USD answer 20% low moves the Morpho oracle down with it: LTV reads higher and the sale's bound
+    /// (oracle minus 1%) is computed at the stale price. reduce does not check feed age, so the sale goes ahead;
+    /// it pays at most the bound at that price, and the live pool, still at the real price, gives better than that.
+    function test_reduce_on_stale_low_price_sells_within_bound_at_that_price() public {
+        _setCorridor(alice, LIVE_ID, _default());
+        _open(alice, LIVE_ID, 1e18, 0.5e18);
+        uint256 realPrice = IOracle(LIVE_ORACLE).price();
+        _mockFeed(ETH_USD, ethUsdAnswer * 8 / 10, block.timestamp - 5000); // 20% low, 5000 s old (max age 1200 s)
+        uint256 stalePrice = IOracle(LIVE_ORACLE).price();
+        assertApproxEqRel(stalePrice, realPrice * 8 / 10, 1e9, "Morpho oracle follows the stale feed down 20%");
+        uint256 ltvBefore = exec.ltvOf(alice, LIVE_ID);
+        assertGt(ltvBefore, 0.5e18, "LTV rose");
+        assertLt(ltvBefore, 0.7e18, "still below the act line: discretionary");
+        (uint256 c0, uint256 d0) = _pos(alice, LIVE_ID);
+
+        vm.prank(alice);
+        exec.reduce(LIVE_ID, 50e6, _dl()); // no StaleFeed
+        (uint256 c1, uint256 d1) = _pos(alice, LIVE_ID);
+        uint256 paid = c0 - c1;
+        uint256 bound = M.maxCollateralIn(50e6, stalePrice);
+        assertGt(exec.soldInWindow(alice, WETH), 0, "the sale landed as discretionary");
+        assertEq(exec.soldInWindow(alice, WETH), paid, "the sale recorded is the collateral paid");
+        assertApproxEqAbs(d0 - d1, 50e6, 1, "debt fell by the amount asked");
+        assertLe(paid, bound, "paid within the bound at the stale price");
+        assertLt(paid, bound, "the pool at the real price gave more than the stale bound requires");
+        _assertExecutorEmpty();
+    }
+
+    /// The sale ring holds 16 discretionary sales per caller and collateral token. A 17th inside 24 hours of the
+    /// oldest is refused even with the budget nearly untouched; once the oldest leaves the window it goes through.
+    function test_reduce_17th_sale_in_24h_refused_until_the_oldest_leaves() public {
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.1e18, 0.5e18, true, true));
+        _open(alice, DEMO_ID, 1e18, 0.5e18);
+        uint256 firstSaleTime = vm.getBlockTimestamp(); // not block.timestamp: via-IR may re-read it at the use
+        uint256 firstSale;
+        uint256 sum;
+        for (uint256 i; i < 16; ++i) {
+            if (i > 0) _warp(COOLDOWN);
+            (uint256 c0,) = _pos(alice, DEMO_ID);
+            vm.prank(alice);
+            exec.reduce(DEMO_ID, 1e6, _dl());
+            (uint256 c1,) = _pos(alice, DEMO_ID);
+            uint256 sale = c0 - c1;
+            assertGt(sale, 0, "collateral sold");
+            if (i == 0) firstSale = sale;
+            sum += sale;
+            assertEq(exec.soldInWindow(alice, WETH), sum, "each sale adds to the window");
+            assertEq(exec.sessionStart(alice, DEMO_ID), 0, "discretionary: no session");
+        }
+        (uint256 coll,) = _pos(alice, DEMO_ID);
+        assertLt(sum, coll / 100, "under 1% of the collateral sold: far from the 50% budget");
+
+        // the 17th, one cooldown later: every slot is still inside the window
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector);
+        exec.reduce(DEMO_ID, 1e6, _dl());
+
+        // one second before the oldest sale is 24 hours old it is still counted
+        _warp(firstSaleTime + 24 hours - 1 - vm.getBlockTimestamp());
+        assertEq(exec.soldInWindow(alice, WETH), sum, "all 16 still in the window");
+        vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector);
+        exec.reduce(DEMO_ID, 1e6, _dl());
+
+        // at exactly 24 hours the oldest has left the window and its slot takes the 17th sale
+        _warp(1);
+        assertEq(vm.getBlockTimestamp(), firstSaleTime + 24 hours);
+        assertEq(exec.soldInWindow(alice, WETH), sum - firstSale, "the oldest sale left the window");
+        (uint256 c2,) = _pos(alice, DEMO_ID);
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 1e6, _dl());
+        (uint256 c3,) = _pos(alice, DEMO_ID);
+        assertEq(exec.soldInWindow(alice, WETH), sum - firstSale + (c2 - c3), "16 sales counted again");
+        _assertExecutorEmpty();
+    }
+
+    /// Sale ring and sell budget are kept per collateral token: a full WETH ring or a spent WETH budget does not
+    /// stop a discretionary sale of TKN by the same caller.
+    function test_sale_ring_and_budget_are_per_collateral_token() public {
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.1e18, 0.5e18, true, true));
+        _setCorridor(alice, ALT_ID, _corridor(0.5e18, 0.7e18, 0.1e18, 0.5e18, true, true));
+        _open(alice, DEMO_ID, 1e18, 0.5e18);
+        _open(alice, ALT_ID, 10e18, 0.5e18);
+        for (uint256 i; i < 16; ++i) {
+            if (i > 0) _warp(COOLDOWN);
+            vm.prank(alice);
+            exec.reduce(DEMO_ID, 1e6, _dl());
+        }
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector);
+        exec.reduce(DEMO_ID, 1e6, _dl());
+        uint256 soldWeth = exec.soldInWindow(alice, WETH);
+
+        // same caller, same moment, other collateral token: its ring is empty
+        vm.prank(alice);
+        exec.reduce(ALT_ID, 1e6, _dl());
+        assertGt(exec.soldInWindow(alice, TKN), 0, "TKN sale recorded");
+        assertEq(exec.soldInWindow(alice, WETH), soldWeth, "WETH window unchanged");
+
+        // budgets: after the window, 20% corridors on both; spend the WETH budget, then sell TKN
+        _warp(24 hours);
+        assertEq(exec.soldInWindow(alice, WETH), 0);
+        assertEq(exec.soldInWindow(alice, TKN), 0);
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.1e18, 0.2e18, true, true));
+        _setCorridor(alice, ALT_ID, _corridor(0.5e18, 0.7e18, 0.1e18, 0.2e18, true, true));
+        (uint256 wethColl,) = _pos(alice, DEMO_ID);
+        (uint256 tknColl,) = _pos(alice, ALT_ID);
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl()); // clamped to the budget
+        assertGe(exec.soldInWindow(alice, WETH), wethColl * 0.19e18 / 1e18, "most of the budget in one call");
+        // The clamp prices the budget at oracle minus 1%, so a fill near the oracle leaves about 1% of it; each
+        // further huge ask sells about 1% of what is left, until the rest is worth less than one loan unit.
+        uint256 more;
+        while (true) {
+            _warp(COOLDOWN);
+            vm.prank(alice);
+            try exec.reduce(DEMO_ID, 10_000e6, _dl()) {
+                ++more;
+            } catch (bytes memory err) {
+                assertEq(bytes4(err), Executor.SellBudget.selector, "refused for the budget");
+                break;
+            }
+            assertLe(more, 8, "the remainder runs out within a few calls");
+        }
+        assertGe(exec.soldInWindow(alice, WETH), wethColl * 0.199e18 / 1e18, "WETH budget spent");
+        assertLe(exec.soldInWindow(alice, WETH), wethColl * 0.2e18 / 1e18, "within the WETH budget");
+
+        vm.prank(alice);
+        exec.reduce(ALT_ID, 10_000e6, _dl()); // clamped to the TKN budget, which is untouched
+        uint256 soldTkn = exec.soldInWindow(alice, TKN);
+        assertGe(soldTkn, tknColl * 0.19e18 / 1e18, "a full TKN budget's worth sold");
+        assertLe(soldTkn, tknColl * 0.2e18 / 1e18, "within the TKN budget");
+        _assertExecutorEmpty();
     }
 
     // ------------------------------------------------------------ minimum output

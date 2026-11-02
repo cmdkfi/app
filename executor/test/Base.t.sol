@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {Executor} from "../src/Executor.sol";
 import {MarketParams, IMorpho, IOracle, IChainlinkFeed, IUniswapV3Pool, IERC20} from "../src/Interfaces.sol";
+import {TestToken, TestOracle} from "./TestToken.sol";
 
 interface IMockOracle {
     function setPrice(uint256 p) external;
@@ -38,6 +39,7 @@ interface IOracleFactory {
 /// Base Sepolia fork fixture: live market (real), backup market (created here the same way P1's deploy creates it),
 /// demo market (real, mock oracle) with a dUSDC/WETH pool created here. Deep full-range liquidity is added to the
 /// live pool and the demo pool so price impact is negligible unless a test moves a pool on purpose.
+/// alt market (created here): dUSDC loan against TKN, a second collateral token, with its own oracle and pool.
 abstract contract ForkBase is Test {
     address constant MORPHO = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
     address constant IRM = 0x46415998764C29aB2a25CbeA6254146D50D22687;
@@ -67,6 +69,11 @@ abstract contract ForkBase is Test {
     MarketParams demo;
     bytes32 BACKUP_ID;
     address demoPool;
+    MarketParams alt;
+    bytes32 ALT_ID;
+    address altPool;
+    address altOracle;
+    address TKN;
 
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -104,10 +111,23 @@ abstract contract ForkBase is Test {
         IUniswapV3Pool(LIVE_POOL).mint(address(this), MIN_TICK, MAX_TICK, 5e16, "");
         _alignPool(LIVE_POOL, WETH, IOracle(LIVE_ORACLE).price(), 10_000);
 
+        // alt market: dUSDC against TKN at $100 (same oracle scale as the demo oracle), TKN/dUSDC 0.01% pool
+        TKN = address(new TestToken("Test Token", "TKN"));
+        altOracle = address(new TestOracle());
+        TestOracle(altOracle).setPrice(100e24);
+        alt = MarketParams(DUSDC, TKN, altOracle, IRM, LLTV);
+        morpho.createMarket(alt);
+        ALT_ID = keccak256(abi.encode(alt));
+        altPool = IUniFactory(UNI_FACTORY).createPool(TKN, DUSDC, 100);
+        IUniswapV3Pool(altPool).initialize(_sqrtX96(altPool, TKN, 100e24));
+        IUniswapV3Pool(altPool).mint(address(this), MIN_TICK, MAX_TICK, 5e16, "");
+        _alignPool(altPool, TKN, 100e24, 10_000);
+
         // lenders
         _supply(live, 20_000e6);
         _supply(backup, 20_000e6);
         _supply(demo, 1_000_000e6);
+        _supply(alt, 1_000_000e6);
 
         exec = new Executor(MORPHO, COOLDOWN, _configs(backupOracle));
         _user(alice);
@@ -115,23 +135,26 @@ abstract contract ForkBase is Test {
     }
 
     function _configs(address) internal view returns (Executor.MarketConfig[] memory c) {
-        c = new Executor.MarketConfig[](3);
+        c = new Executor.MarketConfig[](4);
         address[2] memory feeds = [ETH_USD, USDC_USD];
         uint32[2] memory ages = [uint32(1200), uint32(86400)];
         c[0] = Executor.MarketConfig(live, LIVE_POOL, feeds, ages);
         c[1] = Executor.MarketConfig(backup, LIVE_POOL, feeds, ages);
         c[2] = Executor.MarketConfig(demo, demoPool, [address(0), address(0)], [uint32(0), uint32(0)]);
+        c[3] = Executor.MarketConfig(alt, altPool, [address(0), address(0)], [uint32(0), uint32(0)]);
     }
 
     // ------------------------------------------------------------ helpers
 
     function _user(address u) internal {
         _fund(WETH, u, 10e18);
+        _fund(TKN, u, 100e18);
         vm.startPrank(u);
         morpho.setAuthorization(address(exec), true);
         IERC20(WETH).approve(address(exec), type(uint256).max);
         IERC20(USDC).approve(address(exec), type(uint256).max);
         IERC20(DUSDC).approve(address(exec), type(uint256).max);
+        IERC20(TKN).approve(address(exec), type(uint256).max);
         vm.stopPrank();
     }
 
@@ -145,6 +168,7 @@ abstract contract ForkBase is Test {
 
     function _fund(address token, address to, uint256 amount) internal {
         if (token == DUSDC) IMockUSDC(DUSDC).mint(to, amount);
+        else if (token == TKN) TestToken(TKN).mint(to, amount);
         else deal(token, to, IERC20(token).balanceOf(to) + amount);
     }
 
@@ -248,5 +272,6 @@ abstract contract ForkBase is Test {
         assertEq(IERC20(WETH).balanceOf(address(exec)), 0, "exec WETH");
         assertEq(IERC20(USDC).balanceOf(address(exec)), 0, "exec USDC");
         assertEq(IERC20(DUSDC).balanceOf(address(exec)), 0, "exec dUSDC");
+        assertEq(IERC20(TKN).balanceOf(address(exec)), 0, "exec TKN");
     }
 }
