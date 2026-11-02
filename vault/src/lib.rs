@@ -110,6 +110,8 @@ pub struct SignedTx {
     pub hash: String,
     pub from: String,
     pub to: String,
+    /// Wei, decimal.
+    pub value: String,
     pub nonce: u64,
 }
 
@@ -161,6 +163,11 @@ struct WithdrawArgs {
 struct SetExecutorArgs {
     market: String,
     executor: String,
+}
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct SweepArgs {
+    amount: U128,
 }
 #[derive(Deserialize)]
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]
@@ -239,13 +246,13 @@ impl Vault {
         let m = owner::verify(&message, &signature, &self.owner, self.owner_nonce);
         self.owner_nonce = m.nonce;
         let dl = w_u128((now_secs() + DEADLINE_SECS) as u128);
-        let calls: Vec<(Addr, Vec<u8>)> = match m.method.as_str() {
+        let calls: Vec<(Addr, u128, Vec<u8>)> = match m.method.as_str() {
             "setup" => {
                 let mk = self.market(&args::<MarketArg>(m.args).market).clone();
                 vec![
-                    (mk.loan_token, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
-                    (mk.collateral_token, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
-                    (self.morpho, calldata(SEL_SET_AUTHORIZATION, &[w_addr(&mk.executor), w_bool(true)])),
+                    (mk.loan_token, 0, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
+                    (mk.collateral_token, 0, calldata(SEL_APPROVE, &[w_addr(&mk.executor), W_MAX])),
+                    (self.morpho, 0, calldata(SEL_SET_AUTHORIZATION, &[w_addr(&mk.executor), w_bool(true)])),
                 ]
             }
             "set_corridor" => {
@@ -268,21 +275,22 @@ impl Vault {
                     w_bool(false), // `set`: the executor sets it itself
                     dl,
                 ];
-                vec![(mk.executor, calldata(SEL_SET_CORRIDOR, &words))]
+                vec![(mk.executor, 0, calldata(SEL_SET_CORRIDOR, &words))]
             }
             "open" => {
                 let a: OpenArgs = args(m.args);
                 let mk = self.market(&a.market);
-                vec![(mk.executor, calldata(SEL_OPEN, &[mk.id, w_u128(a.collateral_in.0), w_u128(a.target_ltv.0), dl]))]
+                let words = [mk.id, w_u128(a.collateral_in.0), w_u128(a.target_ltv.0), dl];
+                vec![(mk.executor, 0, calldata(SEL_OPEN, &words))]
             }
             "repay" => {
                 let a: AmountArgs = args(m.args);
                 let mk = self.market(&a.market);
-                vec![(mk.executor, calldata(SEL_REPAY, &[mk.id, w_u128(a.amount.0), dl]))]
+                vec![(mk.executor, 0, calldata(SEL_REPAY, &[mk.id, w_u128(a.amount.0), dl]))]
             }
             "close" => {
                 let mk = self.market(&args::<MarketArg>(m.args).market);
-                vec![(mk.executor, calldata(SEL_CLOSE, &[mk.id, dl]))]
+                vec![(mk.executor, 0, calldata(SEL_CLOSE, &[mk.id, dl]))]
             }
             "withdraw" => {
                 let a: WithdrawArgs = args(m.args);
@@ -291,7 +299,19 @@ impl Vault {
                 require!(self.is_token(&token), "token not in the allowlist");
                 require!(dest != [0u8; 20], "zero destination");
                 require!(a.amount.0 > 0, "zero amount");
-                vec![(token, calldata(SEL_TRANSFER, &[w_addr(&dest), w_u128(a.amount.0)]))]
+                vec![(token, 0, calldata(SEL_TRANSFER, &[w_addr(&dest), w_u128(a.amount.0)]))]
+            }
+            // §4.1: a zero-value transfer to the vault's own Base address at the relayer's (pending) nonce, so a
+            // signed transaction held at that nonce can no longer be mined.
+            "cancel" => {
+                let _: NoArgs = args(m.args);
+                vec![(self.base_address, 0, vec![])]
+            }
+            // §4.1: ETH left at the vault's Base address goes to the owner's wallet address, nowhere else.
+            "sweep_eth" => {
+                let a: SweepArgs = args(m.args);
+                require!(a.amount.0 > 0, "zero amount");
+                vec![(self.owner, a.amount.0, vec![])]
             }
             "set_executor" => {
                 let a: SetExecutorArgs = args(m.args);
@@ -310,11 +330,12 @@ impl Vault {
                 if self.markets.iter().any(|o| o.executor == old) {
                     vec![]
                 } else {
-                    let mut calls = vec![(self.morpho, calldata(SEL_SET_AUTHORIZATION, &[w_addr(&old), w_bool(false)]))];
+                    let revoke = calldata(SEL_SET_AUTHORIZATION, &[w_addr(&old), w_bool(false)]);
+                    let mut calls = vec![(self.morpho, 0, revoke)];
                     for o in self.markets.iter().filter(|o| o.previous_executors.contains(&old)) {
                         for t in [o.loan_token, o.collateral_token] {
-                            if !calls.iter().any(|(to, _)| *to == t) {
-                                calls.push((t, calldata(SEL_APPROVE, &[w_addr(&old), w_u128(0)])));
+                            if !calls.iter().any(|(to, _, _)| *to == t) {
+                                calls.push((t, 0, calldata(SEL_APPROVE, &[w_addr(&old), w_u128(0)])));
                             }
                         }
                     }
@@ -348,7 +369,8 @@ impl Vault {
         let mk = self.agent_market(&market);
         require!(amount.0 > 0 && amount.0 <= mk.slice_max, "amount above the slice maximum");
         let dl = w_u128((now_secs() + DEADLINE_SECS) as u128);
-        self.sign(vec![(mk.executor, calldata(SEL_REDUCE, &[mk.id, w_u128(amount.0), dl]))], vec![tx], Caller::Agent)
+        let data = calldata(SEL_REDUCE, &[mk.id, w_u128(amount.0), dl]);
+        self.sign(vec![(mk.executor, 0, data)], vec![tx], Caller::Agent)
     }
 
     /// Move `fraction` (WAD) of the position from one approved market to another.
@@ -360,7 +382,8 @@ impl Vault {
         require!(a.executor == b.executor, "markets on different executors");
         require!(fraction.0 > 0 && fraction.0 <= WAD, "fraction outside (0, 1]");
         let dl = w_u128((now_secs() + DEADLINE_SECS) as u128);
-        self.sign(vec![(a.executor, calldata(SEL_MIGRATE, &[a.id, b.id, w_u128(fraction.0), dl]))], vec![tx], Caller::Agent)
+        let data = calldata(SEL_MIGRATE, &[a.id, b.id, w_u128(fraction.0), dl]);
+        self.sign(vec![(a.executor, 0, data)], vec![tx], Caller::Agent)
     }
 
     /// Repay all and withdraw the collateral to the vault's Base address.
@@ -368,7 +391,7 @@ impl Vault {
         self.agent_check();
         let mk = self.agent_market(&market);
         let dl = w_u128((now_secs() + DEADLINE_SECS) as u128);
-        self.sign(vec![(mk.executor, calldata(SEL_EXIT, &[mk.id, dl]))], vec![tx], Caller::Agent)
+        self.sign(vec![(mk.executor, 0, calldata(SEL_EXIT, &[mk.id, dl]))], vec![tx], Caller::Agent)
     }
 
     // ------------------------------------------------------------------ attestation
@@ -435,6 +458,7 @@ impl Vault {
                     raw: h(&raw),
                     from: h(&from),
                     to: format!("0x{}", t.to),
+                    value: t.value.0.to_string(),
                     nonce: t.nonce,
                 }
             })
@@ -514,7 +538,13 @@ impl Vault {
     }
 
     /// Build, decode back, check, and request one signature per transaction; `on_signed` assembles them.
-    fn sign(&self, calls: Vec<(Addr, Vec<u8>)>, params: Vec<TxParams>, caller: Caller) -> PromiseOrValue<Vec<SignedTx>> {
+    /// `calls`: (to, value in wei, calldata) per transaction.
+    fn sign(
+        &self,
+        calls: Vec<(Addr, u128, Vec<u8>)>,
+        params: Vec<TxParams>,
+        caller: Caller,
+    ) -> PromiseOrValue<Vec<SignedTx>> {
         require!(
             params.len() == calls.len(),
             format!("expected {} transaction parameter sets, got {}", calls.len(), params.len())
@@ -525,8 +555,8 @@ impl Vault {
         let now = now_secs();
         let mut txs = Vec::with_capacity(calls.len());
         let mut joint: Option<Promise> = None;
-        for ((to, data), p) in calls.iter().zip(params.iter()) {
-            let t = BaseTx::new(p, to, data);
+        for ((to, value, data), p) in calls.iter().zip(params.iter()) {
+            let t = BaseTx::new(p, to, *value, data);
             let unsigned = t.omni().build_for_signing();
             let d = decode_unsigned(&unsigned).unwrap_or_else(|e| env::panic_str(&e));
             self.check_tx(&d, caller, now).unwrap_or_else(|e| env::panic_str(&format!("transaction refused: {e}")));
@@ -549,15 +579,13 @@ impl Vault {
         )
     }
 
-    /// The allowlist (§4.1): chain id, value 0, gas and fee bounds; `to` in {executor, the markets' tokens,
-    /// Morpho}; selector per target and caller; approve spender and setAuthorization target; market ids;
-    /// executor deadline within (now, now + 600 s].
+    /// The allowlist (§4.1): chain id, gas and fee bounds; then two owner-only shapes with empty data, `cancel`
+    /// (`to` = the vault's Base address, value 0) and `sweep_eth` (`to` = the owner's wallet address, any value);
+    /// otherwise value 0, `to` in {executor, the markets' tokens, Morpho}; selector per target and caller;
+    /// approve spender and setAuthorization target; market ids; executor deadline within (now, now + 600 s].
     pub fn check_tx(&self, d: &Decoded, caller: Caller, now: u64) -> Result<(), String> {
         if d.chain_id != CHAIN_ID {
             return Err(format!("chain id {} is not {}", d.chain_id, CHAIN_ID));
-        }
-        if d.value != 0 {
-            return Err("value must be 0".into());
         }
         if d.gas_limit == 0 || d.gas_limit > GAS_LIMIT_MAX as u128 {
             return Err(format!("gas_limit {} outside (0, {}]", d.gas_limit, GAS_LIMIT_MAX));
@@ -567,6 +595,21 @@ impl Vault {
         }
         if d.max_priority_fee_per_gas > d.max_fee_per_gas {
             return Err("priority fee above max fee".into());
+        }
+        if d.data.is_empty() && d.to == self.base_address && d.value == 0 {
+            return match caller {
+                Caller::Owner => Ok(()),
+                Caller::Agent => Err("the agent may not cancel (self-transfer)".into()),
+            };
+        }
+        if d.data.is_empty() && d.to == self.owner {
+            return match caller {
+                Caller::Owner => Ok(()),
+                Caller::Agent => Err("the agent may not send ETH to the owner (sweep_eth)".into()),
+            };
+        }
+        if d.value != 0 {
+            return Err("value must be 0".into());
         }
         if d.data.len() < 4 {
             return Err("no selector".into());

@@ -1,6 +1,7 @@
 //! Sandbox tests (near-workspaces 0.23, nearcore sandbox 2.13.4): owner messages, policy, the agent's
-//! function-call key, the transaction allowlist. The Chain Signatures contract is replaced by `mock-signer/`
-//! (same `sign` arguments and response JSON); the real signer path runs on testnet (research_notes, prototype results).
+//! function-call key, cancel and sweep_eth, the transaction allowlist. The Chain Signatures contract is replaced
+//! by `mock-signer/` (same `sign` arguments and response JSON); the real signer path runs on testnet
+//! (research_notes, prototype results).
 //!
 //! Build first:  (cd mock-signer && cargo near build non-reproducible-wasm) && cargo near build non-reproducible-wasm
 //! Run:          cargo test --test sandbox -- --nocapture
@@ -650,6 +651,53 @@ async fn agent_key() -> Result<()> {
     Ok(())
 }
 
+// ======================================================================== cancel and sweep_eth
+
+fn hex_u128(v: &Value) -> u128 {
+    u128::from_str_radix(v.as_str().unwrap().trim_start_matches("0x"), 16).unwrap()
+}
+
+#[tokio::test]
+async fn cancel_and_sweep() -> Result<()> {
+    let env = setup("cancel").await?;
+
+    // cancel: a zero-value self-transfer from the vault's Base address, empty data.
+    let r = env.owner("cancel", json!({}), 1).await?;
+    env.record("owner_call cancel, 1 mock signature", &r);
+    let txs = signed(&r);
+    assert_eq!(txs.len(), 1);
+    let d = decode_signed(txs[0]["raw"].as_str().unwrap());
+    assert_eq!(d["to"].as_str().unwrap().to_lowercase(), env.base.to_lowercase(), "{d}");
+    assert_eq!((hex_u128(&d["value"]), d["input"].as_str().unwrap()), (0, "0x"));
+    assert_eq!(d["signer"].as_str().unwrap().to_lowercase(), env.base.to_lowercase(), "cast recovers the vault");
+    assert_eq!(txs[0]["from"].as_str().unwrap(), env.base.to_lowercase());
+    assert_eq!(txs[0]["value"].as_str().unwrap(), "0");
+    assert_eq!(txs[0]["hash"].as_str().unwrap(), d["hash"].as_str().unwrap());
+
+    // sweep_eth: 1e15 wei to the owner's wallet address, empty data.
+    let r = env.owner("sweep_eth", json!({"amount": "1000000000000000"}), 1).await?;
+    env.record("owner_call sweep_eth, 1 mock signature", &r);
+    let txs = signed(&r);
+    assert_eq!(txs.len(), 1);
+    let d = decode_signed(txs[0]["raw"].as_str().unwrap());
+    assert_eq!(d["to"].as_str().unwrap().to_lowercase(), env.owner.address.to_lowercase(), "{d}");
+    assert_eq!((hex_u128(&d["value"]), d["input"].as_str().unwrap()), (1_000_000_000_000_000, "0x"));
+    assert_eq!(d["signer"].as_str().unwrap().to_lowercase(), env.base.to_lowercase(), "cast recovers the vault");
+    assert_eq!(txs[0]["from"].as_str().unwrap(), env.base.to_lowercase());
+    assert_eq!(txs[0]["value"].as_str().unwrap(), "1000000000000000");
+    assert_eq!(txs[0]["hash"].as_str().unwrap(), d["hash"].as_str().unwrap());
+
+    // Refusals: zero amount, an extra field (e.g. a destination), a cancel with arguments.
+    expect_fail(env.owner("sweep_eth", json!({"amount": "0"}), 1).await?, "zero amount");
+    let extra = json!({"amount": "1", "destination": STRANGER});
+    expect_fail(env.owner("sweep_eth", extra, 1).await?, "bad args");
+    expect_fail(env.owner("cancel", json!({"nonce": 3}), 1).await?, "bad args");
+    assert_eq!(env.state().await?.owner_nonce, 2);
+
+    env.print_gas("cancel_and_sweep");
+    Ok(())
+}
+
 // ======================================================================== transaction allowlist
 
 #[tokio::test]
@@ -657,7 +705,7 @@ async fn allowlist() -> Result<()> {
     let env = setup("allowlist").await?;
     let now = env.now().await?;
     let p = TxParams { nonce: 0, gas_limit: 100_000, max_fee_per_gas: 1_000_000_000, max_priority_fee_per_gas: 1_000_000 };
-    let tx = |to: &str, data: Vec<u8>| BaseTx::new(&p, &a20(to), &data).omni();
+    let tx = |to: &str, data: Vec<u8>| BaseTx::new(&p, &a20(to), 0, &data).omni();
     let dl = w_u128((now + 300) as u128);
     let (live, backup, unknown) = (a32(LIVE), a32(BACKUP), a32(UNKNOWN_MARKET));
     let ok = "ok".to_string();
@@ -720,6 +768,34 @@ async fn allowlist() -> Result<()> {
     t.to = None;
     assert!(env.check(&t, "agent").await?.contains("20-byte recipient"));
     assert!(env.check(&tx(STRANGER, calldata(SEL_EXIT, &[live, dl])), "agent").await?.contains("to is not the executor"));
+
+    // Owner-only shapes with empty data: cancel (self-transfer, value 0) and sweep_eth (ETH to the owner only).
+    let cancel = tx(&env.base, vec![]);
+    assert_eq!(env.check(&cancel, "owner").await?, ok);
+    assert!(env.check(&cancel, "agent").await?.contains("the agent may not cancel"));
+    let mut t = cancel.clone();
+    t.value = 1;
+    assert!(env.check(&t, "owner").await?.contains("value must be 0"), "a self-transfer carries no value");
+    let mut sweep = tx(&env.owner.address, vec![]);
+    sweep.value = 5;
+    assert_eq!(env.check(&sweep, "owner").await?, ok);
+    assert!(env.check(&sweep, "agent").await?.contains("the agent may not send ETH to the owner"));
+    let mut t = tx(STRANGER, vec![]);
+    t.value = 5;
+    assert!(env.check(&t, "owner").await?.contains("value must be 0"));
+    let mut t = tx(&env.owner.address, vec![0xde, 0xad, 0xbe, 0xef]);
+    t.value = 5;
+    assert!(env.check(&t, "owner").await?.contains("value must be 0"));
+    let mut t = tx(EXEC, calldata(SEL_CLOSE, &[live, dl]));
+    t.value = 5;
+    assert!(env.check(&t, "owner").await?.contains("value must be 0"));
+    // The chain id and fee bounds apply to these shapes too.
+    let mut t = sweep.clone();
+    t.chain_id = 8453;
+    assert!(env.check(&t, "owner").await?.contains("chain id 8453"));
+    let mut t = cancel.clone();
+    t.max_fee_per_gas = 2_000_000_001;
+    assert!(env.check(&t, "owner").await?.contains("max_fee_per_gas"));
 
     // After the owner moves every market to a new executor: the old one may only be revoked.
     for m in [LIVE, BACKUP, DEMO] {

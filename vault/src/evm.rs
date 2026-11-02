@@ -1,5 +1,6 @@
 //! Base transactions: ABI calldata, EIP-1559 build with omni-transaction, decode-back, the allowlist,
 //! and the signature assembly from a Chain Signatures response (measurement A's rule).
+use near_sdk::json_types::U128;
 use near_sdk::serde::Deserialize;
 use near_sdk::{env, near};
 use omni_transaction::evm::types::Signature;
@@ -75,17 +76,20 @@ pub struct BaseTx {
     pub max_fee_per_gas: u64,
     pub max_priority_fee_per_gas: u64,
     pub to: String,
+    /// Wei; non-zero only for `sweep_eth`. A decimal string in JSON (`U128`).
+    pub value: U128,
     pub data: String,
 }
 
 impl BaseTx {
-    pub fn new(p: &TxParams, to: &Addr, data: &[u8]) -> Self {
+    pub fn new(p: &TxParams, to: &Addr, value: u128, data: &[u8]) -> Self {
         BaseTx {
             nonce: p.nonce,
             gas_limit: p.gas_limit,
             max_fee_per_gas: p.max_fee_per_gas,
             max_priority_fee_per_gas: p.max_priority_fee_per_gas,
             to: hex::encode(to),
+            value: U128(value),
             data: hex::encode(data),
         }
     }
@@ -97,7 +101,7 @@ impl BaseTx {
             chain_id: CHAIN_ID,
             nonce: self.nonce,
             to: Some(to),
-            value: 0,
+            value: self.value.0,
             input: hex::decode(&self.data).expect("data"),
             gas_limit: self.gas_limit as u128,
             max_fee_per_gas: self.max_fee_per_gas as u128,
@@ -247,6 +251,7 @@ mod tests {
         BaseTx::new(
             &TxParams { nonce: 7, gas_limit: 100_000, max_fee_per_gas: 1_000_000_000, max_priority_fee_per_gas: 1_000_000 },
             &[0x11; 20],
+            0,
             &calldata(SEL_APPROVE, &[w_addr(&[0x22; 20]), W_MAX]),
         )
         .omni()
@@ -257,6 +262,21 @@ mod tests {
         let d = decode_unsigned(&tx().build_for_signing()).unwrap();
         assert_eq!((d.chain_id, d.nonce, d.gas_limit, d.to, d.value), (CHAIN_ID, 7, 100_000, [0x11; 20], 0));
         assert_eq!(&d.data[..4], &SEL_APPROVE);
+    }
+
+    #[test]
+    fn decode_roundtrip_value_and_empty_data() {
+        let p = TxParams { nonce: 3, gas_limit: 21_000, max_fee_per_gas: 1_000_000_000, max_priority_fee_per_gas: 1 };
+        let t = BaseTx::new(&p, &[0x44; 20], 1_000_000_000_000_000, &[]);
+        let d = decode_unsigned(&t.omni().build_for_signing()).unwrap();
+        assert_eq!((d.nonce, d.gas_limit, d.to, d.value), (3, 21_000, [0x44; 20], 1_000_000_000_000_000));
+        assert!(d.data.is_empty());
+        // BaseTx goes to `on_signed` as a promise argument: the value is a decimal string and round-trips at any size.
+        let t = BaseTx::new(&p, &[0x44; 20], u128::MAX, &[]);
+        let json = near_sdk::serde_json::to_value(&t).unwrap();
+        assert_eq!(json["value"], u128::MAX.to_string());
+        let back: BaseTx = near_sdk::serde_json::from_value(json).unwrap();
+        assert_eq!((back.value.0, back.data.as_str()), (u128::MAX, ""));
     }
 
     #[test]
