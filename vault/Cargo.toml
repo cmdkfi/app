@@ -1,6 +1,6 @@
 [package]
-name = "prime-vault-proto"
-description = "PRIME prototype P2: vault on NEAR (owner messages, policy, agent key, attestation, Base transactions via Chain Signatures). Throwaway."
+name = "cmdk-vault"
+description = "cmdk vault on NEAR, hackathon build: owner messages, policy, agent key, attestation, Base transactions via Chain Signatures."
 version = "0.1.0"
 edition = "2021"
 

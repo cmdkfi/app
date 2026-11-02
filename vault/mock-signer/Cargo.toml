@@ -1,6 +1,6 @@
 [package]
-name = "prime-mock-signer"
-description = "Sandbox-only stand-in for v1.signer-prod.testnet: same sign() arguments and response JSON, deterministic k256 key per (predecessor, path). Never deployed to testnet."
+name = "cmdk-mock-signer"
+description = "Sandbox-only stand-in for v1.signer-prod.testnet in the cmdk vault's sandbox tests: same sign() arguments and response JSON, deterministic k256 key per (predecessor, path). Never deployed to testnet."
 version = "0.1.0"
 edition = "2021"
 

@@ -1,6 +1,7 @@
-//! PRIME prototype P2 (throwaway, 27–31 Oct 2026): the vault on NEAR. Spec: docs/01-design-and-feasibility.md
-//! §4.1 (methods, state, transaction path), §4.4 (attestation), §4.5 (owner model). Deviations (prototype/BRIEF.md):
-//! a plain deployment to a sub-account, one vault, one owner, executor set at `init` and by `set_executor`.
+//! cmdk vault on NEAR (hackathon build, from the 27–31 Oct prototype). Spec: docs/01-design-and-feasibility.md
+//! §4.1 (methods, state, transaction path), §4.4 (attestation), §4.5 (owner model). This version: one vault per
+//! owner, a plain deployment to its own account; the executor of each market is set at `init` and by
+//! `set_executor`; a factory that deploys vaults is to come (item V4).
 //!
 //! Three kinds of caller:
 //! - the owner, through `owner_call(message, signature, txs)`: an ERC-191 message signed by the owner's EVM wallet,

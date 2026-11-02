@@ -149,10 +149,10 @@ pub fn verify(
 
 #[cfg(test)]
 mod tests {
-    //! Native checks on measurement E's quote, event log and F's collateral (files in research_notes/).
+    //! Native checks on measurement E's quote, event log and F's collateral (copies in tests/fixtures/).
     use super::*;
-    const E: &str = "../../research_notes/Measurements/E_artifacts";
-    const F: &str = "../../research_notes/Measurements/F_artifacts/collateral";
+    const E: &str = "tests/fixtures";
+    const F: &str = "tests/fixtures";
 
     fn inputs() -> (Vec<u8>, QuoteCollateralV3, Vec<EventLogEntry>) {
         let q = hex::decode(std::fs::read_to_string(format!("{E}/tdx_quote_prime-e-test.hex")).unwrap().trim()).unwrap();

@@ -368,6 +368,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmdk-vault"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dcap-qvl",
+ "getrandom 0.2.17",
+ "hex",
+ "near-sdk",
+ "near-workspaces",
+ "omni-transaction",
+ "rlp",
+ "sha2 0.10.9",
+ "tokio",
+]
+
+[[package]]
 name = "cmov"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2943,22 +2959,6 @@ checksum = "6c8646e95016a7a6c4adea95bafa8a16baab64b583356217f2c85db4a39d9a86"
 dependencies = [
  "proc-macro2",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "prime-vault-proto"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "dcap-qvl",
- "getrandom 0.2.17",
- "hex",
- "near-sdk",
- "near-workspaces",
- "omni-transaction",
- "rlp",
- "sha2 0.10.9",
- "tokio",
 ]
 
 [[package]]

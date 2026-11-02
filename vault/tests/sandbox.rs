@@ -1,6 +1,6 @@
-//! P2 sandbox tests (near-workspaces 0.23, nearcore sandbox 2.13.4): owner messages, policy, the agent's
+//! Sandbox tests (near-workspaces 0.23, nearcore sandbox 2.13.4): owner messages, policy, the agent's
 //! function-call key, the transaction allowlist. The Chain Signatures contract is replaced by `mock-signer/`
-//! (same `sign` arguments and response JSON); the real signer path runs on testnet (results.md, P2 item 2).
+//! (same `sign` arguments and response JSON); the real signer path runs on testnet (research_notes, prototype results).
 //!
 //! Build first:  (cd mock-signer && cargo near build non-reproducible-wasm) && cargo near build non-reproducible-wasm
 //! Run:          cargo test --test sandbox -- --nocapture
@@ -10,6 +10,8 @@
 //! from E's implicit account by giving it a test key in the sandbox (state patch); the agent methods then run
 //! with a test function-call key patched in the same way. Neither patch is possible on a real network.
 use anyhow::Result;
+use cmdk_vault::evm::*;
+use cmdk_vault::{Agent, Vault};
 use near_sdk::borsh::{self, BorshDeserialize};
 use near_sdk::serde_json::{self, json, Value};
 use near_workspaces::network::Sandbox;
@@ -17,8 +19,6 @@ use near_workspaces::result::ExecutionFinalResult;
 use near_workspaces::types::{AccessKey, AccessKeyPermission, Gas, KeyType, NearToken, SecretKey};
 use near_workspaces::{Account, AccountId, Contract, Worker};
 use omni_transaction::evm::EVMTransaction;
-use prime_vault_proto::evm::*;
-use prime_vault_proto::{Agent, Vault};
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
@@ -38,8 +38,8 @@ const PATH: &str = "prime-base";
 const SLICE: u128 = 1_000_000_000; // 1,000 USDC (6 decimals)
 const COOLDOWN: u64 = 300;
 const WAD: u128 = 1_000_000_000_000_000_000;
-const E_DIR: &str = "../../research_notes/Measurements/E_artifacts";
-const F_COLLATERAL: &str = "../../research_notes/Measurements/F_artifacts/collateral/collateral_phala.json";
+const E_DIR: &str = "tests/fixtures";
+const F_COLLATERAL: &str = "tests/fixtures/collateral_phala.json";
 // secp256k1 group order n, big-endian
 const N: [u8; 32] = [
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xba, 0xae, 0xdc,
@@ -61,7 +61,7 @@ struct Wallet {
     keystore: String,
     address: String,
 }
-const PW: &str = "prime-sandbox-throwaway";
+const PW: &str = "cmdk-sandbox-throwaway";
 impl Wallet {
     fn new(dir: &PathBuf) -> Wallet {
         let out = Command::new(cast())
@@ -130,13 +130,13 @@ impl Drop for Env {
 
 async fn setup(tag: &str) -> Result<Env> {
     let worker = near_workspaces::sandbox().await?;
-    let signer = worker.dev_deploy(&std::fs::read("mock-signer/target/near/prime_mock_signer.wasm")?).await?;
+    let signer = worker.dev_deploy(&std::fs::read("mock-signer/target/near/cmdk_mock_signer.wasm")?).await?;
     let root = worker.root_account()?;
     let vault_acct =
         root.create_subaccount("vault").initial_balance(NearToken::from_near(30)).transact().await?.into_result()?;
-    let vault = vault_acct.deploy(&std::fs::read("target/near/prime_vault_proto.wasm")?).await?.into_result()?;
+    let vault = vault_acct.deploy(&std::fs::read("target/near/cmdk_vault.wasm")?).await?.into_result()?;
     let base: String = signer.view("derived_address").args_json(json!({"predecessor": vault.id(), "path": PATH})).await?.json()?;
-    let dir = std::env::temp_dir().join(format!("prime-vault-sandbox-{tag}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("cmdk-vault-sandbox-{tag}-{}", std::process::id()));
     std::fs::create_dir_all(&dir)?;
     let (owner, other) = (Wallet::new(&dir), Wallet::new(&dir));
     let m = |id: &str, loan: &str| json!({"id": id, "loan_token": loan, "collateral_token": WETH, "executor": EXEC, "slice_max": SLICE.to_string()});
@@ -158,7 +158,7 @@ impl Env {
     }
 
     fn message(&self, method: &str, args: Value, nonce: u64, expiry: u64) -> String {
-        json!({"protocol": "prime-vault/1", "network": "testnet", "vault": self.vault.id(), "method": method,
+        json!({"protocol": "cmdk-vault/1", "network": "testnet", "vault": self.vault.id(), "method": method,
                "args": args, "nonce": nonce, "expiry": expiry})
         .to_string()
     }
@@ -350,7 +350,7 @@ async fn owner_messages() -> Result<()> {
     expect_fail(env.submit(&other_vault, &env.owner.sign(&other_vault), params(3, 1)).await?, "message is for another vault");
     let mainnet = m.replace("\"testnet\"", "\"mainnet\"");
     expect_fail(env.submit(&mainnet, &env.owner.sign(&mainnet), params(3, 1)).await?, "wrong network");
-    let v2 = m.replace("prime-vault/1", "prime-vault/2");
+    let v2 = m.replace("cmdk-vault/1", "cmdk-vault/2");
     expect_fail(env.submit(&v2, &env.owner.sign(&v2), params(3, 1)).await?, "wrong protocol version");
     let unknown = env.message("drain", json!({}), 11, now + 600);
     expect_fail(env.submit(&unknown, &env.owner.sign(&unknown), vec![]).await?, "unknown method drain");

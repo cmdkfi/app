@@ -6,11 +6,11 @@ use near_sdk::serde_json::{self, Value};
 
 use crate::Addr;
 
-pub const PROTOCOL: &str = "prime-vault/1";
+pub const PROTOCOL: &str = "cmdk-vault/1";
 pub const NETWORK: &str = "testnet";
 
 /// What the owner's wallet signs (the exact bytes of the JSON text are what is signed).
-/// Example: {"protocol":"prime-vault/1","network":"testnet","vault":"p2-vault.x.testnet",
+/// Example: {"protocol":"cmdk-vault/1","network":"testnet","vault":"vault.cmdk.testnet",
 ///           "method":"open","args":{...},"nonce":3,"expiry":1793100000}
 #[derive(Deserialize)]
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]

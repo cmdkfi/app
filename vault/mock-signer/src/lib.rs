@@ -1,6 +1,7 @@
-//! Sandbox-only stand-in for `v1.signer-prod.testnet` (prototype P2 tests). Same `sign` arguments, same 1 yoctoNEAR
-//! deposit rule, same response JSON; the key is sha256("prime-mock-signer:" + predecessor + "," + path), so the
-//! tests can compute the derived address with `derived_address`. Answers synchronously (no yield/resume).
+//! Sandbox-only stand-in for `v1.signer-prod.testnet` (the cmdk vault's sandbox tests). Same `sign` arguments,
+//! same 1 yoctoNEAR deposit rule, same response JSON; the key is sha256("prime-mock-signer:" + predecessor + ","
+//! + path), so the tests can compute the derived address with `derived_address`. Answers synchronously (no
+//! yield/resume).
 use k256::ecdsa::SigningKey;
 use near_sdk::serde_json::{json, Value};
 use near_sdk::{env, near, require, AccountId, NearToken};
