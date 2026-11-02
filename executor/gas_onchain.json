@@ -1,0 +1,283 @@
+{
+ "rpc": "https://base-sepolia-rpc.publicnode.com",
+ "deployments": {
+  "backupMarketId": "0x99d43c0f2a0eb6172774598a4e34e7eee09caa502692c2b2df0f40e1e3c5ea75",
+  "backupOracle": "0x20Ff664b99676a45A13bD77ACB2AFECeA10Cd538",
+  "block": 50841606,
+  "chainId": 84532,
+  "cooldownSeconds": 60,
+  "demoMarketId": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",
+  "demoPool": "0x722F350ec250c1697063A080B0196506D7Fe21c1",
+  "dusdc": "0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5",
+  "executor": "0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40",
+  "liveMarketId": "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c",
+  "liveOracle": "0x7D0ebc71EBBEC6F215C2Ab818F9dB538A52f6a3E",
+  "livePool": "0x57183717A087d2fe3Ad890873877244c3B96156c",
+  "mockOracle": "0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f",
+  "morpho": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+  "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "weth": "0x4200000000000000000000000000000000000006"
+ },
+ "rows": [
+  {
+   "step": "approve executor",
+   "method": "approve",
+   "tx": "0x385ebeef44ef15f3cf59dc8d69db0973ce369188993a84e61385da8c389bee80",
+   "block": 51012114,
+   "status": 1,
+   "gasUsed": 46343,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 969657105666
+  },
+  {
+   "step": "approve executor",
+   "method": "approve",
+   "tx": "0x4cb3c472b1e3e906eefb78926c77856f53de9736237715d797423b6d4c6a8746",
+   "block": 51012128,
+   "status": 1,
+   "gasUsed": 55785,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 857096710394
+  },
+  {
+   "step": "approve executor",
+   "method": "approve",
+   "tx": "0x85cb0a954d0fff034d9da12d7e35295b1352669438c6a7fdc417747d849f5cd5",
+   "block": 51012133,
+   "status": 1,
+   "gasUsed": 46464,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 857096710394
+  },
+  {
+   "step": "Morpho.setAuthorization(executor)",
+   "method": "setAuthorization",
+   "tx": "0x9fb60a07b4097967756b390174e988d15e6b5659c61c3d852b14ca0e48684189",
+   "block": 51012148,
+   "status": 1,
+   "gasUsed": 47250,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 857096710394
+  },
+  {
+   "step": "approve Morpho USDC",
+   "method": "approve",
+   "tx": "0x39c6162f3b102a3b3a27457422cb68646d51c28f779b80039fc98c73b9ffa986",
+   "block": 51012170,
+   "status": 1,
+   "gasUsed": 38337,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 857096710394
+  },
+  {
+   "step": "supply 3 USDC to live",
+   "method": "supply",
+   "tx": "0xbad7927da6a8b4ba6cc697b74498ee1e272e072a684ded3de2124b27e58c1ebe",
+   "block": 51012174,
+   "status": 1,
+   "gasUsed": 127576,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 1570795998559
+  },
+  {
+   "step": "approve Morpho USDC",
+   "method": "approve",
+   "tx": "0x47a37fe1812c76643fc8e2d731fd8921c556017cc65d1db49b5fea7bb1364ee4",
+   "block": 51012189,
+   "status": 1,
+   "gasUsed": 55437,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 866765261170
+  },
+  {
+   "step": "supply 3 USDC to backup",
+   "method": "supply",
+   "tx": "0x330845c5e9cbf40c04bbb2500152c9b8850810a3a8ee8175c7308c1dc12ec768",
+   "block": 51012203,
+   "status": 1,
+   "gasUsed": 127569,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 1588515493555
+  },
+  {
+   "step": "setCorridor live",
+   "method": "setCorridor",
+   "tx": "0x9abf31c8fdaa202cb855370b2fd7e50dcd40f3c3c6d305e8d867c855ad175915",
+   "block": 51012216,
+   "status": 1,
+   "gasUsed": 84064,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 1247742397300
+  },
+  {
+   "step": "setCorridor backup",
+   "method": "setCorridor",
+   "tx": "0xdcd46803a9276ed48010234dcb839fec906f881e487ebc7bf235411b5f4088f3",
+   "block": 51012229,
+   "status": 1,
+   "gasUsed": 84064,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 1247742397300
+  },
+  {
+   "step": "setCorridor demo",
+   "method": "setCorridor",
+   "tx": "0xa5de23d66982c02a24fdbaef40279da09de397c0259c11aad6e0f20d24cbf24e",
+   "block": 51012243,
+   "status": 1,
+   "gasUsed": 84064,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 1349666950387
+  },
+  {
+   "step": "open live 0.002 WETH at 50%",
+   "method": "open",
+   "tx": "0xac9cf93d9c9ce8515a7782769c2a59330939af04bbb69889b1c7d006d6944be8",
+   "block": 51012257,
+   "status": 1,
+   "gasUsed": 270487,
+   "effectiveGasPrice": 5100000,
+   "l1FeeWei": 1051641934379
+  },
+  {
+   "step": "migrate live->backup 40%",
+   "method": "migrate",
+   "tx": "0x3880adc442822d8b2ea493362dd56d2f7390d1b0d5ce2b9d3c1f76cb309835c9",
+   "block": 51012583,
+   "status": 1,
+   "gasUsed": 443948,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 1313382973893
+  },
+  {
+   "step": "migrate backup->live 100%",
+   "method": "migrate",
+   "tx": "0x5712666508ef87f9af02227ae013fba167696936f83a8fda3505228cf86dbcbe",
+   "block": 51012898,
+   "status": 1,
+   "gasUsed": 330337,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 1625373174615
+  },
+  {
+   "step": "exit live (idle USDC, no sale)",
+   "method": "exit",
+   "tx": "0x3dedbcfd2c390c48c76e904fcd037c6bbd08ae080ba8a4869bfcb677d4f06271",
+   "block": 51013222,
+   "status": 1,
+   "gasUsed": 248912,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 1501804027924
+  },
+  {
+   "step": "open demo 0.004 WETH at 50%",
+   "method": "open",
+   "tx": "0xded8e090a2246398761a41ab8fc9bde905f820971212a71e6b95997492af0904",
+   "block": 51013408,
+   "status": 1,
+   "gasUsed": 189052,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 1948615892210
+  },
+  {
+   "step": "reduce demo 0.3 dUSDC (discretionary)",
+   "method": "reduce",
+   "tx": "0xc9c9ff6faf7bfd105631d27baa1d2222db632b307b4a5b3ce6411c7b8206eee7",
+   "block": 51013732,
+   "status": 1,
+   "gasUsed": 393218,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 2102632276136
+  },
+  {
+   "step": "reduce demo 0.3 dUSDC (protective slice)",
+   "method": "reduce",
+   "tx": "0xd98cadcff6945bf279fd378164f97c4108c03a2c814cecc29db8982d73f69a9d",
+   "block": 51014190,
+   "status": 1,
+   "gasUsed": 271832,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 2102632276136
+  },
+  {
+   "step": "reduce demo to target (clamped)",
+   "method": "reduce",
+   "tx": "0xa22bb0144f956bf0022a864068bb03b7865c9fdd5eb23b2a80cb9b9d359aaa6a",
+   "block": 51014515,
+   "status": 1,
+   "gasUsed": 220446,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 2378765782394
+  },
+  {
+   "step": "dUSDC allowance to executor 0",
+   "method": "approve",
+   "tx": "0x18bd9c3322b246c2e5e80bef7f45e79b602666d92b14c3ad38911969d87dbc51",
+   "block": 51014839,
+   "status": 1,
+   "gasUsed": 24180,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 2223932851946
+  },
+  {
+   "step": "exit demo (all by sale)",
+   "method": "exit",
+   "tx": "0x6958c05102bf42b3fa1588b8ab46ca58f05d2d93a006125fe57ddcbd982a1f69",
+   "block": 51014852,
+   "status": 1,
+   "gasUsed": 245803,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 2223932851946
+  },
+  {
+   "step": "dUSDC allowance to executor max",
+   "method": "approve",
+   "tx": "0xeedbeb46cc6d12aeffee964157b350605016b0843f45c4bd6fa6b9d5745ab6ad",
+   "block": 51014866,
+   "status": 1,
+   "gasUsed": 46464,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 2223932851946
+  },
+  {
+   "step": "open demo 0.004 WETH at 50%",
+   "method": "open",
+   "tx": "0x2eb6425f93836b3580ef353437bdf8e3f776bc1e8670f1e541d1bc231ca28f64",
+   "block": 51014881,
+   "status": 1,
+   "gasUsed": 201352,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 2439175505219
+  },
+  {
+   "step": "openFromStables demo 2 dUSDC at 50%",
+   "method": "openFromStables",
+   "tx": "0xe27391d8b20c1bba6a496af88b0e5866d1ba122d7328c29d71e24543d3ec58ae",
+   "block": 51014895,
+   "status": 1,
+   "gasUsed": 224568,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 2366413565284
+  },
+  {
+   "step": "repay demo 0.5 dUSDC",
+   "method": "repay",
+   "tx": "0x649c983bf6f2840ff75dd401b3dea93b141a232b78a76045822d3d40eea911b9",
+   "block": 51014910,
+   "status": 1,
+   "gasUsed": 128104,
+   "effectiveGasPrice": 6000000,
+   "l1FeeWei": 2174594738036
+  },
+  {
+   "step": "close demo",
+   "method": "close",
+   "tx": "0x3d0e238d8acf53ad8f4bb6ceffe88bee650fa026ebfff488f1095ecc94257890",
+   "block": 51014924,
+   "status": 1,
+   "gasUsed": 145864,
+   "effectiveGasPrice": 5000001,
+   "l1FeeWei": 2174594738036
+  }
+ ]
+}

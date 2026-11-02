@@ -1,0 +1,22 @@
+# build outputs
+**/out/
+**/cache/
+**/target/
+**/node_modules/
+**/broadcast/
+**/lib/
+__pycache__/
+dist/
+
+# anything that could hold a secret
+*.env
+.env*
+*.key
+*.keystore
+.dev.vars*
+*.signed.json
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

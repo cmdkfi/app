@@ -1,0 +1,36 @@
+[package]
+name = "prime-vault-proto"
+description = "PRIME prototype P2: vault on NEAR (owner messages, policy, agent key, attestation, Base transactions via Chain Signatures). Throwaway."
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# `ecrecover` is behind the `unstable` feature in near-sdk 5.29.1 (measurement G).
+near-sdk = { version = "5.29.1", features = ["unstable"] }
+# Same verifier build as measurement F.
+dcap-qvl = { version = "0.7.0", default-features = false, features = ["contract", "std", "default-x509", "rustcrypto"] }
+omni-transaction = { version = "0.5.0", default-features = false, features = ["evm"] }
+hex = "0.4"
+sha2 = "0.10"
+# omni-transaction encodes but does not decode; the decode-back uses the same rlp crate it encodes with.
+rlp = "0.6.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["custom"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[dev-dependencies]
+near-sdk = { version = "5.29.1", features = ["unstable", "unit-testing"] }
+near-workspaces = "0.23.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+anyhow = "1"

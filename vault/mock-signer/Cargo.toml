@@ -1,0 +1,21 @@
+[package]
+name = "prime-mock-signer"
+description = "Sandbox-only stand-in for v1.signer-prod.testnet: same sign() arguments and response JSON, deterministic k256 key per (predecessor, path). Never deployed to testnet."
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "5.29.1"
+k256 = { version = "0.13", default-features = false, features = ["ecdsa", "arithmetic"] }
+hex = "0.4"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

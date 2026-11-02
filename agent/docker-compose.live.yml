@@ -1,0 +1,12 @@
+services:
+  agent:
+    image: ghcr.io/fffilimonov/prime-e-test@sha256:dbf276196700ff0b2ec53804c30c7de061d3bf58432446595ec8edcfe575c05d
+    command: ["--mode", "live"]
+    environment:
+      - NEARAI_API_KEY=${NEARAI_API_KEY}
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - evidence:/evidence
+    restart: "no"
+volumes:
+  evidence:
