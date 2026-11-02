@@ -62,7 +62,13 @@ contract CorridorMathTest is Test {
         t = bound(t, 0, 1.5e18);
         a = bound(a, 0, 1.5e18);
         b = bound(b, 0, 1.5e18);
-        assertEq(M.corridorValid(f, t, a, 0.86e18, b), f < t && t < a && a < 0.86e18 && b <= WAD);
+        assertEq(M.corridorValid(f, t, a, 0.86e18, b), f < t && t + 0.001e18 < a && a < 0.86e18 && b <= WAD);
+    }
+
+    /// act within TARGET_TOLERANCE of target is refused; one unit above it is accepted.
+    function test_corridorValid_act_tolerance_boundary() public pure {
+        assertFalse(M.corridorValid(0.3e18, 0.5e18, 0.5e18 + 0.001e18, 0.86e18, 0.2e18));
+        assertTrue(M.corridorValid(0.3e18, 0.5e18, 0.5e18 + 0.001e18 + 1, 0.86e18, 0.2e18));
     }
 
     /// toAssetsUp matches Morpho's SharesMathLib (mulDivUp with 1e6 virtual shares, 1 virtual asset).

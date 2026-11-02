@@ -386,6 +386,21 @@ contract ExecutorForkTest is ForkBase {
         exec.migrate(LIVE_ID, BACKUP_ID, 1e18, _dl());
     }
 
+    function test_migrate_refused_when_destination_switch_off() public {
+        _setCorridor(alice, LIVE_ID, _default());
+        _setCorridor(alice, BACKUP_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0.2e18, false, true));
+        _open(alice, LIVE_ID, 1e18, 0.5e18);
+        vm.prank(alice);
+        vm.expectRevert(Executor.MigrateDisabled.selector);
+        exec.migrate(LIVE_ID, BACKUP_ID, 1e18, _dl());
+        // the destination switch was the cause: with it on, the same move succeeds
+        _setCorridor(alice, BACKUP_ID, _default());
+        vm.prank(alice);
+        exec.migrate(LIVE_ID, BACKUP_ID, 1e18, _dl());
+        (uint256 cb,) = _pos(alice, BACKUP_ID);
+        assertEq(cb, 1e18, "all collateral on backup");
+    }
+
     function test_migrate_refused_between_different_loan_tokens() public {
         _setCorridor(alice, LIVE_ID, _default());
         _setCorridor(alice, DEMO_ID, _default());
@@ -647,7 +662,7 @@ contract ExecutorForkTest is ForkBase {
         target = uint64(bound(target, 0, 1e18));
         act = uint64(bound(act, 0, 1e18));
         budget = uint64(bound(budget, 0, 1.2e18));
-        bool ok = floor < target && target < act && act < LLTV && budget <= 1e18;
+        bool ok = floor < target && target + 0.001e18 < act && act < LLTV && budget <= 1e18;
         vm.prank(alice);
         if (!ok) vm.expectRevert(Executor.BadCorridor.selector);
         exec.setCorridor(DEMO_ID, _corridor(target, act, floor, budget, true, true), _dl());
@@ -659,6 +674,16 @@ contract ExecutorForkTest is ForkBase {
             assertEq(b, budget);
             assertTrue(set);
         }
+    }
+
+    function test_setCorridor_act_within_tolerance_of_target_refused() public {
+        vm.prank(alice);
+        vm.expectRevert(Executor.BadCorridor.selector);
+        exec.setCorridor(DEMO_ID, _corridor(0.5e18, 0.5e18 + 0.001e18, 0.3e18, 0.2e18, true, true), _dl());
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.5e18 + 0.001e18 + 1, 0.3e18, 0.2e18, true, true));
+        (, uint64 a,,,,, bool set) = exec.corridors(alice, DEMO_ID);
+        assertEq(a, 0.5e18 + 0.001e18 + 1);
+        assertTrue(set);
     }
 
     function test_setCorridor_unknown_market() public {

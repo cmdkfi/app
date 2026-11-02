@@ -11,6 +11,8 @@ library CorridorMath {
     uint256 internal constant SLIPPAGE_BPS = 100; // 1%: fills no worse than 1% below Morpho's oracle
     uint256 internal constant VIRTUAL_SHARES = 1e6; // Morpho SharesMathLib
     uint256 internal constant VIRTUAL_ASSETS = 1;
+    /// 0.1 percentage points: a protective session ends once LTV is this close to target, so act must sit above it.
+    uint256 internal constant TARGET_TOLERANCE = 0.001e18;
 
     /// Morpho SharesMathLib.toAssetsUp: debt of a borrower.
     function toAssetsUp(uint256 shares, uint256 totalAssets, uint256 totalShares) internal pure returns (uint256) {
@@ -70,12 +72,12 @@ library CorridorMath {
         return limit > soldInWindow ? limit - soldInWindow : 0;
     }
 
-    /// floor < target < act < lltv, sell budget at most 100%.
+    /// floor < target, target + TARGET_TOLERANCE < act < lltv, sell budget at most 100%.
     function corridorValid(uint256 floor, uint256 target, uint256 act, uint256 lltv, uint256 sellBudget)
         internal
         pure
         returns (bool)
     {
-        return floor < target && target < act && act < lltv && sellBudget <= WAD;
+        return floor < target && target + TARGET_TOLERANCE < act && act < lltv && sellBudget <= WAD;
     }
 }

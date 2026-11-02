@@ -49,8 +49,6 @@ contract Executor {
     uint256 internal constant MAX_MOVES = 2; // per rolling WINDOW
     uint256 internal constant SALE_SLOTS = 16; // discretionary sales remembered per caller and collateral token (rolling WINDOW)
     uint256 internal constant DUST_DEBT = 1000; // loan units (0.001 USDC): a smaller remainder moves with a migrate
-    // 0.1 percentage points: a protective session ends once LTV is this close to target
-    uint256 internal constant TARGET_TOLERANCE = 0.001e18;
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
@@ -256,7 +254,7 @@ contract Executor {
         uint256 start = sessionStart[msg.sender][id];
         if (start != 0 && block.timestamp >= start + SESSION) start = 0; // session expired
         if (start == 0 && ltvBefore > c.act) start = block.timestamp; // crossing the act line starts one
-        bool protective = start != 0 && ltvBefore > c.target + TARGET_TOLERANCE;
+        bool protective = start != 0 && ltvBefore > c.target + M.TARGET_TOLERANCE;
 
         uint256 maxAmount;
         if (protective) {
@@ -295,8 +293,8 @@ contract Executor {
     function migrate(bytes32 from, bytes32 to, uint256 fraction, uint256 deadline) external nonReentrant before(deadline) {
         if (from == to) revert MarketMismatch();
         Corridor memory cf = _agentCorridor(msg.sender, from);
-        _agentCorridor(msg.sender, to);
-        if (!cf.migrateAllowed) revert MigrateDisabled();
+        Corridor memory ct = _agentCorridor(msg.sender, to);
+        if (!cf.migrateAllowed || !ct.migrateAllowed) revert MigrateDisabled();
         MarketParams memory a = _params(from);
         MarketParams memory b = _params(to);
         if (a.loanToken != b.loanToken || a.collateralToken != b.collateralToken) revert MarketMismatch();
