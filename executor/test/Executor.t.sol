@@ -457,6 +457,103 @@ contract ExecutorForkTest is ForkBase {
         _assertExecutorEmpty();
     }
 
+    /// Budget base: only agent-active markets count. Collateral the caller parked on live with no corridor does not
+    /// enlarge the budget of the demo position.
+    function test_budget_base_ignores_collateral_on_markets_without_a_corridor() public {
+        _park(alice, live, 9e18); // no corridor on live
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.05e18, 0.2e18, true, true));
+        _open(alice, DEMO_ID, 1e18, 0.5e18);
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        uint256 sold = exec.soldInWindow(alice, WETH);
+        assertLe(sold, 0.2e18, "within 20% of the demo collateral");
+        assertGe(sold, 0.19e18, "the budget bound the sale");
+        assertGt(exec.ltvOf(alice, DEMO_ID), 0.3e18, "well above the 5% floor");
+        _assertExecutorEmpty();
+    }
+
+    /// Budget fraction: the smallest sell budget among the agent-active corridors in that token. (i) With collateral
+    /// on live (5%) and backup (20%), a sale on backup gets 5%. (ii) After the rest moves to backup, live holds
+    /// nothing and is not active, so backup's own 20% applies; the sale already in the window still counts.
+    function test_budget_fraction_is_the_smallest_among_active_corridors() public {
+        _setCorridor(alice, LIVE_ID, _corridor(0.5e18, 0.7e18, 0.05e18, 0.05e18, true, true));
+        _setCorridor(alice, BACKUP_ID, _corridor(0.5e18, 0.7e18, 0.05e18, 0.2e18, true, true));
+        _open(alice, LIVE_ID, 1e18, 0.5e18);
+        vm.prank(alice);
+        exec.migrate(LIVE_ID, BACKUP_ID, 0.5e18, _dl());
+
+        // (i) both markets hold collateral
+        (uint256 liveColl,) = _pos(alice, LIVE_ID);
+        (uint256 backupColl,) = _pos(alice, BACKUP_ID);
+        assertGt(liveColl, 0, "live active");
+        assertGt(backupColl, 0, "backup active");
+        uint256 left = _budgetLeft(0.05e18, liveColl + backupColl);
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        exec.reduce(BACKUP_ID, 10_000e6, _dl());
+        uint256 sold = exec.soldInWindow(alice, WETH);
+        assertLe(sold, left, "within live's 5%");
+        assertGe(sold, left * 98 / 100, "the 5% bound the sale, not the floor");
+
+        // (ii) everything on backup: live keeps its 5% corridor but holds no collateral
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        exec.migrate(LIVE_ID, BACKUP_ID, 1e18, _dl());
+        (liveColl,) = _pos(alice, LIVE_ID);
+        (backupColl,) = _pos(alice, BACKUP_ID);
+        assertEq(liveColl, 0, "live empty: not active");
+        (,,,,,, bool liveSet) = exec.corridors(alice, LIVE_ID);
+        assertTrue(liveSet, "live corridor still set");
+        left = _budgetLeft(0.2e18, backupColl);
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        exec.reduce(BACKUP_ID, 10_000e6, _dl());
+        uint256 sold2 = exec.soldInWindow(alice, WETH);
+        assertLe(sold2 - sold, left, "within backup's 20%, the earlier sale counted");
+        assertGe(sold2 - sold, left * 98 / 100, "backup's 20% bound the sale");
+        assertGt(sold2, 0.05e18, "more than live's 5% in the window: live is not active");
+        _assertExecutorEmpty();
+    }
+
+    /// Budget base and fraction skip a market closed by exit, even with collateral put back on it through Morpho
+    /// (not through open, so it stays closed to the agent): backup's 1% corridor and its collateral do not count.
+    function test_budget_base_ignores_a_market_closed_by_exit() public {
+        _setCorridor(alice, LIVE_ID, _default()); // budget 20%, floor 30%
+        _setCorridor(alice, BACKUP_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0.01e18, true, true)); // budget 1%
+        _open(alice, LIVE_ID, 1e18, 0.5e18);
+        _open(alice, BACKUP_ID, 1e18, 0.5e18);
+        vm.prank(alice);
+        exec.exit(BACKUP_ID, _dl());
+        _park(alice, backup, 1e18);
+        assertTrue(exec.closedForAgent(alice, BACKUP_ID), "backup closed to the agent");
+        (uint256 backupColl,) = _pos(alice, BACKUP_ID);
+        assertEq(backupColl, 1e18, "collateral back on backup");
+
+        (uint256 liveColl,) = _pos(alice, LIVE_ID);
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        exec.reduce(LIVE_ID, 10_000e6, _dl());
+        uint256 sold = exec.soldInWindow(alice, WETH);
+        assertGe(sold, liveColl * 0.19e18 / 1e18, "live's 20% applies: backup's 1% is not active");
+        assertLe(sold, liveColl * 0.2e18 / 1e18, "base is live's collateral only");
+        _assertExecutorEmpty();
+    }
+
+    /// Collateral supplied for `u` straight to Morpho, without the executor: no corridor needed, no open.
+    function _park(address u, MarketParams memory mp, uint256 amount) internal {
+        vm.startPrank(u);
+        IERC20(mp.collateralToken).approve(MORPHO, amount);
+        morpho.supplyCollateral(mp, amount, u, "");
+        vm.stopPrank();
+    }
+
+    /// budget x (active base + sold in window) - sold in window, for alice's WETH.
+    function _budgetLeft(uint256 budget, uint256 activeBase) internal view returns (uint256) {
+        uint256 s = exec.soldInWindow(alice, WETH);
+        uint256 limit = budget * (activeBase + s) / 1e18;
+        return limit > s ? limit - s : 0;
+    }
+
     // ------------------------------------------------------------ minimum output
 
     function test_reduce_refused_when_pool_3pct_below_oracle() public {

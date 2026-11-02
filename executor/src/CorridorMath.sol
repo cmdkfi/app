@@ -61,14 +61,15 @@ library CorridorMath {
         return collateral * price * (BPS - SLIPPAGE_BPS) / (ORACLE_SCALE * BPS);
     }
 
-    /// Remaining discretionary sell budget in collateral units: budget fraction of the caller's collateral
-    /// at the start of the window (current collateral plus what was sold in the window), minus what was sold.
-    function remainingBudget(uint256 totalCollateral, uint256 soldInWindow, uint256 budgetWad)
+    /// Remaining discretionary sell budget in collateral units. The base is the collateral on the caller's
+    /// agent-active markets in that token at the start of the window (current collateral plus what was sold in the
+    /// window); the fraction is the smallest budget among their corridors. Returns fraction times base minus sold.
+    function remainingBudget(uint256 activeCollateral, uint256 soldInWindow, uint256 budgetWad)
         internal
         pure
         returns (uint256)
     {
-        uint256 limit = (totalCollateral + soldInWindow) * budgetWad / WAD;
+        uint256 limit = (activeCollateral + soldInWindow) * budgetWad / WAD;
         return limit > soldInWindow ? limit - soldInWindow : 0;
     }
 

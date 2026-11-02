@@ -23,7 +23,9 @@ contract Executor {
         uint64 target; // WAD; protective selling stops here
         uint64 act; // WAD; crossing it starts a protective session
         uint64 floor; // WAD; discretionary selling never goes below
-        uint64 sellBudget; // WAD fraction of the caller's collateral, rolling 24 h, discretionary sales only
+        // WAD fraction of the collateral on the caller's agent-active markets in that token, per rolling 24 hours;
+        // the smallest budget among those corridors applies. Discretionary sales only.
+        uint64 sellBudget;
         bool migrateAllowed;
         bool exitAllowed;
         bool set; // a corridor is the owner's approval of the market
@@ -267,11 +269,8 @@ contract Executor {
             delete sessionStart[msg.sender][id]; // a call that finds LTV within TARGET_TOLERANCE of target ends the session
             maxAmount = M.repayToLtv(debt, v, c.floor);
             if (maxAmount == 0) revert BelowFloor();
-            uint256 budgetColl = M.remainingBudget(
-                _totalCollateral(msg.sender, mp.collateralToken),
-                _soldInWindow(msg.sender, mp.collateralToken),
-                c.sellBudget
-            );
+            (uint256 base, uint256 budget) = _activeCollateral(msg.sender, mp.collateralToken);
+            uint256 budgetColl = M.remainingBudget(base, _soldInWindow(msg.sender, mp.collateralToken), budget);
             uint256 budgetAmount = M.worstCaseOut(budgetColl, price);
             if (budgetAmount == 0) revert SellBudget();
             if (budgetAmount < maxAmount) maxAmount = budgetAmount;
@@ -484,11 +483,21 @@ contract Executor {
         return coll;
     }
 
-    function _totalCollateral(address user, address token) internal view returns (uint256 sum) {
+    /// Collateral of `user` in `token` on the agent-active markets (corridor set, not closed by exit, collateral
+    /// held), and the smallest sell budget among their corridors (0 if there are none).
+    function _activeCollateral(address user, address token) internal view returns (uint256 sum, uint256 minBudget) {
+        minBudget = type(uint256).max;
         for (uint256 i; i < marketIds.length; ++i) {
             bytes32 id = marketIds[i];
-            if (_config[id].params.collateralToken == token) sum += _collateral(id, user);
+            if (_config[id].params.collateralToken != token) continue;
+            Corridor storage c = corridors[user][id];
+            if (!c.set || closedForAgent[user][id]) continue;
+            uint256 coll = _collateral(id, user);
+            if (coll == 0) continue;
+            sum += coll;
+            if (c.sellBudget < minBudget) minBudget = c.sellBudget;
         }
+        if (sum == 0) minBudget = 0;
     }
 
     function _borrowTo(bytes32 id, MarketParams memory mp, uint256 collateralIn, uint256 targetLtv) internal {

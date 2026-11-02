@@ -45,6 +45,7 @@ contract ExecutorInvariant is ForkBase {
     uint256[NF] oks;
     uint256 protectiveOk;
     uint256 discretionaryOk;
+    uint256 unequalBudgetOk; // discretionary reduces with unequal budgets among the active corridors
     uint256 invalidCorridorTried;
 
     // ghost logs
@@ -95,6 +96,7 @@ contract ExecutorInvariant is ForkBase {
     // ------------------------------------------------------------ owner paths
 
     /// A valid corridor, or in about 1 of 8 calls one that breaks exactly one rule (must revert BadCorridor).
+    /// The budget is drawn per call, so an actor's corridors in one token drift apart and h_reduce checks the minimum.
     function h_setCorridor(
         uint256 actorSeed,
         uint256 marketSeed,
@@ -231,8 +233,9 @@ contract ExecutorInvariant is ForkBase {
                 discretionaryOk++;
                 _expect(ltvAfter >= c.floor, "discretionary reduce went below floor");
                 _expect(sold == soldBefore + (collBefore - collAfter), "discretionary sale not recorded exactly");
-                uint256 limit = _maxBudget(u, ct) * (_totalColl(u, ct) + sold) / 1e18;
+                uint256 limit = _minBudget(u, ct) * (_activeColl(u, ct) + sold) / 1e18;
                 _expect(sold <= limit, "discretionary sales above the sell budget");
+                if (_unequalBudgets(u, ct)) unequalBudgetOk++;
                 saleLog[u][ct].push(vm.getBlockTimestamp());
                 _expect(_inWindow(saleLog[u][ct]) <= SALE_SLOTS, "more than 16 discretionary sales in 24 h");
             }
@@ -369,6 +372,7 @@ contract ExecutorInvariant is ForkBase {
         }
         console.log("reduce protective ok", protectiveOk);
         console.log("reduce discretionary ok", discretionaryOk);
+        console.log("reduce discretionary ok, unequal active budgets", unequalBudgetOk);
         console.log("invalid corridors tried", invalidCorridorTried);
     }
 
@@ -517,13 +521,38 @@ contract ExecutorInvariant is ForkBase {
         }
     }
 
-    /// The largest sell budget among the actor's corridors on markets with this collateral token.
-    function _maxBudget(address u, address token) internal view returns (uint256 m) {
+    /// Agent-active: the actor's corridor is set, the market is not closed by exit, and the actor holds collateral.
+    function _active(address u, uint256 i) internal view returns (bool) {
+        (uint256 c,) = _pos(u, ids[i]);
+        return _corr(u, i).set && !exec.closedForAgent(u, ids[i]) && c > 0;
+    }
+
+    /// Collateral in this token on the actor's agent-active markets: the base of the sell budget.
+    function _activeColl(address u, address token) internal view returns (uint256 sum) {
         for (uint256 i; i < 4; ++i) {
-            if (_collToken(i) != token) continue;
-            Executor.Corridor memory c = _corr(u, i);
-            if (c.set && c.sellBudget > m) m = c.sellBudget;
+            if (_collToken(i) != token || !_active(u, i)) continue;
+            (uint256 c,) = _pos(u, ids[i]);
+            sum += c;
         }
+    }
+
+    /// The smallest sell budget among the actor's agent-active corridors in this token; 0 if none is active.
+    function _minBudget(address u, address token) internal view returns (uint256 m) {
+        m = type(uint256).max;
+        for (uint256 i; i < 4; ++i) {
+            if (_collToken(i) != token || !_active(u, i)) continue;
+            uint256 b = _corr(u, i).sellBudget;
+            if (b < m) m = b;
+        }
+        if (m == type(uint256).max) m = 0;
+    }
+
+    function _unequalBudgets(address u, address token) internal view returns (bool) {
+        uint256 m = _minBudget(u, token);
+        for (uint256 i; i < 4; ++i) {
+            if (_collToken(i) == token && _active(u, i) && _corr(u, i).sellBudget != m) return true;
+        }
+        return false;
     }
 
     function _balances(address u) internal view returns (uint256[4] memory b) {
