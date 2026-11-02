@@ -156,6 +156,7 @@ contract ExecutorInvariant is ForkBase {
             _count(F_OPEN, true);
             _expect(!exec.closedForAgent(u, ids[i]), "open left the market closed for the agent");
             _expect(exec.ltvOf(u, ids[i]) <= ltv, "open borrowed above the requested LTV");
+            _expect(exec.sessionStart(u, ids[i]) == 0, "open left a session open");
         } catch {
             _count(F_OPEN, false);
         }
@@ -281,6 +282,8 @@ contract ExecutorInvariant is ForkBase {
             _expect(_same(mb, _balances(u)), "migrate moved the caller's wallet balances");
             moveLog[u].push(vm.getBlockTimestamp());
             _expect(_inWindow(moveLog[u]) <= MAX_MOVES, "more than 2 migrates in 24 h");
+            _expect(exec.sessionStart(u, ids[from]) == 0, "migrate left a session open on the source");
+            _expect(exec.sessionStart(u, ids[to]) == 0, "migrate left a session open on the destination");
         } catch {
             _count(F_MIGRATE, false);
         }

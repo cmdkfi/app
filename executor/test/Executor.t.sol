@@ -215,6 +215,44 @@ contract ExecutorForkTest is ForkBase {
         exec.reduce(DEMO_ID, 10e6, _dl());
     }
 
+    /// The owner's open ends the session: a re-lever below the act line two hours after a protective sale is not
+    /// sold back to target by the agent without the budget.
+    function test_open_ends_the_session() public {
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0, true, true));
+        _open(alice, DEMO_ID, 1e18, 0.5e18);
+        _demoPrice(1600); // LTV 75%: above the act line
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        assertGt(exec.sessionStart(alice, DEMO_ID), 0, "session open after the protective sale");
+        assertLe(exec.ltvOf(alice, DEMO_ID), 0.5005e18, "sold to target");
+
+        // two hours later the price recovers and the owner re-levers below the act line
+        _warp(2 hours);
+        _demoPrice(2000);
+        _open(alice, DEMO_ID, 0, 0.65e18);
+        uint256 l = exec.ltvOf(alice, DEMO_ID);
+        assertGt(l, 0.5e18 + 0.001e18, "above target + tolerance");
+        assertLt(l, 0.7e18, "below the act line");
+        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "open ended the session");
+
+        (uint256 c0,) = _pos(alice, DEMO_ID);
+        vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector); // discretionary, budget 0
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        (uint256 c1,) = _pos(alice, DEMO_ID);
+        assertEq(c1, c0, "no collateral sold");
+
+        // with a 20% budget the same call is a discretionary sale within the budget
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0.2e18, true, true));
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        uint256 sold = exec.soldInWindow(alice, WETH);
+        assertGt(sold, 0, "the sale was discretionary");
+        assertLe(sold, c0 * 0.2e18 / 1e18, "within the 20% budget");
+        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "no session");
+        _assertExecutorEmpty();
+    }
+
     // ------------------------------------------------------------ reduce: discretionary
 
     function test_reduce_discretionary_inside_budget() public {
@@ -588,6 +626,95 @@ contract ExecutorForkTest is ForkBase {
         assertEq(cl, 0);
         assertEq(dl, 0);
         assertEq(cb, c0);
+    }
+
+    /// Set ETH/USD to `pct`% of its current answer (fresh, kept by _warp) and move the live pool to the new price.
+    function _ethPrice(uint256 pct) internal {
+        ethUsdAnswer = ethUsdAnswer * int256(pct) / 100;
+        _fresh();
+        _alignPool(LIVE_POOL, WETH, IOracle(LIVE_ORACLE).price(), 10_000);
+    }
+
+    /// A migrate ends the session on both markets: collateral moved onto a market with an open session never crossed
+    /// that market's act line, so it is not sold protectively. A later crossing starts a new session.
+    function test_migrate_ends_the_session_on_both_markets() public {
+        Executor.Corridor memory c = _corridor(0.4e18, 0.55e18, 0.25e18, 0, true, true);
+        _setCorridor(alice, LIVE_ID, c);
+        _setCorridor(alice, BACKUP_ID, c);
+        _open(alice, BACKUP_ID, 1e18, 0.5e18);
+        _open(alice, LIVE_ID, 1e18, 0.45e18);
+        _ethPrice(85); // backup 58.8% (above act), live 52.9% (below)
+        assertGt(exec.ltvOf(alice, BACKUP_ID), 0.55e18, "backup above the act line");
+        assertLt(exec.ltvOf(alice, LIVE_ID), 0.55e18, "live below the act line");
+
+        vm.prank(alice);
+        exec.reduce(BACKUP_ID, 10_000e6, _dl());
+        assertGt(exec.sessionStart(alice, BACKUP_ID), 0, "session open on backup");
+        assertLe(exec.ltvOf(alice, BACKUP_ID), 0.4005e18, "backup sold to target");
+        assertEq(exec.soldInWindow(alice, WETH), 0, "protective");
+
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        exec.migrate(LIVE_ID, BACKUP_ID, 1e18, _dl());
+        assertEq(exec.sessionStart(alice, LIVE_ID), 0, "no session on the source");
+        assertEq(exec.sessionStart(alice, BACKUP_ID), 0, "migrate ended the session on the destination");
+        uint256 l = exec.ltvOf(alice, BACKUP_ID);
+        assertGt(l, 0.4e18 + 0.001e18, "merged LTV above target + tolerance");
+        assertLt(l, 0.55e18, "merged LTV below the act line");
+
+        _warp(COOLDOWN);
+        (uint256 c0,) = _pos(alice, BACKUP_ID);
+        vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector); // discretionary, budget 0
+        exec.reduce(BACKUP_ID, 10_000e6, _dl());
+        (uint256 c1,) = _pos(alice, BACKUP_ID);
+        assertEq(c1, c0, "no collateral sold");
+
+        // a further drop takes the merged position above the act line: a new session starts
+        _ethPrice(80);
+        assertGt(exec.ltvOf(alice, BACKUP_ID), 0.55e18, "merged LTV above the act line");
+        vm.prank(alice);
+        exec.reduce(BACKUP_ID, 10_000e6, _dl());
+        (uint256 c2,) = _pos(alice, BACKUP_ID);
+        assertLt(c2, c1, "protective sale with budget 0");
+        assertGt(exec.sessionStart(alice, BACKUP_ID), 0, "new session open");
+        assertEq(exec.soldInWindow(alice, WETH), 0, "protective sales do not use the budget");
+        assertGe(exec.ltvOf(alice, BACKUP_ID), 0.4e18, "not below target");
+        _assertExecutorEmpty();
+    }
+
+    /// A migrate also ends the session on the source: the part left behind starts a new session on the next reduce
+    /// if its LTV is still above the act line, with the clock restarted at that call.
+    function test_migrate_ends_the_session_on_the_source() public {
+        Executor.Corridor memory c = _corridor(0.4e18, 0.55e18, 0.25e18, 0, true, true);
+        _setCorridor(alice, LIVE_ID, c);
+        _setCorridor(alice, BACKUP_ID, c);
+        _open(alice, LIVE_ID, 1e18, 0.5e18);
+        _ethPrice(85); // live 58.8%: above the act line
+        assertGt(exec.ltvOf(alice, LIVE_ID), 0.55e18, "live above the act line");
+
+        vm.prank(alice);
+        exec.reduce(LIVE_ID, 100e6, _dl());
+        assertGt(exec.sessionStart(alice, LIVE_ID), 0, "session open on live");
+
+        _warp(COOLDOWN);
+        vm.prank(alice);
+        exec.migrate(LIVE_ID, BACKUP_ID, 0.5e18, _dl());
+        (uint256 cl,) = _pos(alice, LIVE_ID);
+        assertGt(cl, 0, "the source keeps a position");
+        assertEq(exec.sessionStart(alice, LIVE_ID), 0, "migrate ended the session on the source");
+        assertEq(exec.sessionStart(alice, BACKUP_ID), 0, "no session on the destination");
+        assertGt(exec.ltvOf(alice, LIVE_ID), 0.55e18, "live still above the act line");
+
+        _warp(COOLDOWN);
+        uint256 now_ = vm.getBlockTimestamp(); // not block.timestamp: via-IR may re-read it at the use
+        vm.prank(alice);
+        exec.reduce(LIVE_ID, 100e6, _dl());
+        (uint256 cl2,) = _pos(alice, LIVE_ID);
+        assertLt(cl2, cl, "protective sale with budget 0");
+        assertEq(exec.sessionStart(alice, LIVE_ID), now_, "new session, clock restarted");
+        assertEq(exec.soldInWindow(alice, WETH), 0, "protective sales do not use the budget");
+        _assertExecutorEmpty();
     }
 
     // ------------------------------------------------------------ exit

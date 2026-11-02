@@ -325,6 +325,10 @@ contract Executor {
         uint256 collToBefore = _collateral(to, msg.sender);
         (, uint256 debtToBefore,) = _borrow(to, msg.sender);
 
+        // a move is a fresh position on the destination; if LTV there is still above the act line, the next reduce
+        // starts a new session
+        delete sessionStart[msg.sender][from];
+        delete sessionStart[msg.sender][to];
         MORPHO.flashLoan(a.loanToken, assets, abi.encode(Op.Migrate, msg.sender, from, to, sharesMove, collMove));
 
         // checked after: collateral conserved exactly, debt conserved up to Morpho's rounding
@@ -502,6 +506,7 @@ contract Executor {
         uint256 ltvAfter = M.ltv(debtAfter, v);
         if (ltvAfter > targetLtv) revert AboveTarget();
         closedForAgent[msg.sender][id] = false; // the owner re-opens the market for the agent
+        delete sessionStart[msg.sender][id]; // the owner's open is a fresh decision
         emit Opened(msg.sender, id, collateralIn, borrowed, ltvAfter);
     }
 
