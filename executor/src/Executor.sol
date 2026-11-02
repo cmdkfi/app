@@ -49,6 +49,8 @@ contract Executor {
     uint256 internal constant MAX_MOVES = 2; // per rolling WINDOW
     uint256 internal constant SALE_SLOTS = 16; // discretionary sales remembered per caller and collateral token (rolling WINDOW)
     uint256 internal constant DUST_DEBT = 1000; // loan units (0.001 USDC): a smaller remainder moves with a migrate
+    // 0.1 percentage points: a protective session ends once LTV is this close to target
+    uint256 internal constant TARGET_TOLERANCE = 0.001e18;
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
@@ -100,7 +102,6 @@ contract Executor {
     error BadCorridor();
     error Cooldown();
     error BelowFloor();
-    error AtTarget();
     error SellBudget();
     error MoveLimit();
     error MigrateDisabled();
@@ -255,15 +256,17 @@ contract Executor {
         uint256 start = sessionStart[msg.sender][id];
         if (start != 0 && block.timestamp >= start + SESSION) start = 0; // session expired
         if (start == 0 && ltvBefore > c.act) start = block.timestamp; // crossing the act line starts one
-        bool protective = start != 0 && ltvBefore > c.target;
+        bool protective = start != 0 && ltvBefore > c.target + TARGET_TOLERANCE;
 
         uint256 maxAmount;
         if (protective) {
             sessionStart[msg.sender][id] = start;
             maxAmount = M.repayToLtv(debt, v, c.target);
-            if (maxAmount == 0) revert AtTarget();
+            // maxAmount > 0: ltvBefore > target + TARGET_TOLERANCE makes repayToLtv at least 1 for any position
+            // worth more than (WAD - target) / TARGET_TOLERANCE loan units (500, 0.0005 USDC, at a 50% target);
+            // below that Morpho itself refuses a zero repay
         } else {
-            delete sessionStart[msg.sender][id]; // a call that finds LTV at or below target ends the session
+            delete sessionStart[msg.sender][id]; // a call that finds LTV within TARGET_TOLERANCE of target ends the session
             maxAmount = M.repayToLtv(debt, v, c.floor);
             if (maxAmount == 0) revert BelowFloor();
             uint256 budgetColl = M.remainingBudget(

@@ -124,8 +124,9 @@ contract ExecutorForkTest is ForkBase {
         }
     }
 
-    /// A fill below the oracle leaves LTV a hair above target, so the session stays open and the next call sells dust.
-    function test_reduce_after_clamp_keeps_selling_dust() public {
+    /// A fill below the oracle leaves LTV a hair above target. That is within TARGET_TOLERANCE (0.1 pp), so the next
+    /// call ends the session and is discretionary: with budget 0 it is refused instead of selling dust.
+    function test_reduce_session_ends_within_tolerance_of_target() public {
         _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0, true, true));
         _open(alice, DEMO_ID, 1e18, 0.5e18);
         _demoPrice(1600);
@@ -134,16 +135,70 @@ contract ExecutorForkTest is ForkBase {
         uint256 l1 = exec.ltvOf(alice, DEMO_ID);
         (uint256 c1,) = _pos(alice, DEMO_ID);
         assertGt(l1, 0.5e18, "a hair above target");
+        assertLe(l1, 0.5e18 + 0.001e18, "within the tolerance");
+        assertGt(exec.sessionStart(alice, DEMO_ID), 0, "session open after the clamped slice");
+
         _warp(COOLDOWN);
         vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector); // session ended: discretionary, budget 0
         exec.reduce(DEMO_ID, 10_000e6, _dl());
         (uint256 c2,) = _pos(alice, DEMO_ID);
-        assertGt(exec.sessionStart(alice, DEMO_ID), 0, "session still open");
-        assertGt(c1 - c2, 0, "another sale");
-        assertLt((c1 - c2) * 1000, c1, "under 0.1% of the collateral");
-        emit log_named_uint("LTV after clamp (1e18)", l1);
-        emit log_named_uint("collateral sold by the next call (wei)", c1 - c2);
-        emit log_named_uint("collateral left (wei)", c2);
+        assertEq(c2, c1, "no collateral sold");
+
+        // the revert rolled back the session end; with a budget the same call succeeds and the end is visible
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0.2e18, true, true));
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 1e6, _dl());
+        assertEq(exec.sessionStart(alice, DEMO_ID), 0, "session ended");
+        assertGt(exec.soldInWindow(alice, WETH), 0, "the sale was discretionary");
+    }
+
+    /// LTV above target + TARGET_TOLERANCE keeps the session protective; inside the tolerance it ends.
+    function test_reduce_session_continues_above_tolerance() public {
+        _setCorridor(alice, DEMO_ID, _corridor(0.5e18, 0.7e18, 0.3e18, 0, true, true));
+        _open(alice, DEMO_ID, 1e18, 0.5e18);
+        _demoPrice(1600); // LTV 75%
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 100e6, _dl()); // starts the session
+        uint256 started = exec.sessionStart(alice, DEMO_ID);
+        assertGt(started, 0, "session open");
+        assertGt(exec.ltvOf(alice, DEMO_ID), 0.7e18, "still above the act line");
+
+        // LTV 50.2%: between target + tolerance and act
+        _warp(COOLDOWN);
+        _demoPriceForLtv(0.502e18);
+        uint256 l = exec.ltvOf(alice, DEMO_ID);
+        assertGt(l, 0.5e18 + 0.001e18, "above the tolerance");
+        assertLt(l, 0.7e18, "below the act line");
+        (uint256 c0,) = _pos(alice, DEMO_ID);
+        vm.prank(alice);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        (uint256 c1,) = _pos(alice, DEMO_ID);
+        assertLt(c1, c0, "protective sale with budget 0");
+        assertEq(exec.soldInWindow(alice, WETH), 0, "protective sales do not use the budget");
+        assertEq(exec.sessionStart(alice, DEMO_ID), started, "session continues");
+        assertGe(exec.ltvOf(alice, DEMO_ID), 0.5e18, "not below target");
+
+        // LTV 50.05%: inside the tolerance, the call ends the session and is discretionary
+        _warp(COOLDOWN);
+        _demoPriceForLtv(0.5005e18);
+        l = exec.ltvOf(alice, DEMO_ID);
+        assertGt(l, 0.5e18, "above target");
+        assertLe(l, 0.5e18 + 0.001e18, "within the tolerance");
+        vm.prank(alice);
+        vm.expectRevert(Executor.SellBudget.selector);
+        exec.reduce(DEMO_ID, 10_000e6, _dl());
+        (uint256 c2,) = _pos(alice, DEMO_ID);
+        assertEq(c2, c1, "no collateral sold");
+    }
+
+    /// Set the demo oracle (and pool) to the price at which alice's demo position has LTV `l` (WAD).
+    /// Mock price scale: loan units per collateral unit times 1e36 (e.g. $2,400 = 2400e24).
+    function _demoPriceForLtv(uint256 l) internal {
+        (uint256 coll, uint256 debt) = _pos(alice, DEMO_ID);
+        uint256 p = debt * 1e36 * 1e18 / (coll * l);
+        _setMockPrice(p);
+        _alignPool(demoPool, WETH, p, 10_000);
     }
 
     function test_reduce_session_ends_after_24h() public {
