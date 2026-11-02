@@ -20,6 +20,7 @@ use near_workspaces::result::ExecutionFinalResult;
 use near_workspaces::types::{AccessKey, AccessKeyPermission, Gas, KeyType, NearToken, SecretKey};
 use near_workspaces::{Account, AccountId, Contract, Worker};
 use omni_transaction::evm::EVMTransaction;
+use rlp::{Rlp, RlpStream};
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
@@ -83,6 +84,13 @@ impl Wallet {
     }
 }
 
+/// keccak256 of hex bytes with `cast keccak` (independent of the vault's host keccak).
+fn keccak(hex_bytes: &str) -> String {
+    let out = Command::new(cast()).args(["keccak", hex_bytes]).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    String::from_utf8(out.stdout).unwrap().trim().into()
+}
+
 /// Decode a raw signed transaction with `cast decode-transaction` (independent of the vault's own code).
 fn decode_signed(raw: &str) -> Value {
     let out = Command::new(cast()).args(["decode-transaction", raw]).output().unwrap();
@@ -114,6 +122,7 @@ fn signed(r: &ExecutionFinalResult) -> Vec<Value> {
 struct Env {
     worker: Worker<Sandbox>,
     vault: Contract,
+    signer: Contract,
     relayer: Account,
     owner: Wallet,
     other: Wallet,
@@ -150,7 +159,8 @@ async fn setup(tag: &str) -> Result<Env> {
     assert!(r.is_success(), "{:?}", r.into_result().err());
     let relayer =
         root.create_subaccount("relayer").initial_balance(NearToken::from_near(20)).transact().await?.into_result()?;
-    Ok(Env { worker, vault, relayer, owner, other, base, nonce: Default::default(), dir, gas: Default::default() })
+    let (nonce, gas) = (Default::default(), Default::default());
+    Ok(Env { worker, vault, signer, relayer, owner, other, base, nonce, dir, gas })
 }
 
 impl Env {
@@ -238,11 +248,12 @@ impl Env {
     }
 
     async fn check(&self, tx: &EVMTransaction, caller: &str) -> Result<String> {
-        let r = self
-            .vault
-            .view("check_transaction")
-            .args_json(json!({"tx_hex": hex::encode(tx.build_for_signing()), "caller": caller}))
-            .await;
+        self.check_hex(&hex::encode(tx.build_for_signing()), caller).await
+    }
+
+    /// `check_transaction` on arbitrary bytes (hex): "ok", or "ERR ..." with the view's panic message.
+    async fn check_hex(&self, tx_hex: &str, caller: &str) -> Result<String> {
+        let r = self.vault.view("check_transaction").args_json(json!({"tx_hex": tx_hex, "caller": caller})).await;
         Ok(match r {
             Ok(v) => v.json::<String>()?,
             Err(e) => format!("ERR {e:?}"),
@@ -852,5 +863,112 @@ async fn allowlist() -> Result<()> {
     assert_eq!(env.check(&tx(EXEC2, calldata(SEL_EXIT, &[live, dl])), "agent").await?, ok);
 
     env.print_gas("allowlist");
+    Ok(())
+}
+
+// ======================================================================== signing path
+
+/// The contract's panic message inside a failed view's error ("ERR ..." from `check_hex`), or the whole string.
+fn panic_msg(e: &str) -> &str {
+    let k = "panic_msg: \\\"";
+    e.find(k).and_then(|i| e[i + k.len()..].split('\\').next()).unwrap_or(e)
+}
+
+// What this proves: every 32-byte payload the vault sends to the signer is keccak256(0x02 || rlp(the 9 unsigned
+// EIP-1559 fields)) of a transaction the vault returns in the same call, at the same position, and nothing else
+// is sent for signing. It holds by construction: `sign` builds `unsigned = build_for_signing()` once, decodes
+// those bytes back and runs `check_tx` on them, then hashes the same `unsigned` bytes into `payload_v2.Ecdsa`;
+// `on_signed` signs nothing and only assembles the returned signatures onto the same `BaseTx`. So no raw hash, no
+// legacy or type-4 (EIP-7702) transaction, and no bytes that did not pass `check_tx` reach the signer. The test
+// checks the payloads the mock signer recorded against the signed transactions, independently of the vault's
+// code (rlp re-encoding of the signed list, `cast keccak`), and shows the decoder refusing the other shapes.
+#[tokio::test]
+async fn signing_path() -> Result<()> {
+    let env = setup("signing").await?;
+
+    // A mix of owner calls: 3 + 1 + 1 + 1 + 1 transactions.
+    let corridor = json!({"market": LIVE, "target": "500000000000000000", "act": "700000000000000000",
+        "floor": "300000000000000000", "sell_budget": "200000000000000000",
+        "migrate_allowed": true, "exit_allowed": true});
+    let calls = [
+        ("setup", json!({"market": LIVE, "authorize": true}), 3),
+        ("set_corridor", corridor, 1),
+        ("withdraw", json!({"token": WETH, "amount": "1000", "destination": STRANGER}), 1),
+        ("cancel", json!({}), 1),
+        ("sweep_eth", json!({"amount": "1000000000000000"}), 1),
+    ];
+    let mut txs = vec![];
+    for (method, args, n) in calls {
+        let r = env.owner(method, args, n).await?;
+        env.record(&format!("owner_call {method}, {n} mock signature{}", if n == 1 { "" } else { "s" }), &r);
+        let got = signed(&r);
+        assert_eq!(got.len(), n, "{method}");
+        txs.extend(got);
+    }
+    assert_eq!(txs.len(), 7);
+
+    // Nothing was signed that was not returned.
+    let payloads: Vec<String> = env.signer.view("payloads").await?.json()?;
+    assert_eq!(payloads.len(), txs.len(), "one signer payload per returned transaction");
+
+    for (i, (t, payload)) in txs.iter().zip(&payloads).enumerate() {
+        let raw = hex::decode(&t["raw"].as_str().unwrap()[2..])?;
+        assert_eq!(raw[0], 0x02, "tx {i}: type-2 envelope");
+        let r = Rlp::new(&raw[1..]);
+        let info = r.payload_info()?;
+        assert_eq!(info.header_len + info.value_len, raw.len() - 1, "tx {i}: no trailing bytes");
+        assert!(r.is_list() && r.item_count()? == 12, "tx {i}: 12 fields");
+        assert!(r.val_at::<u8>(9)? <= 1, "tx {i}: y_parity");
+        // The signed fields are the ones the vault returned.
+        assert_eq!(r.val_at::<u64>(1)?, t["nonce"].as_u64().unwrap(), "tx {i}: nonce");
+        let to = format!("0x{}", hex::encode(r.val_at::<Vec<u8>>(5)?));
+        assert_eq!(to, t["to"].as_str().unwrap().to_lowercase(), "tx {i}: to");
+        assert_eq!(r.val_at::<u128>(6)?.to_string(), t["value"].as_str().unwrap(), "tx {i}: value");
+        // 0x02 || rlp(first 9 fields) is the unsigned transaction; its keccak is what the signer was given.
+        let mut s = RlpStream::new_list(9);
+        for k in 0..9 {
+            s.append_raw(r.at(k)?.as_raw(), 1);
+        }
+        let unsigned = format!("0x02{}", hex::encode(s.out()));
+        assert_eq!(keccak(&unsigned), format!("0x{payload}"), "tx {i}: signer payload = keccak(unsigned)");
+        assert_eq!(env.check_hex(&unsigned, "owner").await?, "ok", "tx {i}: the signed bytes pass check_tx");
+        // The returned hash is the hash of the raw signed transaction.
+        let d = decode_signed(t["raw"].as_str().unwrap());
+        assert_eq!(t["hash"].as_str().unwrap(), d["hash"].as_str().unwrap(), "tx {i}: hash");
+        assert_eq!(t["hash"].as_str().unwrap(), keccak(t["raw"].as_str().unwrap()), "tx {i}: hash = keccak(raw)");
+    }
+
+    // Other shapes are refused by the decoder before any check or signature.
+    let p =
+        TxParams { nonce: 0, gas_limit: 100_000, max_fee_per_gas: 1_000_000_000, max_priority_fee_per_gas: 1_000_000 };
+    let approve = calldata(SEL_APPROVE, &[w_addr(&a20(EXEC)), W_MAX]);
+    let good = BaseTx::new(&p, &a20(USDC), 0, &approve).omni().build_for_signing();
+    assert_eq!(env.check_hex(&hex::encode(&good), "owner").await?, "ok");
+    // Legacy (type 0, EIP-155 signing form): rlp([nonce, gas_price, gas, to, value, data, chain_id, 0, 0]).
+    let mut s = RlpStream::new_list(9);
+    s.append(&0u64).append(&1_000_000_000u64).append(&100_000u64).append(&a20(USDC).to_vec()).append(&0u8);
+    s.append(&approve).append(&84_532u64).append(&0u8).append(&0u8);
+    let legacy = hex::encode(s.out());
+    // Type 4 (EIP-7702) prefix on otherwise valid fields.
+    let mut type4 = good.clone();
+    type4[0] = 0x04;
+    // A 32-byte hash in place of a transaction: an actual signing payload from above, and one starting with 0x02.
+    let mut hash02 = a32(&keccak("0x"));
+    hash02[0] = 0x02;
+    let not_1559 = "not an EIP-1559 transaction";
+    let cases = [
+        ("legacy", legacy, not_1559),
+        ("type4", hex::encode(&type4), not_1559),
+        ("hash", payloads[0].clone(), not_1559),
+        ("hash02", hex::encode(hash02), "trailing bytes"),
+    ];
+    for (name, tx_hex, want) in cases {
+        let e = env.check_hex(&tx_hex, "owner").await?;
+        assert!(e.starts_with("ERR "), "{name}: refused, got {e}");
+        println!("signing_path refusal | {name} | {}", panic_msg(&e));
+        assert_eq!(panic_msg(&e), want, "{name}");
+    }
+
+    env.print_gas("signing_path");
     Ok(())
 }
