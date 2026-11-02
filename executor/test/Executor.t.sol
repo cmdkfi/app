@@ -813,6 +813,68 @@ contract ExecutorForkTest is ForkBase {
         assertEq(cb, c0);
     }
 
+    /// A move may not land a position above the destination's act line: live at 60% (below live's 70%) cannot move
+    /// to backup with act 55%. Once the owner raises backup's act line to 70%, the same move succeeds.
+    function test_migrate_refused_above_the_destination_act_line() public {
+        _setCorridor(alice, LIVE_ID, _default());
+        _setCorridor(alice, BACKUP_ID, _corridor(0.5e18, 0.55e18, 0.3e18, 0.2e18, true, true));
+        _open(alice, LIVE_ID, 1e18, 0.6e18);
+        assertGt(exec.ltvOf(alice, LIVE_ID), 0.55e18, "live above backup's act line");
+        assertLt(exec.ltvOf(alice, LIVE_ID), 0.7e18, "live below its own act line");
+        (uint256 cl0, uint256 dl0) = _pos(alice, LIVE_ID);
+        (uint256 cb0, uint256 db0) = _pos(alice, BACKUP_ID);
+
+        vm.prank(alice);
+        vm.expectRevert(Executor.AboveActLine.selector);
+        exec.migrate(LIVE_ID, BACKUP_ID, 1e18, _dl());
+        (uint256 cl, uint256 dl) = _pos(alice, LIVE_ID);
+        (uint256 cb, uint256 db) = _pos(alice, BACKUP_ID);
+        assertEq(cl, cl0, "live collateral unchanged");
+        assertEq(dl, dl0, "live debt unchanged");
+        assertEq(cb, cb0, "backup collateral unchanged");
+        assertEq(db, db0, "backup debt unchanged");
+
+        _setCorridor(alice, BACKUP_ID, _default()); // the owner raises backup's act line to 70%
+        vm.prank(alice);
+        exec.migrate(LIVE_ID, BACKUP_ID, 1e18, _dl());
+        (cb,) = _pos(alice, BACKUP_ID);
+        assertEq(cb, cl0, "all collateral on backup");
+        assertLe(exec.ltvOf(alice, BACKUP_ID), 0.7e18, "backup at or below its act line");
+        _assertExecutorEmpty();
+    }
+
+    /// A partial move is checked on the merged destination position: backup holds 0.25 WETH at 40%, live 1 WETH at
+    /// 60%, backup's act line is 55%. Moving 90% would merge to about 55.7% (refused); moving 50% to about 53.3%.
+    function test_migrate_partial_move_checks_the_destination_ltv() public {
+        _setCorridor(alice, LIVE_ID, _default());
+        _setCorridor(alice, BACKUP_ID, _corridor(0.5e18, 0.55e18, 0.3e18, 0.2e18, true, true));
+        _open(alice, BACKUP_ID, 0.25e18, 0.4e18);
+        _open(alice, LIVE_ID, 1e18, 0.6e18);
+
+        uint256 high = _mergedLtv(0.9e18);
+        assertGt(high, 0.55e18, "a 90% move would land above backup's act line");
+        vm.prank(alice);
+        vm.expectRevert(Executor.AboveActLine.selector);
+        exec.migrate(LIVE_ID, BACKUP_ID, 0.9e18, _dl());
+
+        uint256 low = _mergedLtv(0.5e18);
+        assertLt(low, 0.55e18, "a 50% move lands below backup's act line");
+        vm.prank(alice);
+        exec.migrate(LIVE_ID, BACKUP_ID, 0.5e18, _dl());
+        uint256 l = exec.ltvOf(alice, BACKUP_ID);
+        assertApproxEqRel(l, low, 0.0001e18, "merged LTV as computed");
+        assertLe(l, 0.55e18, "backup at or below its act line");
+        _assertExecutorEmpty();
+    }
+
+    /// Backup LTV after moving `fraction` of alice's live position onto her backup position, at backup's oracle.
+    function _mergedLtv(uint256 fraction) internal view returns (uint256) {
+        (uint256 cl, uint256 dl) = _pos(alice, LIVE_ID);
+        (uint256 cb, uint256 db) = _pos(alice, BACKUP_ID);
+        uint256 value = (cb + cl * fraction / 1e18) * IOracle(backup.oracle).price() / 1e36;
+        return (db + dl * fraction / 1e18) * 1e18 / value;
+    }
+
     /// Set ETH/USD to `pct`% of its current answer (fresh, kept by _warp) and move the live pool to the new price.
     function _ethPrice(uint256 pct) internal {
         ethUsdAnswer = ethUsdAnswer * int256(pct) / 100;
@@ -869,11 +931,11 @@ contract ExecutorForkTest is ForkBase {
     }
 
     /// A migrate also ends the session on the source: the part left behind starts a new session on the next reduce
-    /// if its LTV is still above the act line, with the clock restarted at that call.
+    /// if its LTV is still above the act line, with the clock restarted at that call. The destination's act line
+    /// (70%) is above the moved LTV, as a move may not land above the destination's act line.
     function test_migrate_ends_the_session_on_the_source() public {
-        Executor.Corridor memory c = _corridor(0.4e18, 0.55e18, 0.25e18, 0, true, true);
-        _setCorridor(alice, LIVE_ID, c);
-        _setCorridor(alice, BACKUP_ID, c);
+        _setCorridor(alice, LIVE_ID, _corridor(0.4e18, 0.55e18, 0.25e18, 0, true, true));
+        _setCorridor(alice, BACKUP_ID, _corridor(0.4e18, 0.7e18, 0.25e18, 0, true, true));
         _open(alice, LIVE_ID, 1e18, 0.5e18);
         _ethPrice(85); // live 58.8%: above the act line
         assertGt(exec.ltvOf(alice, LIVE_ID), 0.55e18, "live above the act line");
@@ -890,6 +952,7 @@ contract ExecutorForkTest is ForkBase {
         assertEq(exec.sessionStart(alice, LIVE_ID), 0, "migrate ended the session on the source");
         assertEq(exec.sessionStart(alice, BACKUP_ID), 0, "no session on the destination");
         assertGt(exec.ltvOf(alice, LIVE_ID), 0.55e18, "live still above the act line");
+        assertLe(exec.ltvOf(alice, BACKUP_ID), 0.7e18, "backup at or below its act line");
 
         _warp(COOLDOWN);
         uint256 now_ = vm.getBlockTimestamp(); // not block.timestamp: via-IR may re-read it at the use

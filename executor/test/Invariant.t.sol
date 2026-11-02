@@ -295,6 +295,7 @@ contract ExecutorInvariant is ForkBase {
             _expect(_inWindow(moveLog[u]) <= MAX_MOVES, "more than 2 migrates in 24 h");
             _expect(exec.sessionStart(u, ids[from]) == 0, "migrate left a session open on the source");
             _expect(exec.sessionStart(u, ids[to]) == 0, "migrate left a session open on the destination");
+            _expect(exec.ltvOf(u, ids[to]) <= _corr(u, to).act, "migrate landed above the destination act line");
         } catch {
             _count(F_MIGRATE, false);
         }

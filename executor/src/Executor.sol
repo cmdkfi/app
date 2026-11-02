@@ -117,6 +117,7 @@ contract Executor {
     error NotMorpho();
     error NotPool();
     error MigrationMismatch();
+    error AboveActLine();
     error BalanceChanged();
     error BadConfig();
 
@@ -346,6 +347,9 @@ contract Executor {
         (, uint256 debtToAfter,) = _borrow(to, msg.sender);
         if (_collateral(to, msg.sender) != collToBefore + collMove) revert MigrationMismatch();
         if (debtToAfter > debtToBefore + assets + 1) revert MigrationMismatch();
+        // a move may not land a position above the destination's act line; above it the agent reduces first
+        uint256 ltvTo = M.ltv(debtToAfter, M.value(collToBefore + collMove, IOracle(b.oracle).price()));
+        if (ltvTo > ct.act) revert AboveActLine();
         lastAgentCall[msg.sender] = block.timestamp;
         emit Migrated(msg.sender, from, to, fraction, assets, collMove);
         _check(a, snap);
