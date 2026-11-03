@@ -5,7 +5,7 @@
 services:
   agent:
     image: ghcr.io/cmdkfi/agent@sha256:REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS
-    command: ["--mode", "dry", "--operator", "cmdk"]
+    command: ["--mode", "dry", "--operator", "cmdk", "--factory", "REPLACE_WITH_THE_FACTORY_ACCOUNT"]
     environment:
       - NEARAI_API_KEY=${NEARAI_API_KEY}
     volumes:

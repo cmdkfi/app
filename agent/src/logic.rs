@@ -756,8 +756,10 @@ pub const REGISTER_GAS: u64 = 130_000_000_000_000;
 pub const PESSIMISTIC_YOCTO_PER_GAS: u128 = 1_004_000_000;
 /// The implicit account's own storage (one full-access key, about 182 bytes at 1e19 yoctoNEAR per byte), rounded up.
 pub const ACCOUNT_STORAGE_YOCTO: u128 = 2_000_000_000_000_000_000_000; // 0.002 NEAR
-/// One registration burns 0.0116 NEAR (P3, 131 Tgas); the margin is 1.5 of those, so what is left after the first
-/// registration still passes the submission check of the next re-registration.
+/// What one registration burns from the agent's implicit account: 0.0116 NEAR (P3, 131 Tgas).
+pub const REGISTRATION_BURN_YOCTO: u128 = 11_600_000_000_000_000_000_000; // 0.0116 NEAR
+/// The margin is 1.5 registrations' burn, so what is left after a registration still passes the submission check of
+/// the next one.
 pub const REGISTRATION_MARGIN_YOCTO: u128 = 17_400_000_000_000_000_000_000; // 0.0174 NEAR
 
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -778,6 +780,16 @@ pub fn registration_funding(prepaid_gas: u64) -> Funding {
     let at_submission_yocto = gas_yocto + ACCOUNT_STORAGE_YOCTO;
     Funding { prepaid_gas, gas_yocto, storage_yocto: ACCOUNT_STORAGE_YOCTO, margin_yocto: REGISTRATION_MARGIN_YOCTO,
         at_submission_yocto, total_yocto: at_submission_yocto + REGISTRATION_MARGIN_YOCTO }
+}
+
+/// What the one implicit account of a boot needs to register on `n` vaults (3 Nov: one key serves every vault): the
+/// agent waits for `total_yocto` before each registration, and each registration burns REGISTRATION_BURN_YOCTO, so
+/// `n` registrations in one boot take `total_yocto + (n - 1) x burn`; 0 for none.
+pub fn registrations_needed(f: &Funding, n: u64) -> u128 {
+    if n == 0 {
+        return 0;
+    }
+    f.total_yocto + (n as u128 - 1) * REGISTRATION_BURN_YOCTO
 }
 
 /// yoctoNEAR as "0.14992" NEAR (five decimals, rounded up so a printed amount is never short).
@@ -1134,6 +1146,17 @@ mod tests {
         // after one registration (0.0116 NEAR burnt) the re-registration still passes the submission check
         assert!(f.total_yocto - 11_600_000_000_000_000_000_000 >= f.at_submission_yocto);
         assert_eq!(near_str(1), "0.00001", "rounded up");
+    }
+
+    #[test]
+    fn one_boot_registering_on_n_vaults_needs_the_first_amount_plus_a_burn_per_further_vault() {
+        let f = registration_funding(REGISTER_GAS);
+        assert_eq!(registrations_needed(&f, 0), 0);
+        assert_eq!(registrations_needed(&f, 1), f.total_yocto);
+        assert_eq!(near_str(registrations_needed(&f, 10)), "0.25432"); // 0.14992 + 9 x 0.0116
+        // the relayer tops up to 0.16 NEAR when the balance is under 0.15: one top-up per registration after the first
+        let (top, min) = (160_000_000_000_000_000_000_000u128, 150_000_000_000_000_000_000_000u128);
+        assert!(top >= f.total_yocto && top - REGISTRATION_BURN_YOCTO < min && top - REGISTRATION_BURN_YOCTO < f.total_yocto);
     }
 
     #[test]

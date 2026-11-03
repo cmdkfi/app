@@ -46,6 +46,12 @@ Expected on Phala `tdx.small` (1 vCPU, 2 GB) with `--image dstack-0.5.12 --no-de
   by this operator", and a stranger's copy with another operator name has another compose hash, which the vault
   refuses. The prototype did not pass an operator: its compose had only `--mode` (P3 `app-compose.json`, compose
   hashes 448c5504…, 511f4e86…, 5f3820c4…); `--operator` is new in this build (31 Oct decision);
+- **names the factory on the command line**: `--factory <account>` (decided 3 Nov; the placeholder
+  `REPLACE_WITH_THE_FACTORY_ACCOUNT` until the factory exists). The agent watches every vault `v1..vN.<factory>`
+  (N = the factory's `get_config().count`) whose `approved` equals its own measurement: one shared enclave serves
+  every vault that approved our compose hash (design §4.4). The factory account is part of the compose hash, so
+  an approval also binds "the vaults of this factory". `--vault <account>` (repeatable) replaces it in dry and twin
+  runs and tests only; `--mode live` and `twin-live` refuse to start without `--factory`, and the two never mix;
 - carries every behaviour flag on the command line; the encrypted environment carries only `NEARAI_API_KEY`
   (in P3, `allowed_envs` in `app-compose.json` held exactly the names in the `-e` file: `["NEARAI_API_KEY"]`);
 - publishes port 8080 for the evidence endpoint (§4);
@@ -103,16 +109,22 @@ Public (measurement evidence): at boot the agent writes `app-compose.json`, `vm_
 `EVIDENCE <name> <sha256> <i>/<n> <base64>` lines, and serves them read-only over HTTP on port 8080:
 
 ```
-GET /                         -> index: boot, operator, each file's name, bytes, sha256
-GET /evidence/<name>          -> the file (only the five names above, registration.json, reregistration-<n>.json)
+GET /                         -> index: boot, operator, each file's name, bytes, sha256, and the watched vaults
+GET /vaults                   -> the watched vaults: slot, tag, account, Base address, registration, agent status,
+                                 expiry, ticks, last tick (unix seconds)
+GET /evidence/<name>          -> the file (only the five names above, registration-<tag>.json,
+                                 reregistration-<tag>-<n>.json)
 ```
+
+A vault's tag is `v<n>` for the factory's vault n (`v3` = `v3.<factory>`), `vault<n>` for the n-th `--vault`.
 
 On Phala the port is reached through the CVM's gateway URL for port 8080 (the dashboard lists it; the form is
 `<app-id>-8080.<gateway domain>`, not yet observed in our runs). Without it, `scripts/p3_evidence.py <log> <out>`
 rebuilds the same files from `phala logs` and checks every SHA-256.
 
-Private (transcripts): one JSON file per decision loop in `evidence/transcripts/`, never printed and never served.
-The public log gets one line per transcript: `RESULT transcript loop=<n> <name> sha256=<hex> bytes=<n>`. The team
+Private (transcripts): one JSON file per decision loop and vault in `evidence/transcripts/`
+(`<boot>-<tag>-<n>.json`; the file's `vault` field names the account), never printed and never served. The public
+log gets one line per transcript: `RESULT transcript vault=<tag> loop=<n> <name> sha256=<hex> bytes=<n>`. The team
 reads its own transcripts from the volume (for the team's demo vault, where they may be published, with hashes).
 Check a transcript's judge call offline with `./verify-transcript.sh <transcript.json>` (request and response
 SHA-256, the `provider_tee` signed text, the EIP-191 signer against the attested address, TCB status); on the
@@ -130,13 +142,15 @@ prototype's CVM transcript in `testdata/transcripts/` it prints `ALL PASS`.
   vault refuses the quote until the owner signs `approve_measurement` with the new values (three such approvals in
   P3 and run 2). New versions are opt-in.
 
-`restart: unless-stopped`: the agent exits non-zero only when it cannot register after 4 attempts (15, 30, 60 s
-apart; it never ticks unregistered), or on a fatal startup error. A restart then gives a fresh agent (new key, new
+`restart: unless-stopped`: the agent exits non-zero only when every watched vault refused 4 `register_agent`
+attempts (one per refresh, 60 s apart) and none is registered or still registering (it never ticks a vault
+unregistered; a vault that gave up is left out for this boot while the others tick), or on a fatal startup error. A restart then gives a fresh agent (new key, new
 registration). Inside the running agent a failed tick (a provider outage, a failed read, a panic) never stops the
 loop (`run_loop`, tested). `unless-stopped` rather than `always`: the two differ only after a manual stop followed
 by a Docker daemon restart, which does not occur in a CVM without operator shell access. Cost of a restart loop:
-each boot strands what is left in its implicit account (about 0.14 NEAR after one registration); funding is a
-call to the relayer's `/fund-agent` after the agent prints `WAITING`, so a loop is bounded by whoever makes that call.
+each boot strands what is left in its implicit account (about 0.14 NEAR after its last registration, however many
+vaults it registered on: one key serves them all, §7); funding is a call to the relayer's `/fund-agent` after the
+agent prints `WAITING`, so a loop is bounded by whoever makes that call.
 
 ## 6. Run your own agent
 
@@ -192,8 +206,9 @@ The vault checks which code runs, not who runs it. To run the published agent un
 3. **Push the image** to a registry the CVM can pull from anonymously, put its digest in the compose.
 4. **Deploy** with the command in §2, then read the agent's `measurement=` line and the evidence (§4), and reproduce
    the values (§3).
-5. **Approve it on your vault:** sign `approve_measurement` with the six values (your compose hash). Your agent then
-   prints `FUNDING`, waits for its NEAR, and registers like ours. Our approval does not cover your agent, and yours
+5. **Approve it on your vault:** sign `approve_measurement` with the six values (your compose hash). Your agent
+   (its compose names your factory, or your vault with `--vault` in a dry run) then prints `FUNDING`, waits for its
+   NEAR, and registers like ours. Our approval does not cover your agent, and yours
    does not cover ours.
 
 ## 7. Funding and registration (item 32)
@@ -201,7 +216,7 @@ The vault checks which code runs, not who runs it. To run the published agent un
 At boot, once, the agent prints the amount its implicit account needs, computed from the gas it attaches:
 
 ```
-FUNDING implicit_account=<64 hex> needs=0.14992 NEAR = prepaid 130 Tgas x pessimistic gas price 1004000000 yoctoNEAR/gas (0.13052) + storage 0.00200 + margin 0.01740 (1.5 registrations' burn); funded by the relayer's fund-agent endpoint (...)
+FUNDING implicit_account=<64 hex> needs=0.14992 NEAR = prepaid 130 Tgas x pessimistic gas price 1004000000 yoctoNEAR/gas (0.13052) + storage 0.00200 + margin 0.01740 (1.5 registrations' burn); +0.01160 per further vault (one registration's burn); funded by the relayer's fund-agent endpoint (...)
 ```
 
 - Prepaid gas 130 Tgas: the vault's receipt is 113.7 Tgas, the transaction 131 Tgas with refunds (P3), not 300.
@@ -210,15 +225,32 @@ FUNDING implicit_account=<64 hex> needs=0.14992 NEAR = prepaid 130 Tgas x pessim
 - The margin (1.5 × the 0.0116 NEAR a registration burns) keeps the first re-registration above the submission check.
 - The relayer's `/fund-agent` tops an account up to 0.15 NEAR plus 0.01 (`scripts/RELAYER.md`).
 
-It then prints `WAITING … balance=… needs=… vault_approves_this_measurement=…` every minute until both hold,
-fetches fresh collateral from Phala's PCCS, verifies it locally with dcap-qvl and sends `register_agent` only when the
-local status is `UpToDate` and the balance passes the submission check.
+**Several vaults (3 Nov).** The agent has one key and one implicit account per boot, and registers that key on
+each watched vault, one after another. Every refresh (STATUS_EVERY = 30 ticks, 60 s) it reads the factory's count,
+reads `get_state` of each index not yet known (a known vault is never resolved again; an index whose account does
+not answer yet is retried), re-reads every known vault's state, and keeps the set of vaults whose `approved` equals
+its measurement: a vault that approves later joins, one that revokes (`revoke_agent` clears `approved`) leaves and
+its tick loop stops. For each vault that joined and does not name its key, it waits until the balance holds
+`needs` (0.14992 NEAR) and calls `register_agent`; once registered on a vault it never registers over another key
+there. While a registration waits it prints, every refresh,
+`WAITING implicit_account=… balance=… needs=0.14992 NEAR for the next registration; pending_vaults=<k> [tags] need
+<0.14992 + (k-1) x 0.0116> NEAR in all (+0.01160 per further vault)`. Before each call it fetches fresh collateral
+from Phala's PCCS, verifies it locally with dcap-qvl and sends `register_agent` only when the local status is
+`UpToDate` and the balance passes the submission check. The record is public evidence `registration-<tag>.json`.
 
-**Re-registration (31 Oct).** Every 10 minutes the agent reads `agent.expires_at` from the vault. When the vault
+Budget per boot for n vaults: the account must reach 0.14992 NEAR before each registration and each burns 0.0116,
+so n registrations take at least 0.14992 + (n - 1) × 0.0116 NEAR (10 vaults: 0.25432), of which n × 0.0116 is
+burnt and the rest (about 0.138 NEAR) is stranded when the boot ends. Through the relayer it is slightly more: its
+`/fund-agent` refills to 0.16 NEAR, and only when the balance is under 0.15, so each vault after the first needs one
+more `/fund-agent` call (+0.0116 each): 0.16 + (n - 1) × 0.0116 (10 vaults: 0.2644, about 0.148 stranded). Its 0.5 NEAR
+per account per 24 h cap covers 0.16 + 29 × 0.0116, i.e. 30 vaults in one boot.
+
+**Re-registration (31 Oct), per vault.** Every 10 minutes the agent checks `agent.expires_at` of each vault it
+registered on (from the refresh's read of that vault). When the vault
 lists its key with under 24 hours left (the vault's registration lasts 7 days, `REGISTRATION_SECS`), it fetches fresh
 collateral, verifies it locally and calls `register_agent` again with the same key; the vault's same-key branch
-extends the expiry. Log lines: `RESULT reregister due …`, `RESULT reregistered … expires_at <old> -> <new>`; the
-record is saved as public evidence `reregistration-<n>.json`. It never re-registers when the vault lists another key
+extends the expiry. Log lines: `RESULT reregister due vault=<tag> …`, `RESULT reregistered vault=<tag> … expires_at <old> -> <new>`;
+the record is saved as public evidence `reregistration-<tag>-<n>.json`. It never re-registers when the vault lists another key
 or none (that would displace another agent or undo a revoke). The ticks never wait for it.
 
 ## 8. Modes
@@ -232,8 +264,9 @@ One flag, `--mode`, four values. "Sends" = calls the vault's agent methods and b
 | `twin` | never | no | the deterministic twin: same ticks, screens and protective rule; no discretionary action |
 | `twin-live` | never | yes (only protective slices can arise) | a twin that acts |
 
-Twin transcripts are named `<boot>-twin-<n>.json` and carry `"twin": true` and a label. Other flags: `--no-tee`
-(local runs: no quote, no registration), `--fork` (an anvil-fork rehearsal; also detected when every provider answers
+Twin transcripts are named `<boot>-<tag>-twin-<n>.json` and carry `"twin": true` and a label. Other flags: `--no-tee`
+(local runs: no quote, no registration, no measurement, so every vault of the factory or list is watched read-only),
+`--vault <account>` (repeatable; dry and twin only, instead of `--factory`), `--fork` (an anvil-fork rehearsal; also detected when every provider answers
 `anvil_nodeInfo`: `feed_stale` is recorded under `frozen_on_fork` and does not fire), `--evidence-http <addr>|off`,
 `--feed-secs <n>` (the feed poll interval, 60 s by default; the measured compose does not pass it). Outside the twin
 modes the agent polls its three allowlisted feeds on that timer; an item id it has not seen (kept in memory and in

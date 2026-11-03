@@ -1,10 +1,19 @@
 //! PRIME agent (hackathon build, from the 27–31 Oct prototype). Spec: docs/01-design-and-feasibility.md §4.4 (key,
 //! quote, registration) and §4.9 (collect, compute, screen, judge, decide, propose).
-//! Deviations (brief): one vault, the positions of its Base address; on-chain reads plus three allowlisted text feeds
-//! (status.base.org and the two labelled demo feeds); no scores and no similar-case retrieval.
+//! Deviations (brief): the positions of each watched vault's Base address; on-chain reads plus three allowlisted text
+//! feeds (status.base.org and the two labelled demo feeds); no scores and no similar-case retrieval.
 //!
-//! Behaviour is fixed in the binary; the compose file (measured) passes only `--mode`, `--operator` and the evidence
-//! port. Modes (one flag, four values; `MEASUREMENT.md` has the table):
+//! Vaults (decided 3 Nov; §4.4 "one shared enclave serves every vault that approved our compose hash"): `--factory
+//! <account>` watches every vault `v1..vN.<factory>` whose `approved` equals this boot's measurement; `vaults.rs` has
+//! the scan's set logic. Every STATUS_EVERY ticks the refresh reads the factory's count, resolves only the indices
+//! not yet known, re-reads each known vault's state (an approval joins, a revoke leaves), registers on each vault that
+//! joined (one key and one implicit account for all; each vault has its own expiry and re-attestation) and starts one
+//! tick loop per registered vault. Per vault: its own state, Base position, screens, judge slot, cooldowns, sessions
+//! and transcripts; nothing mutable about positions is shared. `--vault <account>` (repeatable) replaces the factory
+//! in dry and twin runs and tests; the live modes need `--factory`.
+//!
+//! Behaviour is fixed in the binary; the compose file (measured) passes only `--mode`, `--operator`, `--factory` and
+//! the evidence port. Modes (one flag, four values; `MEASUREMENT.md` has the table):
 //! - `dry`: builds every proposal exactly as the vault would and runs the vault's `check_transaction` view on it,
 //!   but sends nothing to the vault's agent methods and nothing to Base;
 //! - `live`: calls the vault through the agent key and broadcasts the transaction the vault signs;
@@ -16,12 +25,13 @@
 //! `approve_measurement` binds "this code, run by this operator" (31 Oct). `--no-tee` (local runs only) skips the
 //! quote and registration. `--fork` (or every provider answering `anvil_nodeInfo`) marks an anvil-fork rehearsal.
 //!
-//! Tick loop (build items 44–54): each tick runs in its own task, so a panic is logged and the next tick runs. The
-//! judge runs in a separate task, at most one call in flight; its result is taken on the first tick after it
+//! Tick loop (build items 44–54), one per watched vault: each tick runs in its own task, so a panic is logged and the
+//! next tick runs. The judge runs in a separate task, at most one call in flight per vault; its result is taken on the first tick after it
 //! arrives, applied only while the screens it was asked about are still on, and never delays the protective rule.
 //! Feed-item trigger (§4.9 step 3): outside the twin modes a feed task polls the allowlisted feeds every `--feed-secs`
 //! (60 s); an item id not seen before (memory plus `feeds/seen.json` in the evidence volume) wants a judge call, like
-//! a new screen. The tick never waits for the poll: it takes what the last poll left. Decisions are pure functions
+//! a new screen, on every watched vault (each vault keeps its own cursor into the list of new items). The tick never
+//! waits for the poll: it takes what the last poll left. Decisions are pure functions
 //! in `logic.rs`; the agreement rule's text path is `logic::text_corroboration`.
 mod chain;
 mod judge;
@@ -29,20 +39,21 @@ mod logic;
 mod near;
 mod serve;
 mod tee;
+mod vaults;
 
 use anyhow::{anyhow, Result};
 use chain::{Base, Snapshot, DEADLINE_SECS};
 use ed25519_dalek::SigningKey;
 use logic::{Act, AgentStatus, CitedItem, Decision, Due, Fired, Judgment};
 use serde_json::{json, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
-const VAULT: &str = "p2-vault.prime-measure-1792736012.testnet";
 const NEAR_RPC: &str = "https://rpc.testnet.near.org";
 const BASE_RPCS: [&str; 2] = ["https://base-sepolia-rpc.publicnode.com", "https://sepolia.base.org"];
 const DIGEST_SECS: u64 = 6 * 3600;
@@ -50,13 +61,17 @@ const DIGEST_SECS: u64 = 6 * 3600;
 const FEED_POLL_SECS: u64 = 60;
 /// The seen-items file in the evidence volume (private: not served on 8080).
 const SEEN_FILE: &str = "feeds/seen.json";
-const REGISTER_ATTEMPTS: u32 = 4; // then exit non-zero (the restart policy restarts it): never tick unregistered
-/// How often the re-registration task reads the vault's expiry; a failed re-registration is retried on the next poll.
+/// `register_agent` calls per vault per boot; then that vault is given up for this boot. When every watched vault is
+/// given up and none is registered, the agent exits non-zero (the restart policy gives a fresh key): never tick
+/// unregistered.
+const REGISTER_ATTEMPTS: u32 = 4;
+/// How often the refresh checks a registered vault's expiry; a failed re-registration is retried on the next check.
 const REREGISTER_POLL_SECS: u64 = 600;
 const AGENT_CALL_GAS: u64 = 150_000_000_000_000;
 const EVIDENCE_HTTP: &str = "0.0.0.0:8080";
 const FUNDER: &str = "funded by the relayer's fund-agent endpoint (POST /fund-agent {\"implicit_account\": \"<this account>\"}, scripts/RELAYER.md)";
-/// one status line every this many ticks while nothing is on
+/// one status line every this many ticks while nothing is on; also the cadence of each vault's state read and of the
+/// factory refresh (scan, membership, registrations)
 const STATUS_EVERY: u64 = 30;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -118,7 +133,7 @@ struct Args {
     operator: String,
     fork: bool,
     evidence_http: Option<String>,
-    vault: String,
+    source: vaults::Source,
     tee: bool,
     base_rpcs: Vec<String>,
     near_rpc: String,
@@ -136,7 +151,7 @@ fn args() -> Result<Args> {
         operator: String::new(),
         fork: false,
         evidence_http: Some(EVIDENCE_HTTP.into()),
-        vault: VAULT.into(),
+        source: vaults::Source::List(vec![]),
         tee: true,
         base_rpcs: vec![],
         near_rpc: NEAR_RPC.into(),
@@ -148,6 +163,7 @@ fn args() -> Result<Args> {
         feed_secs: FEED_POLL_SECS,
     };
     let v: Vec<String> = std::env::args().skip(1).collect();
+    let (mut factory, mut list) = (None, vec![]);
     let mut i = 0;
     while i < v.len() {
         // flags without a value
@@ -161,7 +177,8 @@ fn args() -> Result<Args> {
                     "--mode" => a.mode = Mode::parse(&val)?,
                     "--operator" => a.operator = val,
                     "--evidence-http" => a.evidence_http = Some(val).filter(|v| v != "off"),
-                    "--vault" => a.vault = val,
+                    "--factory" => factory = Some(val),
+                    "--vault" => list.push(val),
                     "--base-rpc" => a.base_rpcs.push(val),
                     "--near-rpc" => a.near_rpc = val,
                     "--tick-secs" => a.tick_secs = val.parse()?,
@@ -185,7 +202,31 @@ fn args() -> Result<Args> {
     if a.base_rpcs.is_empty() {
         a.base_rpcs = BASE_RPCS.iter().map(|s| s.to_string()).collect();
     }
+    a.source = vault_source(a.mode, factory, list)?;
     Ok(a)
+}
+
+/// A NEAR account id as the agent accepts it on the command line: 2-64 of a-z, 0-9, '.', '-', '_'.
+fn valid_account(s: &str) -> bool {
+    (2..=64).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b))
+}
+
+/// `--factory` (every vault of the factory that approves our measurement; decided 3 Nov) or `--vault`, repeatable
+/// (dry and twin runs and tests). The live modes need the factory; the two never mix.
+fn vault_source(mode: Mode, factory: Option<String>, list: Vec<String>) -> Result<vaults::Source> {
+    if let Some(bad) = factory.iter().chain(list.iter()).find(|x| !valid_account(x)) {
+        return Err(anyhow!("{bad:?} is not a NEAR account id"));
+    }
+    if list.iter().collect::<BTreeSet<_>>().len() != list.len() {
+        return Err(anyhow!("--vault given twice for the same account"));
+    }
+    match (factory, list.is_empty()) {
+        (Some(_), false) => Err(anyhow!("--factory and --vault are mutually exclusive")),
+        (Some(f), true) => Ok(vaults::Source::Factory(f)),
+        (None, false) if mode.sends() => Err(anyhow!("--mode {} needs --factory <account> (--vault is for dry and twin runs)", mode.label())),
+        (None, false) => Ok(vaults::Source::List(list)),
+        (None, true) => Err(anyhow!("--factory <account> is required (or, in dry and twin runs, --vault <account>, repeatable)")),
+    }
 }
 
 fn now() -> u64 {
@@ -221,17 +262,28 @@ struct Ctx {
     /// an anvil-fork rehearsal: `feed_stale` is labelled "frozen on fork" instead of firing (build item 43)
     fork: bool,
     boot_id: String,
-    base_address: String,
-    executor: String,
-    market_ids: Vec<String>,
-    /// what the feed task left: the latest poll and the new item ids not yet taken by a tick
+    /// what the feed task left: the latest poll and every new item id of this boot, in arrival order
     feeds: Arc<std::sync::Mutex<FeedShared>>,
 }
 
 #[derive(Default)]
 struct FeedShared {
     latest: Option<Value>,
-    pending: Vec<String>,
+    /// append-only; each vault's tick takes the items past its own cursor (`vaults::take_new_items`)
+    items: Vec<String>,
+}
+
+/// One watched vault, fixed when its tick loop starts. Its mutable state is its own `State`.
+struct VaultCtx {
+    slot: u64,
+    /// `v<n>` (factory vault n) or `vault<n>` (the n-th --vault): in log lines, transcript and evidence names
+    tag: String,
+    id: String,
+    /// this boot's registration on this vault, as its transcripts record it
+    registration: Value,
+    progress: Arc<vaults::Progress>,
+    /// set when the vault leaves the watched set: its loop ends before its next tick
+    stop: Arc<AtomicBool>,
 }
 
 fn lock_feeds(f: &std::sync::Mutex<FeedShared>) -> std::sync::MutexGuard<'_, FeedShared> {
@@ -277,6 +329,8 @@ struct State {
     /// a judgment that was wanted but skipped (no key), recorded in the next transcript
     judge_skipped: Option<Value>,
     status: AgentStatus,
+    /// how many of `FeedShared::items` this vault has taken
+    feed_cursor: usize,
 }
 
 // ------------------------------------------------------------------ judge task (build items 44, 45)
@@ -317,23 +371,24 @@ async fn judge_job(judge: Arc<judge::Judge>, feed: Option<Value>, s: Snapshot, f
     JudgeOutcome { record, accepted }
 }
 
-fn spawn_judge(ctx: &Ctx, st: &mut State, s: &Snapshot, fired: &[Fired], tick: u64) {
+fn spawn_judge(ctx: &Ctx, v: &VaultCtx, st: &mut State, s: &Snapshot, fired: &[Fired], tick: u64) {
     let trigger = logic::fired_set(fired);
     let feed_items = std::mem::take(&mut st.feed_trigger);
     let status = logic::agent_status(&st.vault, &ctx.our_pk, now());
+    let tag = &v.tag;
     if !logic::may_judge(status, ctx.a.tee) {
-        // revoked on the vault (revoke_agent, another key, or expired): no judge call; the rules and ticks go on
-        println!("RESULT judge skipped tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}: agent {}, rules only", s.block, status.label());
+        // revoked on this vault (revoke_agent, another key, or expired): no judge call; the rules and ticks go on
+        println!("RESULT judge skipped vault={tag} tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}: agent {}, rules only", s.block, status.label());
         st.judge_skipped = Some(json!({"outcome": "skipped_revoked", "agent_status": status.label(), "applies": "rules only", "trigger": trigger, "trigger_feed_items": feed_items, "tick": tick}));
         return;
     }
     let Some(judge) = ctx.judge.clone() else {
         // twin modes never reach here; without a NEAR AI key the judgment is skipped and the rules apply alone
-        println!("RESULT judge skipped tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}: no NEARAI_API_KEY set, rules only", s.block);
+        println!("RESULT judge skipped vault={tag} tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}: no NEARAI_API_KEY set, rules only", s.block);
         st.judge_skipped = Some(json!({"outcome": "skipped_no_api_key", "applies": "rules only", "trigger": trigger, "trigger_feed_items": feed_items, "tick": tick}));
         return;
     };
-    println!("RESULT judge started tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}", s.block);
+    println!("RESULT judge started vault={tag} tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}", s.block);
     let latest = lock_feeds(&ctx.feeds).latest.clone();
     let handle = tokio::spawn(judge_job(judge, latest, s.clone(), fired.to_vec(), st.vault.clone()));
     st.inflight = Some(InFlight { handle, trigger, feed_items, block: s.block, started: Instant::now() });
@@ -354,8 +409,8 @@ fn load_seen(path: &std::path::Path) -> logic::Seen {
     }
 }
 
-/// Polls every allowlisted feed every `every`, in its own task (never in a tick). New item ids go to `pending` for
-/// the next good tick and are written to the seen file at once, so a restart does not re-trigger them. A feed that
+/// Polls every allowlisted feed every `every`, in its own task (never in a tick). New item ids are appended to `items`
+/// for each vault's next good tick and are written to the seen file at once, so a restart does not re-trigger them. A feed that
 /// fails (the demo feeds return 404 while the repository is private) is logged and left out; the others are used.
 async fn feed_task(shared: Arc<std::sync::Mutex<FeedShared>>, evidence: PathBuf, every: Duration) {
     let http = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap_or_default();
@@ -387,8 +442,8 @@ async fn feed_task(shared: Arc<std::sync::Mutex<FeedShared>>, evidence: PathBuf,
             let mut g = lock_feeds(&shared);
             g.latest = Some(feed);
             for id in new {
-                if !g.pending.contains(&id) {
-                    g.pending.push(id);
+                if !g.items.contains(&id) {
+                    g.items.push(id);
                 }
             }
         }
@@ -399,10 +454,10 @@ async fn feed_task(shared: Arc<std::sync::Mutex<FeedShared>>, evidence: PathBuf,
 
 // ------------------------------------------------------------------ propose (build items 10, 11, 12, 50, 54)
 
-async fn propose(ctx: &Ctx, s: &Snapshot, d: &Decision, vault: &mut Value, status: &mut AgentStatus) -> Value {
+async fn propose(ctx: &Ctx, v: &VaultCtx, s: &Snapshot, d: &Decision, vault: &mut Value, status: &mut AgentStatus) -> Value {
     let a = &ctx.a;
     // fresh vault state right before the pre-flight: a revoke is seen here, not as a "no nonce" error later
-    match ctx.nearc.view(&a.vault, "get_state", &json!({})).await {
+    match ctx.nearc.view(&v.id, "get_state", &json!({})).await {
         Ok(v) => *vault = v,
         Err(e) => return json!({"proposed": false, "why_not_proposed": format!("vault state not readable for the pre-flight: {e}")}),
     }
@@ -410,7 +465,7 @@ async fn propose(ctx: &Ctx, s: &Snapshot, d: &Decision, vault: &mut Value, statu
     let checks = logic::prechecks(d, s, vault, &ctx.our_pk, now());
     let refused = logic::refusals(&checks);
     if !logic::may_propose(*status, a.tee) {
-        println!("RESULT revoked status={} market={}: not proposing; ticking read-only", status.label(), d.market.name);
+        println!("RESULT revoked vault={} status={} market={}: not proposing; ticking read-only", v.tag, status.label(), d.market.name);
         return json!({"proposed": false, "why_not_proposed": status.label(), "prechecks": checks});
     }
     let m = &d.market;
@@ -430,7 +485,7 @@ async fn propose(ctx: &Ctx, s: &Snapshot, d: &Decision, vault: &mut Value, statu
         Ok(x) => x,
         Err(e) => return json!({"proposed": false, "method": method, "args": args, "error": format!("tx params: {e}"), "prechecks": checks}),
     };
-    println!("RESULT gas method={method} estimate={:?} gas_limit={} margin_pct={} cap={}", estimate, params["gas_limit"], params["margin_pct"], chain::GAS_LIMIT_MAX);
+    println!("RESULT gas vault={} method={method} estimate={:?} gas_limit={} margin_pct={} cap={}", v.tag, estimate, params["gas_limit"], params["margin_pct"], chain::GAS_LIMIT_MAX);
     let unsigned = match chain::unsigned_1559(&params, &s.executor, &data) {
         Ok(u) => u,
         Err(e) => return json!({"proposed": false, "method": method, "args": args, "error": format!("unsigned tx: {e}"), "prechecks": checks}),
@@ -438,7 +493,7 @@ async fn propose(ctx: &Ctx, s: &Snapshot, d: &Decision, vault: &mut Value, statu
     let l1_fee = ctx.base.l1_fee(&unsigned).await.map(|x| x.to_string()).map_err(|e| e.to_string());
     let check = ctx
         .nearc
-        .view(&a.vault, "check_transaction", &json!({"tx_hex": hex::encode(&unsigned), "caller": "agent"}))
+        .view(&v.id, "check_transaction", &json!({"tx_hex": hex::encode(&unsigned), "caller": "agent"}))
         .await
         .map(|v| v.to_string())
         .unwrap_or_else(|e| e.to_string());
@@ -466,7 +521,7 @@ async fn propose(ctx: &Ctx, s: &Snapshot, d: &Decision, vault: &mut Value, statu
     call_args["tx"] = json!({"nonce": params["nonce"], "gas_limit": params["gas_limit"], "max_fee_per_gas": params["max_fee_per_gas"],
         "max_priority_fee_per_gas": params["max_priority_fee_per_gas"]});
     let t = Instant::now();
-    match ctx.nearc.function_call(&ctx.sk, &a.vault, &a.vault, method, call_args.to_string().as_bytes(), AGENT_CALL_GAS, 0).await {
+    match ctx.nearc.function_call(&ctx.sk, &v.id, &v.id, method, call_args.to_string().as_bytes(), AGENT_CALL_GAS, 0).await {
         Ok((h, r)) => {
             out["near_tx"] = json!(h);
             out["near_gas"] = near::gas_summary(&r);
@@ -502,18 +557,20 @@ fn status_line(s: &Snapshot) -> String {
         .join(" | ")
 }
 
-async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
+async fn tick(ctx: Arc<Ctx>, v: Arc<VaultCtx>, st: Arc<Mutex<State>>, n: u64) {
     let mut guard = st.lock().await;
     let st = &mut *guard;
     let t0 = Instant::now();
+    let tag = v.tag.as_str();
+    v.progress.tick(n, now());
     if n % STATUS_EVERY == 0 {
-        if let Ok(v) = ctx.nearc.view(&ctx.a.vault, "get_state", &json!({})).await {
-            st.vault = v;
+        if let Ok(x) = ctx.nearc.view(&v.id, "get_state", &json!({})).await {
+            st.vault = x;
         }
     }
     let status = logic::agent_status(&st.vault, &ctx.our_pk, now());
     if status != st.status {
-        println!("RESULT status agent={} (was {})", status.label(), st.status.label());
+        println!("RESULT status vault={tag} agent={} (was {})", status.label(), st.status.label());
         st.status = status;
     }
 
@@ -526,22 +583,30 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
             };
             let market = outcome.accepted.as_ref().map(|a| a.2.clone().unwrap_or_else(|| judge::NO_MARKET.into()));
             let invalid = outcome.record["call"]["invalid_reason"].as_str().map(|r| format!(" invalid_reason={r:?}")).unwrap_or_default();
-            println!("RESULT judge arrived tick={n} block={} outcome={} accepted={} market={market:?} seconds={:.1}{invalid}", f.block, outcome.record["outcome"], outcome.accepted.is_some(), f.started.elapsed().as_secs_f64());
+            println!("RESULT judge arrived vault={tag} tick={n} block={} outcome={} accepted={} market={market:?} seconds={:.1}{invalid}", f.block, outcome.record["outcome"], outcome.accepted.is_some(), f.started.elapsed().as_secs_f64());
             st.ready = Some(Ready { outcome, trigger: f.trigger, feed_items: f.feed_items, block: f.block, arrived_tick: n });
         }
     }
 
-    let s = match ctx.base.snapshot(&ctx.base_address, &ctx.executor, &ctx.market_ids).await {
+    // this vault's own position: its derived Base address, its executor and markets, from its own state
+    let (base_address, executor, market_ids) = match vaults::watch_target(&st.vault) {
+        Ok(t) => t,
+        Err(why) => {
+            println!("TICK {n} vault={tag} failed: {why}");
+            return;
+        }
+    };
+    let s = match ctx.base.snapshot(&base_address, &executor, &market_ids).await {
         Ok(s) => s,
         Err(e) => {
-            println!("TICK {n} failed: read error: {e}");
+            println!("TICK {n} vault={tag} failed: read error: {e}");
             return;
         }
     };
     let read_ms = t0.elapsed().as_millis();
     if let Err(why) = logic::gate(&s) {
         // a failed tick: no screens, no judge, no decision, and the screen state is left as it was
-        println!("TICK {n} block={} failed: {why}", s.block);
+        println!("TICK {n} vault={tag} block={} failed: {why}", s.block);
         return;
     }
     let (fired, frozen) = logic::split_frozen_on_fork(logic::screens(&s), ctx.fork);
@@ -554,9 +619,9 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
     if digest {
         st.next_digest = t_now + DIGEST_SECS;
     }
-    let feed_new: Vec<String> = if ctx.a.mode.twin() { vec![] } else { std::mem::take(&mut lock_feeds(&ctx.feeds).pending) };
+    let feed_new: Vec<String> = if ctx.a.mode.twin() { vec![] } else { vaults::take_new_items(&lock_feeds(&ctx.feeds).items, &mut st.feed_cursor) };
     if !feed_new.is_empty() {
-        println!("TICK {n} block={} new feed items {feed_new:?}: judge wanted", s.block);
+        println!("TICK {n} vault={tag} block={} new feed items {feed_new:?}: judge wanted", s.block);
         st.feed_trigger.extend(feed_new.iter().cloned());
     }
     st.judge_wanted = logic::want_judge(st.judge_wanted, !new.is_empty(), digest, !feed_new.is_empty(), ctx.a.mode.twin());
@@ -566,10 +631,10 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         } else if st.inflight.is_none() && st.ready.is_none() {
             st.judge_wanted = None;
             // fresh vault state right before a judge call, so a revoke is seen here (no judge call while revoked)
-            if let Ok(v) = ctx.nearc.view(&ctx.a.vault, "get_state", &json!({})).await {
-                st.vault = v;
+            if let Ok(x) = ctx.nearc.view(&v.id, "get_state", &json!({})).await {
+                st.vault = x;
             }
-            spawn_judge(&ctx, st, &s, &fired, n);
+            spawn_judge(&ctx, &v, st, &s, &fired, n);
         }
     }
 
@@ -587,12 +652,12 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
     if let Due::No { standing } = due {
         if standing {
             // one line per tick while a condition stays on; decide re-runs on the cooldown boundary (build item 53)
-            println!("TICK {n} block={} read_ms={read_ms} status={} screens={fired_set:?} waiting: next decision in {} s{judge_note}{}",
+            println!("TICK {n} vault={tag} block={} read_ms={read_ms} status={} screens={fired_set:?} waiting: next decision in {} s{judge_note}{}",
                 s.block, st.status.label(), st.next_recheck.saturating_sub(t_now),
                 if ready_relevant == Some(true) { format!(" judgment ready, applied in {} s", free_at.saturating_sub(t_now)) } else { String::new() });
         } else if n % STATUS_EVERY == 1 || fired_set != st.fired_prev {
             let fz = if frozen.is_empty() { String::new() } else { format!(" frozen_on_fork={:?}", logic::fired_set(&frozen)) };
-            println!("TICK {n} block={} read_ms={read_ms} status={} l1_base_fee={:?} screens={fired_set:?}{fz}{judge_note} | {}", s.block, st.status.label(), s.l1_base_fee, status_line(&s));
+            println!("TICK {n} vault={tag} block={} read_ms={read_ms} status={} l1_base_fee={:?} screens={fired_set:?}{fz}{judge_note} | {}", s.block, st.status.label(), s.l1_base_fee, status_line(&s));
         }
         st.fired_prev = fired_set;
         return;
@@ -619,7 +684,7 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
                 rec["ignored"] = json!(format!("the screens it was asked about are gone: {gone:?}; rules only"));
             } else if let Some((action, risk, market, cited)) = r.outcome.accepted {
                 // applied to the market it names only; every other market decides on the rules alone (3 Nov)
-                println!("RESULT judgment applies loop={loops} market={} action={action} risk={risk} (other markets: rules only)", market.as_deref().unwrap_or(judge::NO_MARKET));
+                println!("RESULT judgment applies vault={tag} loop={loops} market={} action={action} risk={risk} (other markets: rules only)", market.as_deref().unwrap_or(judge::NO_MARKET));
                 judgment = Some(Judgment { action, risk, market, trigger: r.trigger, block: r.block, cited });
             }
             judge_record = rec;
@@ -632,7 +697,8 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         Due::JudgeResult => "judge_result",
         _ => "recheck_on_cooldown",
     };
-    let mut tr = json!({"agent": ctx.agent_record, "mode": ctx.a.mode.label(), "twin": ctx.a.mode.twin(),
+    let mut tr = json!({"agent": ctx.agent_record, "vault": {"id": v.id, "tag": tag, "slot": v.slot, "registration": v.registration},
+        "mode": ctx.a.mode.label(), "twin": ctx.a.mode.twin(),
         "label": if ctx.a.mode.twin() { "deterministic twin: same ticks, screens and protective rule; no judge, no text feeds" } else { "agent" },
         "network": if ctx.fork { "anvil fork (rehearsal)" } else { "Base Sepolia" },
         "loop": loops, "tick": n, "time_utc": iso(t_now), "agent_status": st.status.label(),
@@ -644,24 +710,24 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         "judge": judge_record, "judgment_applied": judgment,
         "decisions": decisions.iter().map(|d| d.json()).collect::<Vec<_>>(), "chosen": chosen.map(|i| decisions[i].market.name.clone())});
     for d in &decisions {
-        println!("RESULT decision loop={loops} market={} action={:?} protective={} text_path={} amount={} fraction={} basis={}", d.market.name, d.action, d.protective, d.text.is_some(), d.amount, d.fraction, d.basis);
+        println!("RESULT decision vault={tag} loop={loops} market={} action={:?} protective={} text_path={} amount={} fraction={} basis={}", d.market.name, d.action, d.protective, d.text.is_some(), d.amount, d.fraction, d.basis);
     }
     if let Some(i) = chosen {
         let d = &decisions[i];
         // execution check before any sale (31 Oct): a pool more than 1% below the oracle would make it revert Slippage
         let p = if let Some(why) = logic::sale_blocked_by_pool(d) {
-            println!("RESULT sale skipped loop={loops} market={} action={:?}: {why}", d.market.name, d.action);
+            println!("RESULT sale skipped vault={tag} loop={loops} market={} action={:?}: {why}", d.market.name, d.action);
             json!({"proposed": false, "why_not_proposed": why, "execution_check": "pool_vs_oracle", "pool_gap": d.market.pool_gap,
                 "pool_usd": d.market.pool_usd, "oracle_usd": d.market.oracle_usd})
         } else {
             let mut status = st.status;
-            let p = propose(&ctx, &s, d, &mut st.vault, &mut status).await;
+            let p = propose(&ctx, &v, &s, d, &mut st.vault, &mut status).await;
             st.status = status;
             p
         };
         let mut p = p;
         p["reasons"] = d.reasons();
-        println!("RESULT proposal loop={loops} {}", json!({"market": d.market.name, "method": p["method"], "args": p["args"], "text_path": d.text.is_some(), "tx": p["tx"],
+        println!("RESULT proposal vault={tag} loop={loops} {}", json!({"market": d.market.name, "method": p["method"], "args": p["args"], "text_path": d.text.is_some(), "tx": p["tx"],
             "estimate": p["estimate"], "l1_fee_wei": p["l1_fee_wei"], "vault_check_transaction": p["vault_check_transaction"], "refusals": p["refusals"],
             "sent": p["sent"], "why_not_sent": p["why_not_sent"], "why_not_proposed": p["why_not_proposed"], "near_tx": p["near_tx"],
             "base": p["base"], "error": p["error"], "near_error": p["near_error"]}));
@@ -670,12 +736,12 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
     st.next_recheck = logic::next_recheck(now(), logic::exec_cooldown(&s), logic::cooldown_free_at(&st.vault, &s));
     tr["next_recheck_utc"] = json!(iso(st.next_recheck));
     tr["seconds"] = json!(tl.elapsed().as_secs_f64());
-    let name = format!("transcripts/{}{}-{loops:04}.json", ctx.boot_id, if ctx.a.mode.twin() { "-twin" } else { "" });
+    let name = format!("transcripts/{}-{tag}{}-{loops:04}.json", ctx.boot_id, if ctx.a.mode.twin() { "-twin" } else { "" });
     // private (build item 38): written to the evidence volume only; the public log gets its hash and size.
     // A transcript that cannot be written is reported, never fatal (build item 49).
     match serde_json::to_string_pretty(&tr).map_err(anyhow::Error::from).and_then(|t| tee::save_private(&ctx.a.evidence, &name, t.as_bytes())) {
-        Ok((h, len)) => println!("RESULT transcript loop={loops} {name} sha256={h} bytes={len} seconds={:.1}", tl.elapsed().as_secs_f64()),
-        Err(e) => println!("RESULT transcript loop={loops} {name} write failed: {e}"),
+        Ok((h, len)) => println!("RESULT transcript vault={tag} loop={loops} {name} sha256={h} bytes={len} seconds={:.1}", tl.elapsed().as_secs_f64()),
+        Err(e) => println!("RESULT transcript vault={tag} loop={loops} {name} write failed: {e}"),
     }
     st.fired_prev = fired_set;
 }
@@ -718,59 +784,277 @@ async fn register_once(nearc: &near::Near, sk: &SigningKey, implicit: &str, vaul
     Ok(rec)
 }
 
-/// Re-attestation (31 Oct): every REREGISTER_POLL_SECS, read the vault; when our registration has under 24 h left,
-/// fetch fresh collateral, verify it locally and call `register_agent` again with the same key (the vault's
-/// same-key branch extends the expiry). Failures are logged and retried on the next poll; the tick loop never waits.
-async fn reregister_task(nearc: Arc<near::Near>, sk: SigningKey, implicit: String, vault: String, at: Arc<Attest>, evidence: PathBuf, boot_id: String) {
-    let pk = near::pk_string(&sk);
-    let mut n = 0u32;
-    loop {
-        tokio::time::sleep(Duration::from_secs(REREGISTER_POLL_SECS)).await;
-        let st = match nearc.view(&vault, "get_state", &json!({})).await {
-            Ok(v) => v,
+/// Saves a registration record of one vault as public evidence (`registration-<tag>.json`,
+/// `reregistration-<tag>-<n>.json`); a failed write is logged, never fatal.
+fn save_registration(ctx: &Ctx, name: &str, rec: &Value) {
+    if let Err(e) = serde_json::to_string_pretty(rec).map_err(anyhow::Error::from).and_then(|t| tee::save_evidence(&ctx.a.evidence, &format!("{}/{name}", ctx.boot_id), t.as_bytes())) {
+        println!("RESULT registration record {name} write failed: {e}");
+    }
+}
+
+// ------------------------------------------------------------------ the watched vaults (3 Nov; vaults.rs)
+
+/// One watched vault in the refresh's map, keyed by slot.
+struct Entry {
+    tag: String,
+    id: String,
+    /// the vault's state as the last refresh read it
+    state: Value,
+    phase: vaults::Phase,
+    registration: Value,
+    progress: Arc<vaults::Progress>,
+    stop: Arc<AtomicBool>,
+    handle: Option<JoinHandle<()>>,
+    next_rereg_check: u64,
+    rereg_n: u32,
+}
+
+struct Fleet {
+    scan: vaults::Scan,
+    watched: BTreeSet<u64>,
+    entries: BTreeMap<u64, Entry>,
+    board: vaults::Board,
+    /// what the last scan line said, so an unchanged refresh prints nothing
+    last_line: String,
+}
+
+/// What the refresh needs from the boot: the quote for registrations (None without a TEE) and the measurement the
+/// vaults must approve (None without a TEE: every vault is watched, read-only).
+struct Boot {
+    attest: Option<Arc<Attest>>,
+    measurement: Option<Value>,
+    implicit: String,
+}
+
+/// One refresh, every STATUS_EVERY ticks: scan, membership, registrations, re-registrations, tick loops, listing.
+/// Errors of one vault are logged and retried on the next refresh; only the exit rule returns an error.
+async fn refresh(ctx: &Arc<Ctx>, fl: &mut Fleet, boot: &Boot) -> Result<()> {
+    let n = &ctx.nearc;
+    let source = &ctx.a.source;
+    // ---- 1. discovery: only the indices not known yet
+    let count = match source {
+        vaults::Source::Factory(f) => match n.view(f, "get_config", &json!({})).await {
+            Ok(c) => c["count"].as_u64(),
             Err(e) => {
-                println!("RESULT reregister check failed: vault state not readable: {e}");
-                continue;
+                println!("RESULT scan factory={f} get_config failed, retry next refresh: {e}");
+                None
             }
-        };
-        if !logic::reregistration_due(&st, &pk, now()) {
-            continue;
-        }
-        n += 1;
-        let old = st["agent"]["expires_at"].as_u64().unwrap_or(0);
-        println!("RESULT reregister due attempt={n} expires_at={old} ({}) remaining_s={}", iso(old), old.saturating_sub(now()));
-        let rec = match register_once(&nearc, &sk, &implicit, &vault, &at, n).await {
-            Ok(r) => r,
-            Err(e) => {
-                println!("RESULT reregister attempt={n} failed, retry in {REREGISTER_POLL_SECS} s: {e}");
-                continue;
+        },
+        vaults::Source::List(l) => Some(l.len() as u64),
+    };
+    let mut fresh: BTreeMap<u64, Value> = BTreeMap::new();
+    if let Some(count) = count {
+        for (slot, id) in fl.scan.plan_ids(source, count) {
+            let first = !fl.scan.missing.contains(&slot);
+            match n.view(&id, "get_state", &json!({})).await {
+                Ok(st) => {
+                    fl.scan.resolve(slot, &id, true);
+                    fresh.insert(slot, st);
+                }
+                Err(e) => {
+                    if first {
+                        println!("RESULT scan {id} not readable yet (retried every refresh): {}", e.to_string().chars().take(200).collect::<String>());
+                    }
+                    fl.scan.resolve(slot, &id, false);
+                }
             }
-        };
-        let st = nearc.view(&vault, "get_state", &json!({})).await.unwrap_or_default();
-        let new = st["agent"]["expires_at"].as_u64().unwrap_or(0);
-        let same_key = st["agent"]["public_key"].as_str() == Some(&pk);
-        println!("RESULT reregistered attempt={n} near_tx={} tgas={} same_key={same_key} expires_at {old} -> {new} ({})", rec["near_tx"], rec["gas"]["tgas_total"], iso(new));
-        let mut full = rec;
-        full["expires_at_before"] = json!(old);
-        full["expires_at_after"] = json!(new);
-        if let Err(e) = serde_json::to_string_pretty(&full).map_err(anyhow::Error::from).and_then(|t| tee::save_evidence(&evidence, &format!("{boot_id}/reregistration-{n}.json"), t.as_bytes())) {
-            println!("RESULT reregistration record write failed: {e}");
         }
     }
+    // ---- 2. every known vault's state, for its membership (an approval joins, a revoke leaves)
+    for (slot, id) in fl.scan.known.clone() {
+        if fresh.contains_key(&slot) {
+            continue;
+        }
+        match n.view(&id, "get_state", &json!({})).await {
+            Ok(st) => {
+                fresh.insert(slot, st);
+            }
+            Err(e) => println!("RESULT vault={} state not readable, membership kept: {}", vaults::tag(source, slot), e.to_string().chars().take(200).collect::<String>()),
+        }
+    }
+    let (watched, joined, left) = vaults::membership(&fl.watched, &fresh, boot.measurement.as_ref());
+    for slot in &left {
+        if let Some(e) = fl.entries.remove(slot) {
+            e.stop.store(true, Ordering::SeqCst);
+            println!("RESULT vault left vault={} {}: it no longer approves this measurement (revoked or changed); its tick loop stops", e.tag, e.id);
+        }
+        fl.board.lock().unwrap_or_else(|e| e.into_inner()).remove(slot);
+    }
+    for slot in &joined {
+        let id = fl.scan.known.get(slot).cloned().unwrap_or_default();
+        let tag = vaults::tag(source, *slot);
+        let phase = if boot.attest.is_some() { vaults::Phase::Pending { attempts: 0 } } else { vaults::Phase::NoTee };
+        println!("RESULT vault joined vault={tag} {id}: {}", if boot.attest.is_some() { "approves this measurement; registering" } else { "no TEE: watched read-only, never registered" });
+        fl.entries.insert(*slot, Entry { tag, id, state: Value::Null, phase, registration: Value::Null, progress: Default::default(),
+            stop: Default::default(), handle: None, next_rereg_check: now() + REREGISTER_POLL_SECS, rereg_n: 0 });
+    }
+    fl.watched = watched;
+    for (slot, e) in fl.entries.iter_mut() {
+        if let Some(st) = fresh.get(slot) {
+            e.state = st.clone();
+        }
+    }
+    let line = format!("count={count:?} known={} missing={:?} watched={:?}", fl.scan.known.len(), fl.scan.missing,
+        fl.entries.values().map(|e| e.tag.clone()).collect::<Vec<_>>());
+    if line != fl.last_line || !joined.is_empty() || !left.is_empty() {
+        let src = match source {
+            vaults::Source::Factory(f) => format!("factory={f}"),
+            vaults::Source::List(l) => format!("vaults={l:?}"),
+        };
+        println!("RESULT scan {src} {line} joined={joined:?} left={left:?}");
+        fl.last_line = line;
+    }
+
+    // ---- 3. registrations, one vault at a time (one implicit account pays for all)
+    if let Some(at) = &boot.attest {
+        let f = logic::registration_funding(logic::REGISTER_GAS);
+        let pending: Vec<u64> = fl.entries.iter().filter(|(_, e)| matches!(e.phase, vaults::Phase::Pending { .. })).map(|(s, _)| *s).collect();
+        let pending_tags: Vec<String> = pending.iter().filter_map(|s| fl.entries.get(s).map(|e| e.tag.clone())).collect();
+        for (k, slot) in pending.iter().enumerate() {
+            let Some(e) = fl.entries.get_mut(slot) else { continue };
+            let vaults::Phase::Pending { attempts } = e.phase else { continue };
+            match vaults::reg_action(e.phase, &e.state, &ctx.our_pk, REGISTER_ATTEMPTS) {
+                vaults::RegAction::MarkRegistered => {
+                    e.phase = vaults::Phase::Registered;
+                    println!("RESULT register_agent vault={} registered=true (the vault already names this key)", e.tag);
+                }
+                vaults::RegAction::GiveUp => {
+                    e.phase = vaults::Phase::GaveUp;
+                    println!("RESULT register_agent vault={} gave up after {attempts} attempts: not ticking it unregistered", e.tag);
+                }
+                vaults::RegAction::Nothing => {}
+                vaults::RegAction::Register => {
+                    let bal = n.balance(&boot.implicit).await.unwrap_or(None);
+                    if bal.unwrap_or(0) < f.total_yocto {
+                        let rest = (pending.len() - k) as u64;
+                        let tags = &pending_tags[k..];
+                        println!("WAITING implicit_account={} balance={} NEAR needs={} NEAR for the next registration; pending_vaults={rest} {tags:?} need {} NEAR in all (+{} per further vault); {FUNDER}",
+                            boot.implicit, bal.map(logic::near_str).unwrap_or("none (account does not exist yet)".into()), logic::near_str(f.total_yocto),
+                            logic::near_str(logic::registrations_needed(&f, rest)), logic::near_str(logic::REGISTRATION_BURN_YOCTO));
+                        break; // the balance only grows by a top-up; the next refresh tries again
+                    }
+                    let attempt = attempts + 1;
+                    e.phase = vaults::Phase::Pending { attempts: attempt };
+                    let rec = register_once(n, &ctx.sk, &boot.implicit, &e.id, at, attempt).await.unwrap_or_else(|x| json!({"error": x.to_string(), "attempt": attempt}));
+                    let st = n.view(&e.id, "get_state", &json!({})).await.unwrap_or_default();
+                    let registered = st["agent"]["public_key"].as_str() == Some(&ctx.our_pk);
+                    println!("RESULT register_agent vault={} {} registered={registered} vault_agent={} record={}", e.tag, e.id, st["agent"],
+                        json!({"near_tx": rec["near_tx"], "tgas": rec["gas"]["tgas_total"], "near_burnt": rec["gas"]["near_burnt"], "seconds": rec["seconds"], "attempt": attempt, "error": rec["error"]}));
+                    let mut full = rec.clone();
+                    full["vault"] = json!(e.id);
+                    full["registered"] = json!(registered);
+                    full["vault_agent"] = st["agent"].clone();
+                    save_registration(ctx, &format!("registration-{}.json", e.tag), &full);
+                    if !st.is_null() {
+                        e.state = st;
+                    }
+                    if registered {
+                        e.phase = vaults::Phase::Registered;
+                        e.registration = json!({"near_tx": rec["near_tx"], "registered": true});
+                        e.next_rereg_check = now() + REREGISTER_POLL_SECS;
+                    } else {
+                        println!("RESULT register_agent vault={} attempt={attempt} failed, retry next refresh: {}", e.tag, rec["error"]);
+                    }
+                }
+            }
+        }
+
+        // ---- 4. re-attestation per vault (31 Oct): our key, under 24 h left; never over another key or a revoke
+        for e in fl.entries.values_mut().filter(|e| e.phase == vaults::Phase::Registered) {
+            if now() < e.next_rereg_check {
+                continue;
+            }
+            e.next_rereg_check = now() + REREGISTER_POLL_SECS;
+            if !logic::reregistration_due(&e.state, &ctx.our_pk, now()) {
+                continue;
+            }
+            e.rereg_n += 1;
+            let k = e.rereg_n;
+            let old = e.state["agent"]["expires_at"].as_u64().unwrap_or(0);
+            println!("RESULT reregister due vault={} attempt={k} expires_at={old} ({}) remaining_s={}", e.tag, iso(old), old.saturating_sub(now()));
+            let rec = match register_once(n, &ctx.sk, &boot.implicit, &e.id, at, k).await {
+                Ok(r) => r,
+                Err(x) => {
+                    println!("RESULT reregister vault={} attempt={k} failed, retry in {REREGISTER_POLL_SECS} s: {x}", e.tag);
+                    continue;
+                }
+            };
+            let st = n.view(&e.id, "get_state", &json!({})).await.unwrap_or_default();
+            let new = st["agent"]["expires_at"].as_u64().unwrap_or(0);
+            let same_key = st["agent"]["public_key"].as_str() == Some(&ctx.our_pk);
+            println!("RESULT reregistered vault={} attempt={k} near_tx={} tgas={} same_key={same_key} expires_at {old} -> {new} ({})", e.tag, rec["near_tx"], rec["gas"]["tgas_total"], iso(new));
+            let mut full = rec;
+            full["vault"] = json!(e.id);
+            full["expires_at_before"] = json!(old);
+            full["expires_at_after"] = json!(new);
+            save_registration(ctx, &format!("reregistration-{}-{k}.json", e.tag), &full);
+            if !st.is_null() {
+                e.state = st;
+            }
+        }
+    }
+
+    // ---- 5. one tick loop per vault that may tick and has none yet
+    for (slot, e) in fl.entries.iter_mut() {
+        if e.handle.is_some() || !e.phase.ticks() {
+            continue;
+        }
+        let v = Arc::new(VaultCtx { slot: *slot, tag: e.tag.clone(), id: e.id.clone(), registration: e.registration.clone(),
+            progress: e.progress.clone(), stop: e.stop.clone() });
+        let status = logic::agent_status(&e.state, &ctx.our_pk, now());
+        println!("RESULT watching vault={} {} agent={} target={:?}", e.tag, e.id, status.label(), vaults::watch_target(&e.state));
+        let next_digest = if ctx.a.digest_at_start { now() } else { now() + DIGEST_SECS };
+        let feed_cursor = lock_feeds(&ctx.feeds).items.len();
+        let st = State { vault: e.state.clone(), fired_prev: BTreeSet::new(), next_digest, loops: 0, next_recheck: 0, inflight: None, ready: None,
+            judge_wanted: None, feed_trigger: vec![], judge_skipped: None, status, feed_cursor };
+        e.handle = Some(tokio::spawn(vault_loop(ctx.clone(), v, st)));
+    }
+
+    // ---- 6. the public listing
+    {
+        let mut b = fl.board.lock().unwrap_or_else(|e| e.into_inner());
+        for (slot, e) in &fl.entries {
+            let exp = e.state["agent"]["expires_at"].as_u64();
+            let info = json!({"slot": slot, "tag": e.tag, "vault": e.id, "base_address": e.state["base_address"],
+                "registration": e.phase.label(), "registration_tx": e.registration["near_tx"],
+                "agent_status": logic::agent_status(&e.state, &ctx.our_pk, now()).label(),
+                "expires_at": exp, "expires_utc": exp.map(iso)});
+            b.insert(*slot, vaults::Row { info, progress: e.progress.clone() });
+        }
+    }
+
+    // ---- 7. the exit rule
+    let phases: Vec<vaults::Phase> = fl.entries.values().map(|e| e.phase).collect();
+    if vaults::should_exit(&phases) {
+        return Err(anyhow!("register_agent failed on every watched vault ({REGISTER_ATTEMPTS} attempts each): not ticking unregistered"));
+    }
+    Ok(())
+}
+
+/// One vault's tick loop: its own `State`, ended by its stop flag (the vault left) or `--max-ticks`.
+async fn vault_loop(ctx: Arc<Ctx>, v: Arc<VaultCtx>, st: State) {
+    let st = Arc::new(Mutex::new(st));
+    let (c, vv, s2) = (ctx.clone(), v.clone(), st.clone());
+    let n = run_loop(ctx.a.max_ticks, Duration::from_secs(ctx.a.tick_secs), v.stop.clone(), move |n| tick(c.clone(), vv.clone(), s2.clone(), n)).await;
+    let st = st.lock().await;
+    if let Some(f) = &st.inflight {
+        f.handle.abort();
+    }
+    println!("RESULT vault loop ended vault={} ticks={n} loops={} stopped={}", v.tag, st.loops, v.stop.load(Ordering::SeqCst));
 }
 
 // ------------------------------------------------------------------ the tick loop driver (build item 49)
 
-/// Runs `tick(n)` for n = 1..=max_ticks, one every `every`. Each tick runs in its own task, so a panic or an error
-/// inside one (a provider outage, a failed read, a failed write) is logged and the next tick runs: the loop itself
-/// never stops on a tick's failure.
-async fn run_loop<F, Fut>(max_ticks: u64, every: Duration, mut tick: F) -> u64
+/// Runs `tick(n)` for n = 1..=max_ticks, one every `every`, until `stop` is set. Each tick runs in its own task, so a
+/// panic or an error inside one (a provider outage, a failed read, a failed write) is logged and the next tick runs:
+/// the loop itself never stops on a tick's failure.
+async fn run_loop<F, Fut>(max_ticks: u64, every: Duration, stop: Arc<AtomicBool>, mut tick: F) -> u64
 where
     F: FnMut(u64) -> Fut,
     Fut: std::future::Future<Output = ()> + Send + 'static,
 {
     let mut n = 0u64;
-    while n < max_ticks {
+    while n < max_ticks && !stop.load(Ordering::SeqCst) {
         n += 1;
         let t0 = Instant::now();
         if let Err(e) = tokio::spawn(tick(n)).await {
@@ -792,7 +1076,11 @@ async fn main() -> Result<()> {
     let sk = SigningKey::generate(&mut rand::rngs::OsRng);
     let implicit = near::implicit_account(&sk);
     let boot_id = format!("boot-{}-{}", now(), &implicit[..8]);
-    println!("RESULT start mode={} operator={} vault={} tee={} boot={boot_id}", a.mode.label(), a.operator, a.vault, a.tee);
+    let src = match &a.source {
+        vaults::Source::Factory(f) => format!("factory={f}"),
+        vaults::Source::List(l) => format!("vaults={l:?}"),
+    };
+    println!("RESULT start mode={} operator={} {src} tee={} boot={boot_id}", a.mode.label(), a.operator, a.tee);
     println!("RESULT agent_public_key={} implicit_account={implicit}", near::pk_string(&sk));
     std::fs::create_dir_all(&a.evidence)?;
     let nearc = near::Near::new(&a.near_rpc);
@@ -816,127 +1104,78 @@ async fn main() -> Result<()> {
     println!("RESULT network base={} fork={fork}{}", if fork { "anvil fork" } else { "Base Sepolia" },
         if fork { " (feed_stale is labelled frozen on fork, not fired)" } else { "" });
     let mut agent_record = json!({"public_key": near::pk_string(&sk), "implicit_account": implicit, "boot": boot_id, "mode": a.mode.label(), "operator": a.operator});
+    let board: vaults::Board = Default::default();
 
-    // ---- 1. quote, evidence, registration (§4.4)
-    let mut attest: Option<Arc<Attest>> = None;
+    // ---- 1. quote and evidence (§4.4); the registrations follow per vault in the refresh
+    let mut boot = Boot { attest: None, measurement: None, implicit: implicit.clone() };
     if a.tee {
         let b = tee::boot(&sk, &a.evidence, &boot_id).await?;
         println!("RESULT measurement={} rtmr3_replay_matches_quote={} debug={}", b.measurement, b.rtmr3_replayed_matches, b.debug);
         agent_record["measurement"] = b.measurement.clone();
-        let at = Attest { quote: b.quote.clone(), imr3: b.event_log.iter().filter(|e| e["imr"] == 3).cloned().collect() };
+        boot.attest = Some(Arc::new(Attest { quote: b.quote.clone(), imr3: b.event_log.iter().filter(|e| e["imr"] == 3).cloned().collect() }));
+        boot.measurement = Some(b.measurement.clone());
         if let Some(addr) = &a.evidence_http {
-            match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone()) {
-                Ok(l) => println!("RESULT evidence_http listening={l} (GET /, GET /evidence/<file>; measurement evidence only, transcripts are not served)"),
+            match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone(), board.clone()) {
+                Ok(l) => println!("RESULT evidence_http listening={l} (GET /, GET /vaults, GET /evidence/<file>; measurement evidence and the watched vaults only, transcripts are not served)"),
                 Err(e) => println!("RESULT evidence_http not started on {addr}: {e}"),
             }
         }
         // item 32: the amount, computed from the gas the registration attaches, printed once
         let f = logic::registration_funding(logic::REGISTER_GAS);
-        println!("FUNDING implicit_account={implicit} needs={} NEAR = prepaid {} Tgas x pessimistic gas price {} yoctoNEAR/gas ({}) + storage {} + margin {} (1.5 registrations' burn); {FUNDER}",
+        println!("FUNDING implicit_account={implicit} needs={} NEAR = prepaid {} Tgas x pessimistic gas price {} yoctoNEAR/gas ({}) + storage {} + margin {} (1.5 registrations' burn); +{} per further vault (one registration's burn); {FUNDER}",
             logic::near_str(f.total_yocto), f.prepaid_gas / 1_000_000_000_000, logic::PESSIMISTIC_YOCTO_PER_GAS, logic::near_str(f.gas_yocto),
-            logic::near_str(f.storage_yocto), logic::near_str(f.margin_yocto));
-        let mut last_wait = Instant::now() - Duration::from_secs(120);
-        loop {
-            let bal = nearc.balance(&implicit).await.unwrap_or(None);
-            let st = nearc.view(&a.vault, "get_state", &json!({})).await.unwrap_or_default();
-            let approved = st["approved"] == b.measurement;
-            if bal.unwrap_or(0) >= f.total_yocto && approved {
-                break;
+            logic::near_str(f.storage_yocto), logic::near_str(f.margin_yocto), logic::near_str(logic::REGISTRATION_BURN_YOCTO));
+    } else {
+        println!("RESULT no TEE: no measurement, so every vault of the source is watched read-only and none is registered");
+        if let Some(addr) = &a.evidence_http {
+            match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone(), board.clone()) {
+                Ok(l) => println!("RESULT evidence_http listening={l} (no TEE: no measurement files; GET /vaults lists the watched vaults; transcripts are not served)"),
+                Err(e) => println!("RESULT evidence_http not started on {addr}: {e}"),
             }
-            if last_wait.elapsed() > Duration::from_secs(60) {
-                println!("WAITING implicit_account={implicit} balance={} NEAR needs={} NEAR vault_approves_this_measurement={approved}",
-                    bal.map(logic::near_str).unwrap_or("none (account does not exist yet)".into()), logic::near_str(f.total_yocto));
-                last_wait = Instant::now();
-            }
-            tokio::time::sleep(Duration::from_secs(15)).await;
-        }
-        let mut attempt = 0;
-        let (rec, registered, st) = loop {
-            attempt += 1;
-            let rec = register_once(&nearc, &sk, &implicit, &a.vault, &at, attempt).await.unwrap_or_else(|e| json!({"error": e.to_string(), "attempt": attempt}));
-            let st = nearc.view(&a.vault, "get_state", &json!({})).await.unwrap_or_default();
-            let registered = st["agent"]["public_key"].as_str() == Some(&near::pk_string(&sk));
-            if registered || attempt >= REGISTER_ATTEMPTS {
-                break (rec, registered, st);
-            }
-            let wait = 15u64 << (attempt - 1); // 15, 30, 60 s
-            println!("RESULT register_agent attempt={attempt} failed, retry in {wait} s: {}", rec["error"]);
-            tokio::time::sleep(Duration::from_secs(wait)).await;
-        };
-        println!("RESULT register_agent registered={registered} vault_agent={} record={}", st["agent"], json!({"near_tx": rec["near_tx"], "tgas": rec["gas"]["tgas_total"], "near_burnt": rec["gas"]["near_burnt"], "seconds": rec["seconds"], "attempt": attempt, "error": rec["error"]}));
-        let mut full = rec.clone();
-        full["registered"] = json!(registered);
-        full["vault_agent"] = st["agent"].clone();
-        tee::save_evidence(&a.evidence, &format!("{boot_id}/registration.json"), serde_json::to_string_pretty(&full)?.as_bytes())?;
-        agent_record["registration"] = json!({"near_tx": rec["near_tx"], "registered": registered});
-        if !registered {
-            // non-zero exit: the compose's restart policy starts a fresh agent (new key, new registration)
-            return Err(anyhow!("register_agent failed after {attempt} attempts: not ticking unregistered"));
-        }
-        attest = Some(Arc::new(at));
-    } else if let Some(addr) = &a.evidence_http {
-        match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone()) {
-            Ok(l) => println!("RESULT evidence_http listening={l} (no TEE: no measurement files; transcripts are not served)"),
-            Err(e) => println!("RESULT evidence_http not started on {addr}: {e}"),
         }
     }
 
-    // ---- 2. the tick loop (§4.9)
-    // the vault's state is retried, not fatal: an exit here would throw away a registered key
-    let vault = loop {
-        match nearc.view(&a.vault, "get_state", &json!({})).await {
-            Ok(v) => break v,
-            Err(e) => {
-                println!("RESULT vault state not readable, retry in 15 s: {e}");
-                tokio::time::sleep(Duration::from_secs(15)).await;
-            }
-        }
-    };
-    let base_address = vault["base_address"].as_str().unwrap_or("").to_string();
-    let markets = vault["markets"].as_array().ok_or_else(|| anyhow!("vault state has no markets: {vault}"))?;
-    let market_ids: Vec<String> = markets.iter().filter_map(|m| m["id"].as_str().map(|s| s.to_string())).collect();
-    let executor = markets.first().and_then(|m| m["executor"].as_str()).unwrap_or("").to_string();
-    if market_ids.is_empty() || base_address.is_empty() || executor.is_empty() {
-        return Err(anyhow!("vault state lacks markets, base address or executor"));
-    }
-    println!("RESULT watching base_address={base_address} executor={executor} markets={market_ids:?} rpcs={:?}", a.base_rpcs);
-    let our_pk = near::pk_string(&sk);
-    let status = logic::agent_status(&vault, &our_pk, now());
-    println!("RESULT status agent={}", status.label());
-    if let Some(at) = attest {
-        let n2 = Arc::new(near::Near::new(&a.near_rpc));
-        tokio::spawn(reregister_task(n2, sk.clone(), implicit.clone(), a.vault.clone(), at, a.evidence.clone(), boot_id.clone()));
-        println!("RESULT reregister task started: polls every {REREGISTER_POLL_SECS} s, re-registers under {} s left", logic::REREGISTER_BEFORE_SECS);
-    }
-    let next_digest = if a.digest_at_start { now() } else { now() + DIGEST_SECS };
-    let (tick_secs, max_ticks) = (a.tick_secs, a.max_ticks);
+    // ---- 2. the feed poll (shared by every vault) and the refresh, which starts one tick loop per vault (§4.9)
     let feeds = Arc::new(std::sync::Mutex::new(FeedShared::default()));
     if a.mode.twin() {
         println!("RESULT feed poll off: mode {} is the deterministic twin (no text feeds)", a.mode.label());
     } else {
         tokio::spawn(feed_task(feeds.clone(), a.evidence.clone(), Duration::from_secs(a.feed_secs)));
     }
-    let ctx = Arc::new(Ctx { a, base, nearc, sk, our_pk, judge, agent_record, fork, boot_id, base_address, executor, market_ids, feeds });
-    let st = Arc::new(Mutex::new(State {
-        vault,
-        fired_prev: BTreeSet::new(),
-        next_digest,
-        loops: 0,
-        next_recheck: 0,
-        inflight: None,
-        ready: None,
-        judge_wanted: None,
-        feed_trigger: vec![],
-        judge_skipped: None,
-        status,
-    }));
-    let n = run_loop(max_ticks, Duration::from_secs(tick_secs), |n| tick(ctx.clone(), st.clone(), n)).await;
-    let st = st.lock().await;
-    if let Some(f) = &st.inflight {
-        f.handle.abort();
+    let (tick_secs, max_ticks) = (a.tick_secs, a.max_ticks);
+    let our_pk = near::pk_string(&sk);
+    let ctx = Arc::new(Ctx { a, base, nearc, sk, our_pk, judge, agent_record, fork, boot_id, feeds });
+    let mut fl = Fleet { scan: Default::default(), watched: BTreeSet::new(), entries: BTreeMap::new(), board, last_line: String::new() };
+    let every = Duration::from_secs(STATUS_EVERY * tick_secs.max(1));
+    // a bounded run (`--max-ticks`) ends once its time is up and every vault loop has finished
+    let bound = (max_ticks != u64::MAX).then(|| Duration::from_secs(max_ticks.saturating_mul(tick_secs)));
+    let started = Instant::now();
+    println!("RESULT refresh every {} s (scan, membership, registrations); re-attestation checked every {REREGISTER_POLL_SECS} s per vault, under {} s left",
+        every.as_secs(), logic::REREGISTER_BEFORE_SECS);
+    let result = 'run: loop {
+        let t = Instant::now();
+        if let Err(e) = refresh(&ctx, &mut fl, &boot).await {
+            break 'run Err(e);
+        }
+        loop {
+            let done = bound.map(|b| started.elapsed() >= b && fl.entries.values().all(|e| e.handle.as_ref().map(|h| h.is_finished()).unwrap_or(true))).unwrap_or(false);
+            if done {
+                break 'run Ok(());
+            }
+            if t.elapsed() >= every {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    };
+    for e in fl.entries.values_mut() {
+        e.stop.store(true, Ordering::SeqCst);
+        if let Some(h) = e.handle.take() {
+            let _ = h.await;
+        }
     }
-    println!("RESULT done ticks={n} loops={}", st.loops);
-    Ok(())
+    println!("RESULT done vaults={:?} seconds={:.0}", fl.entries.values().map(|e| (e.tag.clone(), e.progress.ticks.load(Ordering::SeqCst))).collect::<Vec<_>>(), started.elapsed().as_secs_f64());
+    result
 }
 
 #[cfg(test)]
@@ -948,7 +1187,7 @@ mod tests {
     async fn a_failing_or_panicking_tick_does_not_stop_the_loop() {
         let ran = Arc::new(AtomicU64::new(0));
         let r = ran.clone();
-        let n = run_loop(6, Duration::from_millis(0), move |n| {
+        let n = run_loop(6, Duration::from_millis(0), Arc::new(AtomicBool::new(false)), move |n| {
             let r = r.clone();
             async move {
                 r.fetch_add(1, Ordering::SeqCst);
@@ -965,6 +1204,52 @@ mod tests {
         .await;
         assert_eq!(n, 6);
         assert_eq!(ran.load(Ordering::SeqCst), 6, "every tick ran after the panic and the error");
+    }
+
+    #[tokio::test]
+    async fn a_vault_that_leaves_stops_its_own_loop_only() {
+        // two vaults, two loops, two states: the stop flag of one ends that loop before its next tick
+        let (stop1, stop2) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false)));
+        let (ran1, ran2) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)));
+        let (r1, s1) = (ran1.clone(), stop1.clone());
+        let l1 = tokio::spawn(run_loop(10, Duration::from_millis(1), stop1.clone(), move |n| {
+            let (r, s) = (r1.clone(), s1.clone());
+            async move {
+                r.fetch_add(1, Ordering::SeqCst);
+                if n == 3 {
+                    s.store(true, Ordering::SeqCst); // the refresh saw the revoke
+                }
+            }
+        }));
+        let r2 = ran2.clone();
+        let l2 = tokio::spawn(run_loop(10, Duration::from_millis(1), stop2, move |_| {
+            let r = r2.clone();
+            async move {
+                r.fetch_add(1, Ordering::SeqCst);
+            }
+        }));
+        assert_eq!((l1.await.unwrap(), l2.await.unwrap()), (3, 10));
+        assert_eq!((ran1.load(Ordering::SeqCst), ran2.load(Ordering::SeqCst)), (3, 10));
+    }
+
+    #[test]
+    fn the_live_modes_need_the_factory_and_the_sources_never_mix() {
+        use vaults::Source;
+        let f = || Some("cmdk-factory.testnet".to_string());
+        let l = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(vault_source(Mode::Live, f(), vec![]).unwrap(), Source::Factory("cmdk-factory.testnet".into()));
+        assert_eq!(vault_source(Mode::Dry, None, l(&["a.testnet", "b.testnet"])).unwrap(), Source::List(l(&["a.testnet", "b.testnet"])));
+        assert!(vault_source(Mode::Twin, None, l(&["a.testnet"])).is_ok());
+        for m in [Mode::Live, Mode::TwinLive] {
+            let e = vault_source(m, None, l(&["a.testnet"])).unwrap_err().to_string();
+            assert!(e.contains("needs --factory"), "{e}");
+        }
+        assert!(vault_source(Mode::Dry, f(), l(&["a.testnet"])).unwrap_err().to_string().contains("mutually exclusive"));
+        assert!(vault_source(Mode::Dry, None, vec![]).unwrap_err().to_string().contains("--factory <account> is required"));
+        assert!(vault_source(Mode::Dry, None, l(&["a.testnet", "a.testnet"])).is_err(), "the same vault twice would run two loops on it");
+        for bad in ["", "A.testnet", "a b", "x", "a/b"] {
+            assert!(vault_source(Mode::Dry, Some(bad.into()), vec![]).is_err(), "{bad}");
+        }
     }
 
     #[test]
