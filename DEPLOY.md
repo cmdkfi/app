@@ -18,12 +18,12 @@ Base Sepolia (chain 84532) and NEAR testnet. Nothing here touches mainnet.
 ## Budget (Base Sepolia test wallet)
 
 Holdings after the close-out (3 Nov, block 53,979,463; `--status` read the same at 15:09 UTC): 0.287648 ETH,
-0.057910 WETH, 24.341191 USDC, 25,026.49 dUSDC. dUSDC is our mintable test token, not value. F adds 40 USDC
-from the Circle faucet before Friday (4 claims of 10 USDC).
+0.057910 WETH, 24.341191 USDC, 25,026.49 dUSDC. dUSDC is our mintable test token, not value. F sent 40 USDC and
+0.2 ETH from another wallet on 3 Nov (landed by block 54,006,574): 0.487648 ETH, 64.341191 USDC. No faucet claims needed.
 
 | Step | USDC | WETH | ETH | USDC in the wallet after |
 |---|---|---|---|---|
-| Start, after 4 faucet claims | +40 | | | 64.34 |
+| Start (3 Nov, after F's transfer of 40 USDC and 0.2 ETH) | | | | 64.34 |
 | 2. Executor redeploy | 0 | 0 | at most 0.000064 (forge estimate: 5,792,699 gas) | 64.34 |
 | 3. Revoke 4 grants, set 7 | 0 | 0 | gas of 11 transactions | 64.34 |
 | 4. Lender supply: live 13, backup 13 USDC; demo 5,000 dUSDC | −26 | 0 | gas of 5 transactions | 38.34 |
@@ -32,13 +32,10 @@ from the Circle faucet before Friday (4 claims of 10 USDC).
 | 7. Vault's Base address: gas money and collateral | 0 | −0.010 | −0.010 | about 28.1 |
 | 9. Reduce scene: the vault sells about 3.8 USDC of WETH into our band; the timer's next round buys it back | about −3.8 (it becomes WETH) | about +0.0017 | gas | about 24.3 |
 
-**Verdict.** 40 USDC is enough. After step 5 the wallet holds about 14.1 USDC above the timer's 14 USDC floor,
+**Verdict.** The 64.34 USDC in the wallet is enough. After step 5 the wallet holds about 14.1 USDC above the timer's 14 USDC floor,
 which pays two more maximum repairs. The steps need 26 (supply) + 10 (band) + 14 (floor) = 50 USDC.
-- **Fewer claims.** With 3 claims (30 USDC) the wallet starts at 54.34 and keeps 4.34 above the floor, less than
-  one maximum repair. With 2 claims or fewer, skip the backup supply on Friday (step 4). Backup's USDC is needed
-  only by a `migrate`, and skipping it frees 13 USDC.
 - **WETH.** WETH is not short: 0.057910 − 0.0144 − 0.010 leaves about 0.0335.
-- **ETH.** About 0.277 ETH is left.
+- **ETH.** About 0.477 ETH is left.
 
 The sizes are computed as follows:
 - **Live supply.** 13 USDC covers the vault's open of 0.01 WETH at 50%: 0.01 × $2,285.28 × 0.5 = 11.43 USDC on
@@ -108,7 +105,7 @@ Every C command block below starts with `source ~/.local/state/cmdk/deploy-2026-
 fork of Base Sepolia on 3 Nov with these exact commands (`RPC=http://127.0.0.1:8547`, a scratch `STATE_DIR`, the
 wallet's USDC set to 64.341191 with `anvil_setStorageAt`), and every output matched what is written below.
 
-## 1. Faucet arrival check (F claims, C reads; no funds)
+## 1. Balance check (C reads; no funds)
 
 ```sh
 source ~/.local/state/cmdk/deploy-2026-11-06.sh
@@ -116,8 +113,8 @@ python3 -I scripts/rebalance_pool.py --market live --status | grep '^wallet' | t
 pgrep -fl rebalance.sh
 ```
 
-Expected: `wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287648 ETH, 0.057910 WETH, 64.341191 USDC,
-25026.493470 dUSDC` (USDC at least 54.34 with 3 claims; see the budget for fewer). `pgrep` prints nothing.
+Expected: `wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.487648 ETH, 0.057910 WETH, 64.341191 USDC,
+25026.493470 dUSDC` (read on 3 Nov after F's transfer). `pgrep` prints nothing.
 
 ## 2. Executor redeploy (C; gas only, at most 0.000064 ETH)
 
