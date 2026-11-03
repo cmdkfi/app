@@ -675,6 +675,12 @@ pub fn may_propose(status: AgentStatus, tee: bool) -> bool {
     status == AgentStatus::Active || !tee
 }
 
+/// Whether a judge call may be dispatched (decided 3 Nov): not while the vault no longer names this key as an active
+/// agent (revoke_agent, replaced, expired); the rules and the tick loop go on. A local `--no-tee` run never registers.
+pub fn may_judge(status: AgentStatus, tee: bool) -> bool {
+    may_propose(status, tee)
+}
+
 #[derive(Serialize, Clone, Debug)]
 pub struct Check {
     pub name: &'static str,
@@ -1266,6 +1272,20 @@ mod tests {
         assert_eq!(agent_status(&v, PK, T), AgentStatus::Expired);
         assert!(!may_propose(AgentStatus::Expired, true));
         assert!(may_propose(AgentStatus::Revoked, false), "a --no-tee run still builds dry proposals");
+    }
+
+    #[test]
+    fn a_revoked_agent_makes_no_judge_call() {
+        let s = snap(vec![market("a", 1500, 1000, 2000, 0.50, 0.70, 0.30)]);
+        let mut v = vault(&s);
+        assert!(may_judge(agent_status(&v, PK, T), true));
+        v["agent"] = Value::Null; // revoke_agent
+        assert!(!may_judge(agent_status(&v, PK, T), true));
+        v["agent"] = json!({"public_key": "ed25519:other", "expires_at": T + 10});
+        assert!(!may_judge(agent_status(&v, PK, T), true));
+        v["agent"] = json!({"public_key": PK, "expires_at": T});
+        assert!(!may_judge(agent_status(&v, PK, T), true));
+        assert!(may_judge(AgentStatus::Revoked, false), "a local --no-tee run never registers and may still judge");
     }
 
     #[test]

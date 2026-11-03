@@ -95,6 +95,19 @@ impl Mode {
     }
 }
 
+/// `--mode live` in the TEE refuses to start without the NEAR AI key (decided 3 Nov); `dry`, the twins and a local
+/// `--no-tee` run may still run without it (every judgment skipped and logged, rules only). Names the source, never the value.
+fn require_judge_key(mode: Mode, tee: bool, key_file: Option<&str>, has_key: bool) -> Result<()> {
+    if mode != Mode::Live || !tee || has_key {
+        return Ok(());
+    }
+    let source = match key_file {
+        Some(f) => format!("the file {f} given by --nearai-key-file is empty"),
+        None => "NEARAI_API_KEY is not set or empty".into(),
+    };
+    Err(anyhow!("--mode live needs the NEAR AI API key for the judge: {source}; refusing to start"))
+}
+
 /// An operator name: 1–32 of a-z, 0-9 and '-', starting with a letter or digit.
 fn valid_operator(s: &str) -> bool {
     !s.is_empty() && s.len() <= 32 && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') && !s.starts_with('-')
@@ -307,6 +320,13 @@ async fn judge_job(judge: Arc<judge::Judge>, feed: Option<Value>, s: Snapshot, f
 fn spawn_judge(ctx: &Ctx, st: &mut State, s: &Snapshot, fired: &[Fired], tick: u64) {
     let trigger = logic::fired_set(fired);
     let feed_items = std::mem::take(&mut st.feed_trigger);
+    let status = logic::agent_status(&st.vault, &ctx.our_pk, now());
+    if !logic::may_judge(status, ctx.a.tee) {
+        // revoked on the vault (revoke_agent, another key, or expired): no judge call; the rules and ticks go on
+        println!("RESULT judge skipped tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}: agent {}, rules only", s.block, status.label());
+        st.judge_skipped = Some(json!({"outcome": "skipped_revoked", "agent_status": status.label(), "applies": "rules only", "trigger": trigger, "trigger_feed_items": feed_items, "tick": tick}));
+        return;
+    }
     let Some(judge) = ctx.judge.clone() else {
         // twin modes never reach here; without a NEAR AI key the judgment is skipped and the rules apply alone
         println!("RESULT judge skipped tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}: no NEARAI_API_KEY set, rules only", s.block);
@@ -545,6 +565,10 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
             st.judge_wanted = None; // the screens that wanted a judgment are gone
         } else if st.inflight.is_none() && st.ready.is_none() {
             st.judge_wanted = None;
+            // fresh vault state right before a judge call, so a revoke is seen here (no judge call while revoked)
+            if let Ok(v) = ctx.nearc.view(&ctx.a.vault, "get_state", &json!({})).await {
+                st.vault = v;
+            }
             spawn_judge(&ctx, st, &s, &fired, n);
         }
     }
@@ -778,6 +802,7 @@ async fn main() -> Result<()> {
         None => std::env::var("NEARAI_API_KEY").ok().map(|k| k.trim().to_string()),
     }
     .filter(|k| !k.is_empty());
+    require_judge_key(a.mode, a.tee, a.nearai_key_file.as_deref(), key.is_some())?;
     let judge = if a.mode.twin() {
         println!("RESULT judge never called: mode {} is the deterministic twin (no model, no text feeds)", a.mode.label());
         None
@@ -951,6 +976,16 @@ mod tests {
         assert!(Mode::Live.sends() && !Mode::Live.twin());
         assert!(Mode::parse("judge").is_err());
         assert!(valid_operator("cmdk") && valid_operator("alice-2"));
+        // no NEAR AI key: only `--mode live` in the TEE refuses to start, and the error names the source
+        let e = require_judge_key(Mode::Live, true, None, false).unwrap_err().to_string();
+        assert!(e.contains("NEARAI_API_KEY") && e.contains("refusing to start"), "{e}");
+        let e = require_judge_key(Mode::Live, true, Some("/run/k"), false).unwrap_err().to_string();
+        assert!(e.contains("--nearai-key-file") && e.contains("/run/k"), "{e}");
+        assert!(require_judge_key(Mode::Live, true, None, true).is_ok());
+        assert!(require_judge_key(Mode::Live, false, None, false).is_ok(), "a local --no-tee run may run without the key");
+        for m in [Mode::Dry, Mode::Twin, Mode::TwinLive] {
+            assert!(require_judge_key(m, true, None, false).is_ok(), "{m:?}");
+        }
         for bad in ["", "-x", "Cmdk", "a b", "a_b", &"x".repeat(33)] {
             assert!(!valid_operator(bad), "{bad}");
         }
