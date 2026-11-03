@@ -10,7 +10,7 @@ Testnet only. Every step that moves funds says how much. Run the steps in order;
 | Item | Owner | Check |
 |---|---|---|
 | Executor freeze read (Wed 4) and vault review | founder | findings in the README's Limitations, no open defect |
-| NEAR on the publishing account | founder | at least 85 NEAR (publish about 78.2 NEAR for the 782,345-byte wasm + factory 2 NEAR + gas); `prime-measure-1792736012.testnet` held 179.32 NEAR on 3 Nov |
+| NEAR on the publishing account | founder | at least 85 NEAR (publish about 78.2 NEAR for the 782,389-byte host build; the reproducible wasm's size is read on Friday + factory 2 NEAR + gas); `prime-measure-1792736012.testnet` held 179.32 NEAR on 3 Nov |
 | NEAR on the relayer account | founder | at least 5 NEAR (2 NEAR vault deposit, agent funding, gas) |
 | Base Sepolia test wallet | founder | at least 0.1 ETH and about 40 USDC (Circle faucet, 20 USDC per 2 h); the live `reduce` in step 6 sells into our own band, which held 4.35 USDC on 3 Nov |
 | Stop the rebalancer timer for the duration | whoever runs this | `pkill -INT -f rebalance.sh`; it finishes its round and exits 0. The deploy uses the same wallet, and two senders clash on the nonce |

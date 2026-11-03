@@ -78,10 +78,12 @@ and no measurement, or with a market listed twice, is refused.
   The app reads both from `GET /vault` (`morpho_authorized`, `loan_allowance`, `collateral_allowance`).
 - Flags against Base, `set_executor`: `revoke_authorization` must equal "Morpho still authorizes the old executor" when a revoke is due.
 - `close`, `repay` (item 14): loan-token allowance to the executor and loan-token balance at least the debt
-  (or the repay amount) plus 1%; `repay` with no debt is refused. `open`: Morpho authorization and collateral
-  allowance at least `collateral_in`. `open_from_stables` (`{"market", "stables_in", "target_ltv"}`; the
+  (or the repay amount) plus 1%; `repay` with no debt is refused. `open`: Morpho authorization, collateral
+  allowance and collateral balance at the vault's Base address at least `collateral_in` (`collateral_in` 0 is allowed:
+  borrow more against what is there). `open_from_stables` (`{"market", "stables_in", "target_ltv"}`; the
   executor pulls `stables_in` of the loan token and swaps it to collateral): Morpho authorization, and
-  loan-token allowance to the executor and loan-token balance at the vault's Base address at least `stables_in`.
+  loan-token allowance to the executor and loan-token balance at the vault's Base address at least `stables_in`;
+  `stables_in` 0 is refused (`zero stables_in`, the vault's wording).
 - Funds: the vault's Base ETH covers `gas_limit x max_fee + value` for every transaction (L1 fee not included).
 - Create vault: the factory's checks (owner and tokens 20 bytes of hex, ids 32 bytes, non-zero executor, at
   least one market, no duplicate ids), plus types and unknown keys; deposit above 0 and at most 10 NEAR.

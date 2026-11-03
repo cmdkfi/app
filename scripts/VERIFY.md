@@ -34,7 +34,7 @@ build            cargo near build non-reproducible-wasm
 commit           <12-character commit> (<n> uncommitted or untracked paths in the checkout)
 toolchain        rustc 1.95.0 (59807616e 2026-04-14); cargo-near-near 0.22.0
 wasm             <repo>/vault/target/near/cmdk_vault.wasm
-size             782345 bytes
+size             782389 bytes
 sha256 (hex)     92b2746ccc4ad0cbb263b7de1eefdc7b61cff5dad45287075b4ab902956ab0b4
 sha256 (base58)  AseMK3E3saWeqmRt92xihZeb5a5UiChaPyvp6UhktYBm   <- NEAR's Global Contract hash
 vault            <vault>.testnet (view_account, NEAR testnet block <height>)

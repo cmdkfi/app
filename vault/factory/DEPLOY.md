@@ -34,13 +34,13 @@ and the image digest. The build does not contact GitHub; `cargo near deploy` wou
 remote), and this file does not use it. A verifier rebuilds from that link, so it works once `cmdkfi/app` is
 public with the commit in its history.
 
-`cmdkfi/app` is private until the deadline, so on Friday the build runs from a public mirror of the exact commit
-to be published: a full clone with history (same commit hash; a squashed or re-committed copy has another hash
-and the link in the wasm would name a commit that does not exist). Before building: Docker running with room to
-pull the image and build; the mirror's working tree clean (`git status --short` prints nothing).
+Decided 3 Nov: `cmdkfi/app` is made public on Friday at deploy time (a week before the deadline), so no mirror is
+needed; the build runs from this checkout, on the exact commit to be published. Before building: that commit
+pushed to `origin/main`, Docker running with room to pull the image and build, and the working tree clean
+(`git status --short` prints nothing).
 
 ```sh
-cd <mirror clone>/vault
+cd /Users/vf/cmdk/app/vault
 git rev-parse HEAD                          # the commit named in the wasm's link
 HASH=$(cargo near build reproducible-wasm 2>&1 | awk '/checksum bs58/ {print $NF}'); echo "$HASH"
 shasum -a 256 target/near/cmdk_vault.wasm
@@ -48,8 +48,6 @@ shasum -a 256 target/near/cmdk_vault.wasm
 ls -l target/near/cmdk_vault.wasm factory/target/near/cmdk_factory.wasm
 ```
 
-Run the remaining steps from the mirror's `vault/` directory (step 0's `cd` names the private checkout), so the
-wasm published is the one just built.
 
 `HASH` is the base58 SHA-256 of the vault wasm, the Global Contract's code hash. On 3 Nov (after V6 and the
 `stables_in` 0 refusal) the non-reproducible build (`cargo near build non-reproducible-wasm`, Rust 1.95.0 on the
