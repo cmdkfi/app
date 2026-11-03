@@ -4,10 +4,14 @@
 // relayer.py serve on the container's 127.0.0.1:8787 behind front.py on :8080. The Durable Object's storage
 // keeps the state files (the container's disk is ephemeral) and passes them to the container at every start.
 //
-// Public routes (CORS for ALLOWED_ORIGINS), also under a /relayer prefix:
-//   GET /health, GET /vault/<id>, POST /owner-call            open (an owner call needs the owner's signature)
-//   POST /create-vault, POST /fund-agent                      Authorization: Bearer ADMIN_TOKEN: they spend the
-//                                                             relayer's NEAR without any owner signature
+// Relayer routes, also under a /relayer prefix. CORS for ALLOWED_ORIGINS is done here only: the relayer in the
+// container runs without --cors-origin, and any Access-Control-* header from behind is dropped, then set once.
+//   GET /health, GET /vault/<id>, GET /job/<id>, POST /owner-call   open (an owner call needs the owner's signature)
+//   POST /create-vault   open, with limits: CREATE_PER_IP_PER_HOUR per client IP (CF-Connecting-IP) per rolling
+//                        hour and CREATE_PER_DAY in all per rolling 24 hours, 429 with Retry-After beyond; counted
+//                        in the Durable Object's storage, only for a creation the relayer accepted (202, or 200
+//                        for a synchronous "wait": true)
+//   POST /fund-agent     Authorization: Bearer ADMIN_TOKEN: it spends the relayer's NEAR without any signature
 // Admin routes (Authorization: Bearer ADMIN_TOKEN):
 //   POST /rebalance[?market=live|demo|both][&dry=1|&status=1][&tolerance=X]   one round now, paused or not
 //   POST /pause   the cron stops starting rounds; returns once a running round has finished
@@ -19,27 +23,46 @@
 
 import { Container } from '@cloudflare/containers';
 
-interface Secrets {
+// The generated Env (wrangler types) plus the Durable Object binding typed here and the secrets.
+interface Bindings extends Env {
+	BACKEND: DurableObjectNamespace<CmdkBackend>;
 	BASE_EOA_KEY_JSON?: string;
 	NEAR_RELAYER_KEY_JSON?: string;
 	NEAR_RELAYER_ACCOUNT?: string;
 	ADMIN_TOKEN?: string;
+	// local tests only (wrangler dev --env-file), never set on Cloudflare: "1" starts the relayer with
+	// --dry-run --allow-reads (reads both chains, sends nothing)
+	RELAYER_DRY_RUN?: string;
 }
-type Bindings = Env & Secrets;
 
 const PORT = 8080;
 const NAME = 'cmdk';
-const OPEN_GET = /^\/(health|vault\/[^/]+)$/;
-const OPEN_POST = new Set(['/owner-call']);
-const GATED_POST = new Set(['/create-vault', '/fund-agent']);
+const OPEN_GET = /^\/(health|vault\/[^/]+|job\/[^/]+)$/;
+const OPEN_POST = new Set(['/owner-call', '/create-vault']);
+const GATED_POST = new Set(['/fund-agent']);
 const ADMIN = new Set(['/rebalance', '/pause', '/resume', '/timer', '/runs', '/state']);
 const RUNS_KEPT = 5000;
 const STATE_NAMES = ['live', 'demo', 'relayer'] as const;
+const HOUR = 3600_000;
+const DAY = 24 * HOUR;
+
+type Creation = { t: number; ip: string; id: string };
 
 type RoundResult = { ok: boolean; error?: string; runs?: { market: string; exit: number; line: string }[]; state?: Record<string, unknown> };
 
 function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
 	return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
+}
+
+function positiveInt(v: string | undefined, fallback: number): number {
+	const n = Number(v);
+	return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
+// The client IP is stored only as a hash (16 hex of its SHA-256).
+async function ipTag(ip: string): Promise<string> {
+	const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip)));
+	return Array.from(d.slice(0, 8), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export class CmdkBackend extends Container<Bindings> {
@@ -75,6 +98,7 @@ export class CmdkBackend extends Container<Bindings> {
 			REBALANCE_ARGS: e.REBALANCE_ARGS ?? '--band-usdc 10',
 			RPC: e.BASE_RPC,
 			NEAR_RPC: e.NEAR_RPC,
+			RELAYER_DRY_RUN: e.RELAYER_DRY_RUN ?? '',
 			CMDK_STATE_JSON: JSON.stringify(state),
 		};
 	}
@@ -168,10 +192,42 @@ export class CmdkBackend extends Container<Bindings> {
 			console.log(`state replaced: ${r.status}`);
 			return json(r.status, out);
 		}
-		// relayer routes
-		const init: RequestInit = { method, headers: { 'Content-Type': 'application/json' } };
-		if (method === 'POST') init.body = await request.text();
-		const r = await this.call(path, init);
+		if (path === '/create-vault' && method === 'POST') return this.createVault(request);
+		return this.relayer(path, method, method === 'POST' ? await request.text() : undefined);
+	}
+
+	// /create-vault, open to browsers: a slot is reserved before the relayer is called (so two requests at once
+	// cannot both pass the check) and released unless the relayer accepted the creation.
+	private async createVault(request: Request): Promise<Response> {
+		const perIp = positiveInt(this.env.CREATE_PER_IP_PER_HOUR, 2);
+		const perDay = positiveInt(this.env.CREATE_PER_DAY, 20);
+		const ip = await ipTag(request.headers.get('X-Client-IP') || 'unknown');
+		const now = Date.now();
+		const kept = ((await this.ctx.storage.get<Creation[]>('creations')) ?? []).filter((c) => c.t > now - DAY);
+		const mine = kept.filter((c) => c.ip === ip && c.t > now - HOUR);
+		const refuse = (error: string, until: number) => {
+			const s = Math.max(1, Math.ceil((until - now) / 1000));
+			console.log(`create-vault limited: ${error}`);
+			return json(429, { ok: false, error: `${error}; retry in ${s} s` }, { 'Retry-After': String(s) });
+		};
+		if (mine.length >= perIp) return refuse(`at most ${perIp} vault creations per client IP per hour`, mine[0].t + HOUR);
+		if (kept.length >= perDay) return refuse(`at most ${perDay} vault creations per 24 hours in all`, kept[0].t + DAY);
+		const id = crypto.randomUUID();
+		await this.ctx.storage.put('creations', kept.concat({ t: now, ip, id }));
+		let r: Response | undefined;
+		try {
+			r = await this.relayer('/create-vault', 'POST', await request.text());
+			return r;
+		} finally {
+			if (!r || (r.status !== 202 && r.status !== 200)) {
+				const all = (await this.ctx.storage.get<Creation[]>('creations')) ?? [];
+				await this.ctx.storage.put('creations', all.filter((c) => c.id !== id));
+			}
+		}
+	}
+
+	private async relayer(path: string, method: string, body: string | undefined): Promise<Response> {
+		const r = await this.call(path, { method, headers: { 'Content-Type': 'application/json' }, body });
 		if (method === 'POST') {
 			// keep the relayer's state file (funding cap, held transactions) across container restarts
 			this.ctx.waitUntil(
@@ -194,6 +250,7 @@ function corsHeaders(request: Request, env: Bindings): Record<string, string> {
 		'Access-Control-Allow-Origin': origin,
 		'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 		'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+		'Access-Control-Expose-Headers': 'Retry-After',
 		'Access-Control-Max-Age': '600',
 		Vary: 'Origin',
 	};
@@ -209,7 +266,7 @@ function authorized(request: Request, env: Bindings): boolean {
 }
 
 function backend(env: Bindings): DurableObjectStub<CmdkBackend> {
-	return (env.BACKEND as DurableObjectNamespace<CmdkBackend>).getByName(NAME);
+	return env.BACKEND.getByName(NAME);
 }
 
 export default {
@@ -226,14 +283,21 @@ export default {
 		if ((ADMIN.has(path) || GATED_POST.has(path)) && !authorized(request, env)) {
 			return json(env.ADMIN_TOKEN ? 401 : 503, { ok: false, error: env.ADMIN_TOKEN ? 'admin token required' : 'ADMIN_TOKEN is not set' }, cors);
 		}
-		const forward = new Request(`http://do${path}${url.search}`, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : await request.text() });
+		const forward = new Request(`http://do${path}${url.search}`, {
+			method,
+			headers: { 'Content-Type': 'application/json', 'X-Client-IP': request.headers.get('CF-Connecting-IP') ?? '' },
+			body: method === 'GET' ? undefined : await request.text(),
+		});
 		const r = await backend(env).fetch(forward);
-		const headers = new Headers(r.headers);
+		// CORS is set here once: drop any Access-Control-* header from behind (a relayer started with --cors-origin
+		// would send its own, and a browser refuses two Access-Control-Allow-Origin values), then set ours.
+		const headers = new Headers();
+		for (const [k, v] of r.headers) if (!k.toLowerCase().startsWith('access-control-')) headers.append(k, v);
 		for (const [k, v] of Object.entries(cors)) headers.set(k, v);
 		return new Response(r.body, { status: r.status, headers });
 	},
 
-	async scheduled(controller: ScheduledController, env: Bindings, ctx: ExecutionContext): Promise<void> {
+	async scheduled(controller: ScheduledController, env: Bindings): Promise<void> {
 		const out = await backend(env).cron();
 		console.log(`cron ${controller.cron}: ${out}`);
 	},

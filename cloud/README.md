@@ -8,8 +8,8 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
 | File | What it is |
 |---|---|
 | `Dockerfile` | python 3.14 slim (pinned by digest), `cast` (Foundry v1.8.6) and `near` (near-cli-rs v0.30.1), both checked by SHA-256, `jq`; copies `scripts/relayer.py`, `scripts/relayer.sh`, `scripts/rebalance_pool.py`, `deployments/testnet.json`, `cloud/front.py`. No key. Build context: the repository root (`Dockerfile.dockerignore` lets only those files in) |
-| `front.py` | The container's entrypoint and only listener (`0.0.0.0:8080`). Writes the keys and the state, starts the relayer on `127.0.0.1:8787`, proxies to it, runs rebalancer rounds |
-| `src/index.ts` | The Worker: routes, CORS, the admin token, the Durable Object `CmdkBackend` that owns the container and keeps the state, the cron |
+| `front.py` | The container's entrypoint and only listener (`0.0.0.0:8080`). Writes the keys and the state, starts the relayer on `127.0.0.1:8787`, proxies to it, adds `factory_exists` to `/health` and answers `/create-vault` with 503 while the factory account does not exist, runs rebalancer rounds |
+| `src/index.ts` | The Worker: routes, CORS (here only), the admin token, the `/create-vault` limits, the Durable Object `CmdkBackend` that owns the container and keeps the state and the creation counts, the cron |
 | `wrangler.jsonc` | Container `basic` (1/4 vCPU, 1 GiB, 4 GB), `max_instances` 1, cron `*/10 * * * *`, custom domain `relayer.cmdk.fi`, observability on |
 
 ## How it works
@@ -22,8 +22,15 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
   variables at start; `front.py` writes `BASE_EOA_KEY_JSON` to `~/.config/prime/base_sepolia_eoa.json` (the path
   `rebalance_pool.py` reads) and `NEAR_RELAYER_KEY_JSON` to `~/.config/prime/near_relayer_key.json`, both mode 600,
   and removes the variables before it starts any child process. The relayer gets `NEAR_ACCESS_KEY_FILE`, so
-  `relayer.py` signs with `sign-with-access-key-file <path>` instead of `sign-with-keychain`. Values are never
-  printed; the log shows the Base address and the NEAR public key.
+  `relayer.py` signs with `sign-with-access-key-file <path>` instead of `sign-with-keychain`, and `--eth-key-file`
+  names the Base key file: the ETH float stays at relayer.py's default, 0.005 ETH from that wallet to each vault
+  created through `/create-vault`. relayer.py refuses to start (exit 2) when that wallet holds less than 20 floats
+  (0.1 ETH); it held 0.4876 ETH on 3 Nov (97 floats). Values are never printed; the log shows the Base address and
+  the NEAR public key.
+- **Factory before Friday.** relayer.py does not read the factory account; it starts with a factory that does not
+  exist yet. `front.py` reads it (`view_account`; a yes is kept, a no is read again after 30 s): `/health` gains
+  `"factory_exists": false` and `/create-vault` answers 503 `factory … does not exist yet …` before the relayer
+  sees it, so nothing is sent to a missing account. Both change by themselves once DEPLOY.md 7a creates it.
 - **State.** The container's disk is ephemeral. The rebalancer's state files (`live.json`, `demo.json`: the band and
   anchor token ids) and the relayer's (`relayer.json`: funding cap, held transactions) are kept in the Durable
   Object's storage. They are saved after every round and after every relayer POST, and passed back to the container
@@ -43,10 +50,15 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
 Base URL `https://relayer.cmdk.fi` (also `https://cmdk-relayer.fffilimonov.workers.dev`). Every relayer route also
 answers under `/relayer/...`. CORS: the origins in `ALLOWED_ORIGINS` (`https://cmdk.fi`, `http://localhost:5173`).
 
+**CORS is done in the Worker only.** `front.py` starts the relayer without `--cors-origin`, and the Worker drops
+every `Access-Control-*` header of the response from behind before it sets its own (replace, never append), so a
+browser never sees two `Access-Control-Allow-Origin` values. It also exposes `Retry-After` to the app.
+
 | Route | Access | What |
 |---|---|---|
-| `GET /health`, `GET /vault/<id>`, `POST /owner-call` | open | relayer.py, unchanged (`scripts/RELAYER.md`). An owner call needs the owner's signature |
-| `POST /create-vault`, `POST /fund-agent` | admin token | relayer.py. They spend the relayer's NEAR without any owner signature (a vault deposit of up to 10 NEAR; 0.16 NEAR per fresh implicit account), so they are not open on a public URL |
+| `GET /health`, `GET /vault/<id>`, `GET /job/<id>`, `POST /owner-call` | open | relayer.py (`scripts/RELAYER.md`): `/owner-call` answers 202 with a job id, `GET /job/<id>` its stages, `"wait": true` the synchronous answer. An owner call needs the owner's signature. `/health` also carries `jobs`, `wallet` (the float wallet) and, from `front.py`, `factory_exists` |
+| `POST /create-vault` | open, with limits | relayer.py (202 and a job; 0.005 ETH float). At most `CREATE_PER_IP_PER_HOUR` (2) per client IP (`CF-Connecting-IP`) per rolling hour and `CREATE_PER_DAY` (20) in all per rolling 24 hours (founder, 3 Nov); beyond, 429 `{"ok": false, "error": "at most … ; retry in N s"}` with `Retry-After: N`. Counted in the Durable Object's storage (timestamps and a hash of the IP, entries older than 24 h pruned), only when the relayer accepted the creation: 202, or 200 for `"wait": true`; a 400, 503 or other refusal does not count. 503 while the factory does not exist |
+| `POST /fund-agent` | admin token | relayer.py. It spends the relayer's NEAR without any signature (up to 0.16 NEAR per call; one call per vault an agent registers on), so it is not open |
 | `POST /rebalance[?market=live\|demo\|both][&dry=1\|&status=1][&tolerance=X]` | admin token | one round now, paused or not; returns each run's `RUN` line, exit code and output |
 | `POST /pause`, `POST /resume`, `GET /timer` | admin token | the cron's switch; `/timer` shows `paused`, the container status and the last `RUN` lines |
 | `GET /runs[?n=N]` | admin token | the stored `RUN` lines (last 5,000 kept), oldest first, as text |
@@ -67,56 +79,44 @@ domain; `wrangler deploy` creates the record and the certificate. The workers.de
 |---|---|---|
 | `BASE_EOA_KEY_JSON` | the test wallet's key file as it is (`{"data": [{"address", "private_key", "public_key"}]}`; `front.py` checks the address and that a private key is there) | `~/.config/prime/base_sepolia_eoa.json` |
 | `NEAR_RELAYER_KEY_JSON` | `{"account_id", "public_key", "private_key"}` of the relayer account (the near-cli-rs access-key-file format; the seed phrase is left out) | see "The relayer's NEAR key" |
-| `NEAR_RELAYER_ACCOUNT` | the relayer account id, `relayer.py serve --sender` | e.g. `prime-measure-1792736012.testnet` |
+| `NEAR_RELAYER_ACCOUNT` | the relayer account id, `relayer.py serve --sender` | `relayer.prime-measure-1792736012.testnet` (founder, 3 Nov) |
 | `ADMIN_TOKEN` | 64 hex characters | generated below |
 
-Plain variables in `wrangler.jsonc`: `NEAR_FACTORY_ACCOUNT` (`relayer.py serve --factory`; empty means
-`deployments/testnet.json` `near.factory`, which is `null` until DEPLOY.md step 7c, and then the relayer does not
-start and `/health` says so), `ALLOWED_ORIGINS`, `REBALANCE_ARGS`, `BASE_RPC`, `NEAR_RPC`.
+Plain variables in `wrangler.jsonc`: `NEAR_FACTORY_ACCOUNT` (`relayer.py serve --factory`), set to
+`factory.prime-measure-1792736012.testnet`, `vault/factory/DEPLOY.md`'s `factory.$ACCOUNT`. The account is created
+on Friday (DEPLOY.md 7a, recorded in 7c); until then the relayer runs and `/health` says `"factory_exists": false`.
+`CREATE_PER_IP_PER_HOUR` (2) and `CREATE_PER_DAY` (20), `ALLOWED_ORIGINS`, `REBALANCE_ARGS`, `BASE_RPC`,
+`NEAR_RPC`. `RELAYER_DRY_RUN` is for local tests only (an `--env-file` line; `1` adds `--dry-run --allow-reads`);
+it is never set on Cloudflare.
 
 ### The relayer's NEAR key
 
-Checked on 3 Nov without printing any key:
-- `prime-measure-1792736012.testnet` (relayer.py's default `RELAYER`) has its key in the legacy keychain,
-  `~/.near-credentials/testnet/prime-measure-1792736012.testnet.json` (fields `public_key`, `private_key`,
-  `master_seed_phrase`, `seed_phrase_hd_path`, `implicit_account_id`; public key
-  `ed25519:Uyd6WjYJ6YShbMQEGpKsMKNq192dXMKV91GYsWDGBho`). The macOS keychain has no `near-testnet-` entry for this
-  account (it has entries for `g1.`, `p2-vault.` subaccounts and the faucet accounts). `sign-with-keychain` falls
-  back to the legacy file, which is why the Mac relayer works.
-- `near ... sign-with-access-key-file ~/.near-credentials/testnet/prime-measure-1792736012.testnet.json display`
-  signed a 1 yoctoNEAR self-transfer and displayed it without sending: the file works as an access-key file. A file
-  with only `account_id`, `public_key`, `private_key` is also accepted (tested with a throwaway key).
-- Use `jq` to pass only the three fields into `wrangler secret put` (below): the pipe carries the key, the
-  terminal shows nothing, and the seed phrase does not leave the Mac.
-- `near account export-account <id> using-private-key network-config testnet` exists in near-cli-rs 0.30.1 but
-  prints the private key on the terminal, so it is not used. If the relayer is an account whose key is only in the
-  macOS keychain, `security find-generic-password -s near-testnet-<id> -w` reads it to stdout; its format was not
-  checked (reading it may also raise a keychain prompt), so the safer path is a new key for the cloud:
-  `near account add-key <id> grant-full-access autogenerate-new-keypair save-to-legacy-keychain network-config
-  testnet sign-with-keychain send` (gas only), then the `jq` line with the new file
-  `~/.near-credentials/testnet/<id>/ed25519_<public key>.json`. A separate key can be deleted later without
-  touching the Mac's.
+`relayer.prime-measure-1792736012.testnet` (founder, 3 Nov; 30 NEAR). Checked on 3 Nov without printing any key:
+its key is in the legacy keychain, `~/.near-credentials/testnet/relayer.prime-measure-1792736012.testnet.json`
+(fields `public_key`, `private_key`, `master_seed_phrase`, `seed_phrase_hd_path`, `implicit_account_id`; public key
+`ed25519:HwdWu9mieUujCEkYbbcCHYTJCxmLYPZhJjykefqkWPhJ`), and `view_access_key_list` shows that key, full access, as
+the account's only key. `jq` passes only `account_id`, `public_key` and `private_key` into `wrangler secret put`
+(below): the pipe carries the key, the terminal shows nothing, and the seed phrase does not leave the Mac. A file
+with only those three fields works as a near-cli-rs access-key file (tested on 3 Nov with a throwaway key).
+`near account export-account` is not used: it prints the private key on the terminal.
 
 ## Commands for F (in order; nothing here was run against Cloudflare)
 
-Before Friday. `$RELAYER` is the relayer account; `$FACTORY` the factory from `vault/factory/DEPLOY.md` step 0
-(`factory.$ACCOUNT`).
+Before Friday. The factory name is already in `wrangler.jsonc`.
 
 ```sh
 cd /Users/vf/cmdk/app/cloud
-RELAYER=prime-measure-1792736012.testnet; FACTORY=factory.<ACCOUNT>.testnet
+RELAYER=relayer.prime-measure-1792736012.testnet
 pnpm install                                   # pnpm-workspace.yaml allows the esbuild, sharp, workerd builds
 pnpm run check                                 # wrangler types + tsc --noEmit, exit 0
+grep -E '"(NEAR_FACTORY_ACCOUNT|CREATE_PER_IP_PER_HOUR|CREATE_PER_DAY)"' wrangler.jsonc
+#   "NEAR_FACTORY_ACCOUNT": "factory.prime-measure-1792736012.testnet",  "CREATE_PER_IP_PER_HOUR": "2",  "CREATE_PER_DAY": "20",
 
-# 1. Factory name into wrangler.jsonc (a plain variable, public)
-sed -i '' "s/\"NEAR_FACTORY_ACCOUNT\": \"\"/\"NEAR_FACTORY_ACCOUNT\": \"$FACTORY\"/" wrangler.jsonc
-grep NEAR_FACTORY_ACCOUNT wrangler.jsonc
-
-# 2. Admin token: generated into two files outside the repository, mode 600, never printed
+# 1. Admin token: generated into two files outside the repository, mode 600, never printed
 ( umask 077; openssl rand -hex 32 | tr -d '\n' > ~/.config/prime/relayer_admin_token
   printf 'Authorization: Bearer %s\n' "$(cat ~/.config/prime/relayer_admin_token)" > ~/.config/prime/relayer_admin.header )
 
-# 3. Secrets, piped from files; wrangler reads stdin and prints only "Success! Uploaded secret ..."
+# 2. Secrets, piped from files; wrangler reads stdin and prints only "Success! Uploaded secret ..."
 #    (the first one creates the Worker cmdk-relayer as an empty draft if it does not exist yet: wrangler 4.156.0's
 #    createDraftWorker, which answers its own prompt with yes when stdin is not a terminal)
 npx wrangler secret put BASE_EOA_KEY_JSON < ~/.config/prime/base_sepolia_eoa.json
@@ -126,7 +126,7 @@ printf %s "$RELAYER" | npx wrangler secret put NEAR_RELAYER_ACCOUNT
 npx wrangler secret put ADMIN_TOKEN < ~/.config/prime/relayer_admin_token
 npx wrangler secret list                       # the four names, no values
 
-# 4. Deploy: builds the linux/amd64 image with Docker, pushes it to Cloudflare's registry, deploys the Worker
+# 3. Deploy: builds the linux/amd64 image with Docker, pushes it to Cloudflare's registry, deploys the Worker
 npx wrangler deploy
 ```
 
@@ -135,19 +135,67 @@ Expected from `wrangler deploy` (not run; from the `--dry-run` output and the do
 provision; until then a request answers 503 `There is no Container instance available at this time`. The
 certificate for `relayer.cmdk.fi` can take a few minutes too; the workers.dev URL works meanwhile.
 
-Health check (read-only; the first request starts the container, and the relayer needs about 5 s to check both
-chains, answering 503 `relayer unreachable (starting or restarting)` until then):
+Health checks (read-only; the first request starts the container, and the relayer needs about 17 s to check both
+chains and the float wallet, answering 503 `relayer unreachable (starting or restarting)` until then):
 
 ```sh
 U=https://relayer.cmdk.fi; A=~/.config/prime/relayer_admin.header
-curl -s $U/health | jq -c '{ok, dry_run, sender, factory, chain_id, near_network, base_block, sender_balance}'
+curl -s $U/health | jq -c '{ok, dry_run, sender, factory, factory_exists, chain_id, near_network, base_block, sender_balance, eth_float_wei, floats_left: .wallet.floats_left, jobs}'
 curl -s -H @$A $U/timer | jq -c '{paused, container: .container.status}'
 curl -s -X POST -H @$A "$U/rebalance?status=1" | jq -r '.runs[].line'
+curl -s -w ' %{http_code}\n' $U/job/0123456789abcdef
+curl -s -w ' %{http_code}\n' -X POST $U/create-vault -H 'Content-Type: application/json' -d '{"owner":"bad"}'
+curl -s -w ' %{http_code}\n' -X POST $U/fund-agent -d '{}'
+curl -s -i -X OPTIONS $U/create-vault -H 'Origin: https://cmdk.fi' | grep -ic '^access-control-allow-origin'
 ```
 
-Expected: `{"ok":true,"dry_run":false,"sender":"$RELAYER","factory":"$FACTORY","chain_id":84532,"near_network":"testnet","base_block":<about 54,0xx,xxx>,"sender_balance":"<N> NEAR"}`,
-then `{"paused":true,"container":"healthy"}`, then two `RUN … action=status … exit=0` lines. Leave the timer
-paused; DEPLOY.md step 6 uploads the state and resumes it.
+Expected:
+- `{"ok":true,"dry_run":false,"sender":"relayer.prime-measure-1792736012.testnet","factory":"factory.prime-measure-1792736012.testnet","factory_exists":false,"chain_id":84532,"near_network":"testnet","base_block":<about 54,02x,xxx>,"sender_balance":"30 NEAR","eth_float_wei":"5000000000000000","floats_left":97,"jobs":{"kept":0,"max":1000,"running":0,"stages":{}}}`
+  (`floats_left` is the wallet's balance over 0.005 ETH: 97 at 0.4876 ETH);
+- `{"paused":true,"container":"healthy"}`, then two `RUN … action=status … exit=0` lines;
+- `{"ok": false, "error": "no such job"} 404`;
+- before Friday `{"ok": false, "error": "factory factory.prime-measure-1792736012.testnet does not exist yet on NEAR testnet (created on Friday, DEPLOY.md 7a); /create-vault opens once it does"} 503`;
+  after 7a `{"ok": false, "error": "request: missing ['deposit_near', 'policy'], unknown []"} 400`. Neither sends
+  anything nor counts toward the limits;
+- `{"ok":false,"error":"admin token required"} 401`; then `1` (one `Access-Control-Allow-Origin` line).
+
+Leave the timer paused; DEPLOY.md step 6 uploads the state and resumes it.
+
+**Rate-limit test.** On Cloudflare a third create from one IP costs two real vaults (2 NEAR deposit and 0.005 ETH
+each), and `CF-Connecting-IP` is set by Cloudflare, so the limits are tested locally with `wrangler dev`, the relayer
+in dry run (reads both chains, sends nothing), a fake `CF-Connecting-IP`, and `CREATE_PER_DAY=3` to reach the daily
+cap too. The env file lives outside the repository, mode 600; the NEAR key in it is a dummy (a dry run signs
+nothing), the factory an existing account (the 503 above would come first otherwise):
+
+```sh
+cd /Users/vf/cmdk/app/cloud; T=$(mktemp -d); chmod 700 $T
+python3 -I - "$T" <<'PY'
+import json, os, secrets, sys
+d = sys.argv[1]; base = json.dumps(json.load(open(os.path.expanduser('~/.config/prime/base_sepolia_eoa.json'))), separators=(',', ':'))
+near = json.dumps({'account_id': 'relayer.prime-measure-1792736012.testnet', 'public_key': 'ed25519:11111111111111111111111111111111', 'private_key': 'ed25519:dummy'})
+tok = secrets.token_hex(32)
+for name, text in (('dev.env', "BASE_EOA_KEY_JSON='%s'\nNEAR_RELAYER_KEY_JSON='%s'\nNEAR_RELAYER_ACCOUNT=relayer.prime-measure-1792736012.testnet\n"
+                   "ADMIN_TOKEN=%s\nRELAYER_DRY_RUN=1\nNEAR_FACTORY_ACCOUNT=prime-measure-1792736012.testnet\nCREATE_PER_DAY=3\n" % (base, near, tok)),
+                   ('admin.header', 'Authorization: Bearer %s\n' % tok)):
+    fd = os.open(os.path.join(d, name), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); os.write(fd, text.encode()); os.close(fd)
+PY
+npx wrangler dev --port 8799 --env-file $T/dev.env > $T/dev.log 2>&1 &
+until grep -q 'Ready on' $T/dev.log; do sleep 1; done
+U=http://localhost:8799; until curl -sf $U/health > /dev/null; do sleep 2; done
+GOOD='{"owner":"0x0B7Ed66f46fe83252a208563A88201BA60490d25","policy":{"cooldown_secs":120,"markets":[{"id":"0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c","loan_token":"0x036CbD53842c5426634e7929541eC2318f3dCF7e","collateral_token":"0x4200000000000000000000000000000000000006","executor":"0x0000000000000000000000000000000000000001","slice_max":"1000000000"}]},"deposit_near":"2"}'
+cv() { curl -s -D $T/h -X POST $U/create-vault -H 'Content-Type: application/json' -H "CF-Connecting-IP: $1" -d "$2" -w ' %{http_code}'; grep -i '^retry-after' $T/h | tr -d '\r'; echo; }
+cv 203.0.113.7 '{"owner":"bad"}'; cv 203.0.113.7 "$GOOD"; cv 203.0.113.7 "$GOOD"; cv 203.0.113.7 "$GOOD"
+cv 198.51.100.9 "$GOOD"; cv 192.0.2.44 "$GOOD"
+curl -s $U/health | jq -c '{dry_run, jobs}'
+kill %1; rm -rf $T .wrangler
+```
+
+Expected (run on 3 Nov): `request: missing ['deposit_near', 'policy'], unknown [] 400`; `{"ok": true, "job": "…"} 202`
+twice; `{"ok":false,"error":"at most 2 vault creations per client IP per hour; retry in 3600 s"} 429Retry-After: 3600`;
+`202` for the second IP; `{"ok":false,"error":"at most 3 vault creations per 24 hours in all; retry in 86400 s"}
+429Retry-After: 86400` for the third; then `{"dry_run":true,"jobs":{…,"stages":{"done":3}}}`: each job ended
+`done` with `dry_run: true` and the `near contract call-function as-transaction … create_vault …` command it would
+have run. The 400 did not count.
 
 ## Operations
 
@@ -168,35 +216,42 @@ paused; DEPLOY.md step 6 uploads the state and resumes it.
 
 ## Local test (3 Nov, `wrangler dev`, Docker Desktop 27.4.0)
 
-Real Base Sepolia RPC and NEAR testnet, nothing sent: a Base key file with the real address and a dummy private
-key (a dry run reads only the address), a throwaway NEAR key that is on no account, a local admin token, all in an
-`--env-file` outside the repository. `npx wrangler dev --port 8799 --test-scheduled --env-file <file>`. Outputs:
+Real Base Sepolia RPC and NEAR testnet, nothing sent. First run (16:43 UTC, before the relayer's jobs and float): a
+Base key file with the real address and a dummy private key, a throwaway NEAR key on no account. Second run (17:21
+UTC, relayer `ceb4d7d`, this Worker): the real Base key file (the float wallet must match its key and hold 20
+floats, or relayer.py exits 2; nothing signs with it in these requests), a dummy NEAR key, a local admin token, all
+in an `--env-file` outside the repository, deleted afterwards; the container log holds no key.
+`npx wrangler dev --port 8799 --test-scheduled --env-file <file>`. Outputs of the second run:
 
-- `GET /health`: `{"ok": true, "dry_run": false, "sender": "prime-measure-1792736012.testnet", "factory":
-  "factory.prime-measure-1792736012.testnet", …, "chain_id": 84532, "near_network": "testnet", "uptime_s": 8,
-  "counters": {}, "agents_funded": 0, "sender_balance_yocto": "179318203579175434999999979", "base_block":
-  54011436, "sender_balance": "179.318203579175434999999979 NEAR"}`.
-- `GET /vault/v1.factory.prime-measure-1792736012.testnet`: 502, `chain: query …: UNKNOWN_ACCOUNT … account
-  v1.factory.prime-measure-1792736012.testnet does not exist while viewing`. `GET /vault/not-a-testnet-id.near`:
-  400, `vault 'not-a-testnet-id.near' is not a NEAR testnet account id`.
-- `POST /fund-agent` without the token: 401 `admin token required`; with it and `{"implicit_account":"xyz"}`: 400
-  `implicit_account must be 64 lower-case hex characters`. `POST /owner-call {"vault":"bad"}`: 400 `request:
-  missing ['message', 'signature'], unknown []`.
-- CORS: `OPTIONS /owner-call` from `https://cmdk.fi`: 204 with `Access-Control-Allow-Origin: https://cmdk.fi`;
-  `GET /health` from another origin: no `Access-Control-Allow-Origin`.
-- Cron while paused: `cron: timer paused; no round started`.
-- `POST /rebalance?dry=1` (36.7 s): `RUN 2026-11-03T16:43:14Z market=live tick=198993 oracle=2290.20 pool=2281.75
-  gap=-0.369% action=dry-run:band repair_quote=0.255905USDC swap_in=0 txs=0 … exit=0` and `RUN … market=demo
-  tick=-199157 oracle=2244.68 pool=2244.68 gap=+0.000% action=dry-run:repair+bands … exit=0`.
-- Cron with the timer resumed and `REBALANCE_ARGS=--band-usdc 10 --dry-run` (confirmed in the container's
-  environment first): the same two `RUN` lines with `source=cron`, then `POST /pause` → `{"ok":true,"paused":true,"idle":true}`.
-- `POST /rebalance?status=1&market=live`: `our positions: none in /app/scripts/state/live.json`, `wallet …: 0.487648
-  ETH, 0.057910 WETH, 64.341191 USDC, 25026.493470 dUSDC`; a second round meanwhile: 409 `a rebalancer round is
-  running`; `tolerance=0.5`: 400.
-- State: `PUT /state {"live":{"probe":"restart-test"},"demo":{}}`, `docker kill` of the container, then `GET
-  /health` restarted it and `/app/scripts/state/live.json` held `{"probe": "restart-test"}` again; both key files
-  mode 600, owner `cmdk`; the relayer and `relayer.sh` processes carry none of the secret variables.
+- Relayer command: `sh /app/scripts/relayer.sh serve --port 8787 --sender relayer.prime-measure-1792736012.testnet
+  --factory factory.prime-measure-1792736012.testnet --eth-key-file /home/cmdk/.config/prime/base_sepolia_eoa.json
+  --near-rpc https://rpc.testnet.near.org --base-rpc https://base-sepolia-rpc.publicnode.com`; then `Base wallet
+  0x0b7e… holds 0.487647873149337873 ETH (97 floats of 0.005 ETH)`, `listening on http://127.0.0.1:8787
+  dry_run=False … eth_float=0.005 ETH cors=off`, `front: factory factory.prime-measure-1792736012.testnet does not
+  exist yet`.
+- `GET /health`: `{"ok":true,"dry_run":false,"sender":"relayer.prime-measure-1792736012.testnet","factory":"factory.prime-measure-1792736012.testnet","factory_exists":false,"chain_id":84532,"near_network":"testnet","base_block":54023196,"sender_balance":"30 NEAR","eth_float_wei":"5000000000000000","wallet":{"address":"0x0b7ed66f46fe83252a208563a88201ba60490d25","balance_wei":"487647873149337873","balance":"0.487647873149337873 ETH","floats_left":97},"jobs":{"kept":0,"max":1000,"running":0,"stages":{}}}`;
+  `GET /timer`: `{"paused":true,"container":"healthy"}`.
+- `GET /job/0123456789abcdef` and `GET /job/nope`: 404 `no such job`. `GET /vault/v1.factory.prime-measure-1792736012.testnet`: 502 `chain: query … UNKNOWN_ACCOUNT …`.
+- `POST /create-vault {"owner":"bad"}` (factory missing): 503 `factory factory.prime-measure-1792736012.testnet does
+  not exist yet on NEAR testnet (created on Friday, DEPLOY.md 7a); /create-vault opens once it does`.
+  `POST /fund-agent` without the token: 401 `admin token required`. `POST /owner-call {"vault":"bad"}`: 400
+  `request: missing ['message', 'signature'], unknown []`.
+- CORS: `OPTIONS /create-vault` and `OPTIONS /job/<id>` from `https://cmdk.fi`: 204 with one
+  `Access-Control-Allow-Origin: https://cmdk.fi`, `Access-Control-Expose-Headers: Retry-After`; `GET /health` from
+  `https://cmdk.fi`: one `Access-Control-Allow-Origin` line; from another origin: `Vary: Origin` only; the 503 of
+  `/create-vault` from `https://cmdk.fi` carries the header too.
+- The rate-limit test above, in a third run with `RELAYER_DRY_RUN=1`, an existing account as factory
+  (`"factory_exists":true`) and `CREATE_PER_DAY=3`: the outputs listed there. Cron while paused: `cron: timer
+  paused; no round started`.
 
-Not tested locally: anything on Cloudflare (provisioning, the custom domain, real secrets, the cron on schedule,
-container logs in the dashboard, a rollout's SIGTERM, the 64-character hostname, for which `front.py` skips
-`getfqdn`), and every sending path (create-vault, owner-call, fund-agent, a real round).
+From the first run, unchanged since: `POST /rebalance?dry=1` (36.7 s) gave `RUN … market=live … action=dry-run:band
+… exit=0` and `RUN … market=demo … action=dry-run:repair+bands … exit=0`; the cron with the timer resumed and
+`REBALANCE_ARGS=--band-usdc 10 --dry-run` gave the same two lines with `source=cron`, then `POST /pause` →
+`{"ok":true,"paused":true,"idle":true}`; a second round meanwhile: 409; `tolerance=0.5`: 400; `PUT /state`, `docker
+kill`, and the next request restored `/app/scripts/state/live.json`; both key files mode 600, owner `cmdk`; the
+relayer and `relayer.sh` processes carry none of the secret variables.
+
+Not tested locally: anything on Cloudflare (provisioning, the custom domain, real secrets, the real
+`CF-Connecting-IP`, the cron on schedule, container logs in the dashboard, a rollout's SIGTERM, the 64-character
+hostname, for which `front.py` skips `getfqdn`), and every sending path (a real create-vault and its float,
+owner-call, fund-agent, a real round).

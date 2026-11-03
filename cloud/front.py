@@ -8,10 +8,15 @@ At start-up, before anything else runs, it
   2. writes the state the Durable Object passed in CMDK_STATE_JSON ({"live", "demo", "relayer"}) into
      scripts/state/ (the container's disk is ephemeral; the Durable Object's storage is the copy that survives),
   3. starts `scripts/relayer.sh serve` on 127.0.0.1:8787 (relayer.py binds 127.0.0.1 only) with
-     NEAR_ACCESS_KEY_FILE set, so relayer.py signs with the key file instead of a keychain.
+     NEAR_ACCESS_KEY_FILE set, so relayer.py signs with the key file instead of a keychain. The ETH float stays
+     at relayer.py's default (0.005 ETH per new vault, from the Base key file above); no --cors-origin: the
+     Worker does CORS. RELAYER_DRY_RUN=1 (local tests only) adds --dry-run --allow-reads.
 
-Then it serves on 0.0.0.0:8080, for the Worker only (the Worker checks CORS and the admin token):
-  GET /health, GET /vault/<id>, POST /create-vault, POST /owner-call, POST /fund-agent   proxied to the relayer
+Then it serves on 0.0.0.0:8080, for the Worker only (the Worker does CORS, the admin token and the create limits):
+  GET /health, GET /vault/<id>, GET /job/<id>, POST /create-vault, POST /owner-call, POST /fund-agent
+        proxied to the relayer. /health gains "factory_exists" (true, false, or null when the NEAR read failed);
+        /create-vault answers 503 while the factory account does not exist yet (it is created on Friday,
+        DEPLOY.md 7a), so nothing is sent to an account that is not there.
   POST /rebalance[?market=live|demo|both][&dry=1|&status=1][&tolerance=X]
         runs scripts/rebalance_pool.py --market live, then --market demo (as scripts/rebalance.sh does, one round,
         no sleep), with $REBALANCE_ARGS (default --band-usdc 10); returns each run's RUN line and exit code, the
@@ -36,7 +41,7 @@ BASE_KEY = os.path.join(KEY_DIR, 'base_sepolia_eoa.json')     # the path rebalan
 NEAR_KEY = os.path.join(KEY_DIR, 'near_relayer_key.json')
 PORT = int(os.environ.get('FRONT_PORT', '8080'))
 RELAYER_PORT = 8787
-RELAYER_GET = re.compile(r'^/(health|vault/[^/?#]+)$')
+RELAYER_GET = re.compile(r'^/(health|vault/[^/?#]+|job/[^/?#]+)$')
 RELAYER_POST = ('/create-vault', '/owner-call', '/fund-agent')
 ROUND_TIMEOUT = 900                  # seconds per market run
 NOTES = {0: '', 3: ' (refused by the budget guard)', 4: ' (another run holds the lock)'}
@@ -44,6 +49,8 @@ NOTES = {0: '', 3: ' (refused by the budget guard)', 4: ' (another run holds the
 ROUND = threading.Lock()             # one rebalancer round at a time
 STOPPING = threading.Event()
 RELAYER = {'proc': None, 'why': None}
+FACTORY = {'exists': None, 'at': 0.0}   # true is kept for good; false is read again after FACTORY_RECHECK s
+FACTORY_RECHECK = 30
 
 
 def log(line):
@@ -126,19 +133,51 @@ def factory_account():
         return ''
 
 
+def factory_exists():
+    """Whether the factory account exists on NEAR testnet (view_account), or None when the read failed."""
+    if FACTORY['exists'] or (FACTORY['exists'] is False and time.time() - FACTORY['at'] < FACTORY_RECHECK):
+        return FACTORY['exists']
+    q = {'jsonrpc': '2.0', 'id': 'front', 'method': 'query',
+         'params': {'request_type': 'view_account', 'finality': 'final', 'account_id': factory_account()}}
+    req = urllib.request.Request(os.environ.get('NEAR_RPC') or 'https://rpc.testnet.near.org', data=json.dumps(q).encode(),
+                                 headers={'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            out = json.load(r)
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        log('factory read failed: %s' % e)
+        return None
+    if 'result' in out:
+        exists = True
+    elif ((out.get('error') or {}).get('cause') or {}).get('name') == 'UNKNOWN_ACCOUNT':
+        exists = False
+    else:
+        log('factory read: unexpected answer %s' % json.dumps(out)[:300])
+        return None
+    if exists != FACTORY['exists']:
+        log('factory %s %s' % (factory_account(), 'exists' if exists else 'does not exist yet'))
+    FACTORY.update(exists=exists, at=time.time())
+    return exists
+
+
 def start_relayer():
     sender, factory = os.environ.get('NEAR_RELAYER_ACCOUNT', '').strip(), factory_account()
-    if not sender or not factory or not os.path.exists(NEAR_KEY):
+    if not sender or not factory or not os.path.exists(NEAR_KEY) or not os.path.exists(BASE_KEY):
         RELAYER['why'] = 'relayer not started: %s' % ', '.join(w for w, ok in (
             ('NEAR_RELAYER_ACCOUNT not set', sender), ('no factory (NEAR_FACTORY_ACCOUNT or deployments near.factory)', factory),
-            ('no NEAR key (NEAR_RELAYER_KEY_JSON)', os.path.exists(NEAR_KEY))) if not ok)
+            ('no NEAR key (NEAR_RELAYER_KEY_JSON)', os.path.exists(NEAR_KEY)),
+            ('no Base key for the ETH float (BASE_EOA_KEY_JSON)', os.path.exists(BASE_KEY))) if not ok)
         log(RELAYER['why'])
         return
     env = dict(os.environ, NEAR_ACCESS_KEY_FILE=NEAR_KEY)
-    cmd = ['sh', os.path.join(SCRIPTS, 'relayer.sh'), 'serve', '--port', str(RELAYER_PORT), '--sender', sender, '--factory', factory]
+    # the float stays on at relayer.py's default (no --eth-float); no --cors-origin (the Worker does CORS)
+    cmd = ['sh', os.path.join(SCRIPTS, 'relayer.sh'), 'serve', '--port', str(RELAYER_PORT), '--sender', sender,
+           '--factory', factory, '--eth-key-file', BASE_KEY]
     for flag, var in (('--near-rpc', 'NEAR_RPC'), ('--base-rpc', 'RPC')):
         if os.environ.get(var):
             cmd += [flag, os.environ[var]]
+    if os.environ.get('RELAYER_DRY_RUN') == '1':
+        cmd += ['--dry-run', '--allow-reads']
     log('starting: %s' % ' '.join(cmd))
     RELAYER['proc'] = subprocess.Popen(cmd, env=env, stdout=sys.stdout, stderr=sys.stderr)
 
@@ -192,7 +231,7 @@ def rebalance(q):
     return 200, {'ok': all(r['exit'] == 0 for r in runs), 'args': extra, 'runs': runs, 'state': state_files()}
 
 
-def proxy(handler, method, body):
+def proxy(handler, method, body, edit=None):
     if RELAYER['proc'] is None:
         return handler.send_json(503, {'ok': False, 'error': RELAYER['why'] or 'relayer not started'})
     req = urllib.request.Request('http://127.0.0.1:%d%s' % (RELAYER_PORT, handler.path), data=body, method=method,
@@ -205,7 +244,17 @@ def proxy(handler, method, body):
     except (urllib.error.URLError, OSError) as e:
         alive = RELAYER['proc'].poll() is None
         return handler.send_json(503, {'ok': False, 'error': 'relayer unreachable (%s): %s' % ('starting or restarting' if alive else 'exited', e)})
-    handler.send_raw(code, data)
+    handler.send_raw(code, edit(data) if edit else data)
+
+
+def with_factory(data):
+    """The relayer's /health with "factory_exists" added (the relayer does not read the factory account)."""
+    try:
+        out = json.loads(data)
+    except ValueError:
+        return data
+    out['factory_exists'] = factory_exists()
+    return json.dumps(out).encode()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -224,6 +273,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(200, {'ok': True})
         if path == '/state':
             return self.send_json(200, {'ok': True, 'state': state_files()})
+        if path == '/health':
+            return proxy(self, 'GET', None, with_factory)
         if RELAYER_GET.match(path):
             return proxy(self, 'GET', None)
         self.send_json(404, {'ok': False, 'error': 'no such endpoint'})
@@ -234,6 +285,9 @@ class Handler(BaseHTTPRequestHandler):
             body = self.body()
         except ValueError as e:
             return self.send_json(400, {'ok': False, 'error': str(e)})
+        if u.path == '/create-vault' and factory_exists() is False:
+            return self.send_json(503, {'ok': False, 'error': 'factory %s does not exist yet on NEAR testnet (created on Friday, '
+                                        'DEPLOY.md 7a); /create-vault opens once it does' % factory_account()})
         if u.path in RELAYER_POST:
             return proxy(self, 'POST', body)
         if u.path == '/rebalance':

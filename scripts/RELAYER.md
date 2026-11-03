@@ -39,9 +39,13 @@ a reverse proxy in front of it serves HTTPS. The proxy exposes `GET /health`, `G
 private.
 
 **On Cloudflare (from 6 Nov, `cloud/README.md`).** The container runs the same `relayer.sh serve`, still on
-127.0.0.1; `cloud/front.py` proxies to it, and the Worker at `https://relayer.cmdk.fi` is the proxy, with CORS for
-the app's origins. `GET /health`, `GET /vault/<id>` and `POST /owner-call` are open; `POST /create-vault` and
-`POST /fund-agent` need the admin token, since they spend the relayer's NEAR without an owner signature. When
+127.0.0.1, with the float on and without `--cors-origin`; `cloud/front.py` proxies to it, and the Worker at
+`https://relayer.cmdk.fi` is the proxy and the only place that does CORS (it replaces any `Access-Control-*`
+header from behind). `GET /health`, `GET /vault/<id>`, `GET /job/<id>` and `POST /owner-call` are open.
+`POST /create-vault` is open with limits: 2 per client IP per hour and 20 per 24 hours in all, 429 with
+`Retry-After` beyond, counted only for an accepted creation; it answers 503 until the factory account exists, and
+`front.py` adds `factory_exists` to `/health`. `POST /fund-agent` needs the admin token, since it spends the
+relayer's NEAR without any signature. When
 `NEAR_ACCESS_KEY_FILE` names a near-cli-rs access-key file, every near command signs with
 `sign-with-access-key-file <path>` instead of `sign-with-keychain`; the Mac leaves it unset.
 
@@ -215,8 +219,10 @@ sees the preflight. A proxy that adds `Access-Control-Allow-Origin` while the se
 set (replace) the header rather than add it, or the service runs without `--cors-origin`.
 
 Example: `curl -s localhost:8787/fund-agent -d '{"implicit_account":"'$IMPLICIT'"}'` after the agent prints
-`WAITING implicit_account=...`. It tops the account up to 0.15 NEAR plus 0.01, at most 0.5 NEAR per account
-per 24 hours.
+`WAITING implicit_account=... pending_vaults=<k> ...`. It tops the account up to 0.15 NEAR plus 0.01 when the
+balance is under 0.15, at most 0.5 NEAR per account per 24 hours. The agent registers on each vault that approved
+its measurement and each registration burns 0.0116 NEAR, so it is one call per vault (each new `WAITING` line):
+0.16 + (N − 1) × 0.0116 NEAR per boot for N vaults; the 24-hour cap covers 30 vaults in one boot.
 
 **Owner call.** The relayer reads `get_state`, counts the Base transactions the method produces (setup: see
 below; set_corridor, open, open_from_stables, repay, close, withdraw, cancel, sweep_eth 1; set_executor 0 while another

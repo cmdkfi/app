@@ -57,7 +57,7 @@ NEAR is spent in steps 7 and 8 only: 85 NEAR on the publishing account and 5 NEA
 | NEAR on the relayer account | F | at least 5 NEAR (2 NEAR vault deposit, agent funding 0.16, gas) |
 | Vault build prerequisites | F | `vault/factory/DEPLOY.md` step 1: the commit to publish pushed to `origin/main`, clean tree, Docker running with disk room (the agent build stopped on a full Docker disk on 3 Nov) |
 | Agent image | C (agent work) | `grep 'image:' agent/docker-compose.live.yml` shows `ghcr.io/cmdkfi/agent@sha256:` and 64 hex characters, not `REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS`; the image pulls anonymously |
-| Relayer and timer container (decided 3 Nov: Cloudflare Containers, not the Mac) | F | `cloud/README.md` "Commands for F" run: four secrets, `wrangler deploy`, then `/health` prints `"ok":true` with the relayer account and the factory, and `/timer` prints `"paused":true` |
+| Relayer and timer container (decided 3 Nov: Cloudflare Containers, not the Mac) | F | `cloud/README.md` "Commands for F" run: four secrets, `wrangler deploy`, then `/health` prints `"ok":true` with the relayer account `relayer.prime-measure-1792736012.testnet`, the factory `factory.prime-measure-1792736012.testnet` and `"factory_exists":false` (the factory is created in 7a), and `/timer` prints `"paused":true` |
 
 **Shell setup (C, every shell).** C's shell does not keep variables between commands, so the setup goes into one
 file outside the repository; it holds addresses only. Write it once:
@@ -90,9 +90,10 @@ import sys; sys.path.insert(0, "scripts"); import rebalance_pool as rp
 assert int(rp.subprocess.run([rp.CAST, "chain-id", "--rpc-url", rp.RPC], capture_output=True, text=True).stdout) == rp.CHAIN_ID, "not Base Sepolia"
 fd = rp.lock(); v = rp.os.environ.get("VALUE"); rp.send(*sys.argv[1:], value=int(v) if v else None)' "$@" 2>&1 | tee -a "$LOG"
 }
-owner() {  # owner METHOD ARGS_JSON NAME: sign as the vault owner (the test wallet), submit through the relayer
+owner() {  # owner METHOD ARGS_JSON NAME: sign as the vault owner (the test wallet), submit through the relayer;
+          # wait: true asks for the synchronous answer (one response once every receipt is in), not a 202 and a job id
   python3 -I scripts/p2_owner.py --vault "$V" --method "$1" --args "$2" --out "$HOME/.local/state/cmdk/$3.signed.json" >> "$LOG" &&
-  jq -c --arg v "$V" '{vault: $v, message, signature}' "$HOME/.local/state/cmdk/$3.signed.json" |
+  jq -c --arg v "$V" '{vault: $v, message, signature, wait: true}' "$HOME/.local/state/cmdk/$3.signed.json" |
     curl -s $U/owner-call -H 'Content-Type: application/json' -d @- > "evidence/deploy/2026-11-06-$3.json"
   jq -c '{ok, near_tx, error, receipts: [.receipts[]? | {hash, status}]}' "evidence/deploy/2026-11-06-$3.json" | tee -a "$LOG"
 }
@@ -360,15 +361,20 @@ Expected: `base` is the address in step 6's `creating vault` log line, and `jq` 
 `sed` was tested on a copy on 3 Nov).
 
 **7d. Relayer (F; no funds).** It runs in the container deployed before Friday (§0, `cloud/README.md`) and
-signs with the relayer's access-key file (`NEAR_RELAYER_KEY_JSON`). Check that it carries 7c's factory:
+signs with the relayer's access-key file (`NEAR_RELAYER_KEY_JSON`). `serve` runs there with the ETH float on:
+each vault created through the relayer's `/create-vault` gets 0.005 ETH from the test wallet for its first Base
+gas. The 7b vault is created by the factory directly (not through the relayer), so it gets no float, and 7e's
+manual ETH transfer stays. Check that the relayer carries 7c's factory and sees it:
 
 ```sh
 cd /Users/vf/cmdk/app
-python3 -I scripts/test_relayer.py 2>&1 | tail -1            # OK (54 tests on 3 Nov)
-curl -s https://relayer.cmdk.fi/health | jq -c '{ok, dry_run, sender, factory, chain_id, sender_balance}'
+python3 -I scripts/test_relayer.py 2>&1 | tail -1            # OK (71 tests on 3 Nov)
+curl -s https://relayer.cmdk.fi/health | jq -c '{ok, dry_run, sender, factory, factory_exists, chain_id, sender_balance, floats_left: .wallet.floats_left}'
 ```
 
-Expected: `{"ok":true,"dry_run":false,"sender":"<RELAYER>","factory":"<FACTORY>","chain_id":84532,"sender_balance":"… NEAR"}`.
+Expected: `{"ok":true,"dry_run":false,"sender":"<RELAYER>","factory":"<FACTORY>","factory_exists":true,"chain_id":84532,"sender_balance":"… NEAR","floats_left":<at least 20>}`
+(`factory_exists` turns true within 30 s of 7a; until then `/create-vault` answers 503). `floats_left` is the test
+wallet's ETH over 0.005; the timer and 7e spend from the same wallet, and the relayer refuses to start below 20.
 If `factory` is not 7c's `FACTORY`, or the response is `relayer not started: no factory …`: set
 `NEAR_FACTORY_ACCOUNT` in `cloud/wrangler.jsonc` to it, pause the timer, run `npx wrangler deploy` from `cloud/`,
 resume, and read `/health` again.
@@ -438,8 +444,15 @@ is `--mode live`, so the agent sends. Phala's pre-launch script is `agent/pre-la
   hash against §1's table, and recompute the compose hash (§3). Then approve that exact JSON:
   `source ~/.local/state/cmdk/deploy-2026-11-06.sh; owner approve_measurement '<the JSON>' approve-measurement`.
   The response is `"ok":true` with no receipts.
-- **C funds.** When the log prints `WAITING implicit_account=<64 hex> …`, run
+- **Compose.** `agent/docker-compose.live.yml` passes `--factory REPLACE_WITH_THE_FACTORY_ACCOUNT`; the Friday pin
+  replaces it with the real factory account (7c's `FACTORY`, `factory.prime-measure-1792736012.testnet`) before the
+  image is measured, since the compose hash is part of the measurement. `grep -- --factory
+  agent/docker-compose.live.yml` must show the account, not the placeholder.
+- **C funds.** The agent registers on every vault that approved its measurement, one registration per vault. When
+  the log prints `WAITING implicit_account=<64 hex> … pending_vaults=<k> [tags] need <…> NEAR in all …`, run
   `curl -s -H @$A $U/fund-agent -d '{"implicit_account":"<64 hex>"}'`. The response is `"status": "funded"`.
+  `/fund-agent` tops up to 0.16 NEAR only when the balance is under 0.15, so it is one call per vault: each new
+  `WAITING` line gets the same call. Per boot, N vaults take 0.16 + (N − 1) × 0.0116 NEAR (one vault: 0.16).
 - **Check.** `register_agent` lands (MEASUREMENT.md §7). Read-only:
   `near contract call-function as-read-only $V get_state json-args '{}' network-config testnet now` shows the
   agent key and an `expires_at` 7 days ahead.
@@ -498,7 +511,7 @@ curl -s -H @$A "$U/runs?n=5000" > evidence/deploy/2026-11-06-timer-rebalance.log
 ls evidence/deploy/; git status --short
 ```
 
-**The agent's record.** Add the agent's record of that tick by hand: its `RESULT transcript loop=…` line and the
+**The agent's record.** Add the agent's record of that tick by hand: its `RESULT transcript vault=<tag> loop=…` line and the
 NEAR transaction of its vault call, from the CVM's log (Phala dashboard). This file has no command that reads that
 log.
 

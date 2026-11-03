@@ -13,8 +13,14 @@
   "vars": {
     // the app origins allowed by CORS (comma separated)
     "ALLOWED_ORIGINS": "https://cmdk.fi,http://localhost:5173",
-    // relayer.py serve --factory; empty = deployments/testnet.json near.factory (null until DEPLOY.md step 7c)
-    "NEAR_FACTORY_ACCOUNT": "",
+    // relayer.py serve --factory: vault/factory/DEPLOY.md's factory.$ACCOUNT. The account is created on Friday
+    // (DEPLOY.md 7a, recorded in 7c); until it exists the relayer runs, /health says "factory_exists": false and
+    // /create-vault answers 503 (cloud/front.py)
+    "NEAR_FACTORY_ACCOUNT": "factory.prime-measure-1792736012.testnet",
+    // POST /create-vault is open to browsers with these limits (429 with Retry-After beyond; founder, 3 Nov):
+    // per client IP (CF-Connecting-IP) per rolling hour, and in all per rolling 24 hours
+    "CREATE_PER_IP_PER_HOUR": "2",
+    "CREATE_PER_DAY": "20",
     // the timer's arguments to rebalance_pool.py, as DEPLOY.md step 6 gave rebalance.sh
     "REBALANCE_ARGS": "--band-usdc 10",
     "BASE_RPC": "https://base-sepolia-rpc.publicnode.com",
