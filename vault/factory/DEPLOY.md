@@ -37,9 +37,9 @@ ls -l target/near/cmdk_vault.wasm factory/target/near/cmdk_factory.wasm
 another day or toolchain may give a different hash; that is fine as long as the same `HASH` is used in steps 2
 and 4. If `HASH` is empty, read the "SHA-256 checksum bs58" line of the build output by hand.
 
-## 2. Publish the vault as a Global Contract by hash (spends about 76.80 NEAR, burnt)
+## 2. Publish the vault as a Global Contract by hash (spends about 78.24 NEAR, burnt)
 
-The cost is 0.0001 NEAR per byte, burnt and not refundable: 767,944 bytes = 76.7944 NEAR, plus gas (the sandbox
+The cost is 0.0001 NEAR per byte, burnt and not refundable: 782,345 bytes (3 Nov, after V6) = 78.2345 NEAR, plus gas (the sandbox
 run burnt 59.8 Tgas, 0.006 NEAR; the root account's balance fell by 76.800357 NEAR in total).
 
 ```sh
