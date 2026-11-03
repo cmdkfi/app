@@ -1,5 +1,5 @@
-//! PRIME prototype P3 (throwaway, 27–31 Oct 2026): the agent. Spec: docs/01-design-and-feasibility.md §4.4 (key,
-//! quote, registration) and §4.9 (collect, compute, screen, judge, decide, propose); brief: prototype/BRIEF.md P3.
+//! PRIME agent (hackathon build, from the 27–31 Oct prototype). Spec: docs/01-design-and-feasibility.md §4.4 (key,
+//! quote, registration) and §4.9 (collect, compute, screen, judge, decide, propose).
 //! Deviations (brief): one vault, the positions of its Base address; on-chain reads plus one allowlisted text feed;
 //! no scores and no similar-case retrieval.
 //!
@@ -7,26 +7,32 @@
 //! proposal exactly as the vault would and runs the vault's `check_transaction` view on it, but sends nothing to
 //! the vault's agent methods and nothing to Base. `--mode live` calls the vault through the agent key and
 //! broadcasts the transaction the vault signs. `--no-tee` (local runs only) skips the quote and registration.
+//!
+//! Tick loop (build items 44–54): each tick runs in its own task, so a panic is logged and the next tick runs. The
+//! judge runs in a separate task, at most one call in flight; its result is taken on the first tick after it
+//! arrives, applied only while the screens it was asked about are still on, and never delays the protective rule.
+//! Decisions are pure functions in `logic.rs`.
 mod chain;
 mod judge;
+mod logic;
 mod near;
 mod tee;
 
 use anyhow::{anyhow, Result};
-use chain::{Base, MarketSnap, Snapshot, DEADLINE_SECS, WAD};
+use chain::{Base, Snapshot, DEADLINE_SECS};
 use ed25519_dalek::SigningKey;
-use primitive_types::U256;
+use logic::{Act, AgentStatus, Decision, Due, Fired, Judgment};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 const VAULT: &str = "p2-vault.prime-measure-1792736012.testnet";
 const NEAR_RPC: &str = "https://rpc.testnet.near.org";
 const BASE_RPCS: [&str; 2] = ["https://base-sepolia-rpc.publicnode.com", "https://sepolia.base.org"];
-const UTILIZATION_SCREEN: f64 = 0.95;
-const POOL_GAP_SCREEN: f64 = 0.02;
-const REDUCE_LIGHT_SHARE: u128 = 4; // reduce_light = 1/4 of the remaining sell budget (§4.9 step 6)
 const DIGEST_SECS: u64 = 6 * 3600;
 const FEED_SECS: u64 = 600;
 // NEAR checks prepaid gas x the pessimistic gas price against the balance at submission: 300 Tgas needed 0.3012 NEAR
@@ -35,6 +41,8 @@ const MIN_REGISTRATION_BALANCE: u128 = 150_000_000_000_000_000_000_000; // 0.15 
 const REGISTER_GAS: u64 = 130_000_000_000_000;
 const REGISTER_ATTEMPTS: u32 = 4; // then exit non-zero: never tick unregistered
 const AGENT_CALL_GAS: u64 = 150_000_000_000_000;
+/// one status line every this many ticks while nothing is on
+const STATUS_EVERY: u64 = 30;
 
 struct Args {
     mode: String,
@@ -97,7 +105,7 @@ fn args() -> Result<Args> {
 }
 
 fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 /// UTC "YYYY-MM-DDTHH:MM:SSZ" from unix seconds (civil-from-days).
@@ -115,185 +123,160 @@ fn iso(t: u64) -> String {
     format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z", s / 3600, s % 3600 / 60, s % 60)
 }
 
-fn wad(x: u128) -> f64 {
-    x as f64 / 1e18
+// ------------------------------------------------------------------ context and loop state
+
+struct Ctx {
+    a: Args,
+    base: Base,
+    nearc: near::Near,
+    sk: SigningKey,
+    our_pk: String,
+    judge: Arc<judge::Judge>,
+    agent_record: Value,
+    boot_id: String,
+    base_address: String,
+    executor: String,
+    market_ids: Vec<String>,
 }
 
-// ------------------------------------------------------------------ screens
+/// What the judge task returns: the full record for the transcript and, if accepted, the answer.
+struct JudgeOutcome {
+    record: Value,
+    feed: (Value, u64),
+    accepted: Option<(String, String)>, // (action, risk)
+}
 
-fn screens(s: &Snapshot) -> Vec<(String, String, String)> {
-    // (market name, screen, detail)
-    let mut out = vec![];
-    for m in s.markets.iter().filter(|m| m.exists) {
-        if let Some(x) = &m.exec {
-            if x.corridor.set && m.debt > 0 && m.ltv_wad > x.corridor.act as u128 {
-                out.push((m.name.clone(), "ltv_above_act".into(), format!("LTV {:.4} > act {:.4}", wad(m.ltv_wad), wad(x.corridor.act))));
-            }
-        }
-        if m.utilization > UTILIZATION_SCREEN {
-            out.push((m.name.clone(), "utilization_above_95pct".into(), format!("utilization {:.4}", m.utilization)));
-        }
-        if let Some(g) = m.pool_gap {
-            if g.abs() > POOL_GAP_SCREEN {
-                out.push((m.name.clone(), "oracle_pool_gap_above_2pct".into(), format!("pool {:.2} vs oracle {:.2} USD ({:+.2}%)", m.pool_usd.unwrap_or(0.0), m.oracle_usd, g * 100.0)));
-            }
-        }
-        for (f, age) in m.feeds.iter().zip(&m.feed_ages) {
-            if *age > f.2 {
-                out.push((m.name.clone(), "feed_stale".into(), format!("feed {} age {} s > {} s", f.0, age, f.2)));
-            }
-        }
+struct InFlight {
+    handle: JoinHandle<JudgeOutcome>,
+    trigger: BTreeSet<String>,
+    block: u64,
+    started: Instant,
+}
+
+struct Ready {
+    outcome: JudgeOutcome,
+    trigger: BTreeSet<String>,
+    block: u64,
+    arrived_tick: u64,
+}
+
+struct State {
+    vault: Value,
+    fired_prev: BTreeSet<String>,
+    next_digest: u64,
+    feed: (Value, u64),
+    loops: u64,
+    next_recheck: u64,
+    inflight: Option<InFlight>,
+    ready: Option<Ready>,
+    /// a judge call is wanted (Some(digest)) but one is in flight; started on the first tick the slot is free
+    judge_wanted: Option<bool>,
+    status: AgentStatus,
+}
+
+// ------------------------------------------------------------------ judge task (build items 44, 45)
+
+async fn judge_job(judge: Arc<judge::Judge>, mut feed: (Value, u64), s: Snapshot, fired: Vec<Fired>, vault: Value) -> JudgeOutcome {
+    let t = Instant::now();
+    if now() >= feed.1 + FEED_SECS {
+        feed = (judge::fetch_feed(&reqwest::Client::new()).await.unwrap_or_else(|e| json!({"error": e.to_string(), "items": []})), now());
     }
-    out
-}
-
-// ------------------------------------------------------------------ decide (code; the model never computes an amount)
-
-/// Repay amount (loan units) that brings LTV to `line` when collateral worth the same amount is sold at the oracle.
-fn amount_to(m: &MarketSnap, line: u128) -> u128 {
-    let (d, v, w) = (U256::from(m.debt), U256::from(m.collateral_value), U256::from(WAD));
-    let lv = U256::from(line) * v;
-    if d * w <= lv {
-        return 0;
-    }
-    ((d * w - lv) / (w - U256::from(line))).low_u128()
-}
-
-struct Decision {
-    action: String, // none | reduce | migrate | exit
-    market: Option<MarketSnap>,
-    to: Option<MarketSnap>,
-    amount: u128,
-    fraction: u128,
-    basis: String,
-    detail: Value,
-}
-
-fn decide(s: &Snapshot, fired: &[(String, String, String)], judged: Option<&Value>, vault: &Value) -> Decision {
-    let none = |why: &str, detail: Value| Decision { action: "none".into(), market: None, to: None, amount: 0, fraction: 0, basis: why.into(), detail };
-    let Some(pos) = s.markets.iter().filter(|m| m.exists && m.debt > 0).max_by_key(|m| m.ltv_wad).cloned() else {
-        return none("no position with debt at the vault's Base address", json!({}));
+    let (user, ids) = logic::judge_input(&s, &fired, &feed.0, &vault, now());
+    let att = judge.attest().await.unwrap_or_else(|e| json!({"ok": false, "error": e.to_string()}));
+    let call = if att["ok"] == true {
+        judge.ask(&user, &ids, att["signing_address"].as_str().unwrap_or("")).await.unwrap_or_else(|e| json!({"error": e.to_string()}))
+    } else {
+        json!({"skipped": "model attestation did not verify"})
     };
-    let Some(x) = pos.exec.clone() else { return none("executor not deployed: no corridor in force", json!({"market": pos.name})) };
-    let c = &x.corridor;
-    if !c.set || x.closed_for_agent {
-        return none("no corridor in force for this market (unset, or closed by exit)", json!({"market": pos.name}));
-    }
-    let slice_max: u128 = vault["markets"]
-        .as_array()
-        .and_then(|a| a.iter().find(|m| m["id"].as_str() == Some(&pos.id)))
-        .and_then(|m| m["slice_max"].as_str())
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0);
-    let to_target = amount_to(&pos, c.target as u128);
-    let floor_room = amount_to(&pos, c.floor as u128);
-    // remaining discretionary budget: sell_budget x (collateral of this token across markets + sold) - sold, valued at the oracle
-    let coll_total: u128 = s.markets.iter().filter(|m| m.collateral_token == pos.collateral_token).map(|m| m.collateral).sum();
-    let budget_coll = (U256::from(c.sell_budget) * U256::from(coll_total + x.sold_in_window) / U256::from(WAD)).low_u128().saturating_sub(x.sold_in_window);
-    let price = U256::from_dec_str(&pos.oracle_price).unwrap_or_default();
-    let budget_value = (U256::from(budget_coll) * price / U256::exp10(36)).low_u128();
-    let confirm: Vec<_> = fired.iter().filter(|f| f.0 == pos.name).collect();
-    let protective = pos.ltv_wad > c.act as u128;
-    let action = judged.and_then(|j| j["action"].as_str()).unwrap_or("none");
-    let detail = json!({"market": pos.name, "ltv": wad(pos.ltv_wad), "target": wad(c.target as u128), "act": wad(c.act as u128),
-        "floor": wad(c.floor as u128), "debt": pos.debt.to_string(), "collateral_value": pos.collateral_value.to_string(),
-        "amount_to_target": to_target.to_string(), "amount_to_floor": floor_room.to_string(),
-        "sell_budget_remaining_collateral": budget_coll.to_string(), "sell_budget_remaining_value": budget_value.to_string(),
-        "slice_max": slice_max.to_string(), "judge_action": action, "onchain_confirmation": confirm.len()});
-    let reduce = |amount: u128, basis: &str| Decision {
-        action: if amount > 0 { "reduce".into() } else { "none".into() },
-        market: Some(pos.clone()),
-        to: None,
-        amount: amount.min(slice_max).min(pos.debt), // bounded: never more than the slice maximum or the debt
-        fraction: 0,
-        basis: basis.into(),
-        detail: detail.clone(),
+    let outcome = judge::classify(&call);
+    let accepted = if outcome == "answer" {
+        Some((call["parsed"]["action"].as_str().unwrap_or("").to_string(), call["parsed"]["risk"].as_str().unwrap_or("").to_string()))
+    } else {
+        None
     };
-    if protective {
-        // rule, independent of the judge: a protective session sells to target (§3); the executor clamps again
-        return reduce(to_target, "rule: LTV above the act line, protective reduce to target (deterministic)");
-    }
-    if confirm.is_empty() {
-        return none("no on-chain screen on the position's market: no discretionary action", detail);
-    }
-    match action {
-        "reduce_to_target" => reduce(to_target.min(budget_value).min(floor_room), "judge reduce_to_target + on-chain screen; clamped to budget and floor"),
-        "reduce_light" => reduce((budget_value / REDUCE_LIGHT_SHARE).min(floor_room), "judge reduce_light + on-chain screen: 1/4 of the remaining budget, clamped to floor"),
-        "leave_market" => {
-            // the code picks the destination: same tokens and executor, corridor in force, no screen, fresh feeds, USDC to lend
-            let dest = s
-                .markets
-                .iter()
-                .filter(|m| m.id != pos.id && m.exists && m.loan_token == pos.loan_token && m.collateral_token == pos.collateral_token)
-                .filter(|m| m.exec.as_ref().map(|e| e.corridor.set && !e.closed_for_agent).unwrap_or(false))
-                .filter(|m| !fired.iter().any(|f| f.0 == m.name))
-                .filter(|m| m.feeds.iter().zip(&m.feed_ages).all(|(f, a)| *a <= f.2))
-                .filter(|m| m.liquidity > 0)
-                .max_by_key(|m| m.liquidity)
-                .cloned();
-            match dest {
-                Some(d) if c.migrate_allowed && x.moves_in_window < 2 => {
-                    let fraction = if d.liquidity >= pos.debt + pos.debt / 100 {
-                        WAD
-                    } else {
-                        (U256::from(d.liquidity) * U256::from(WAD) / U256::from(pos.debt) * U256::from(99u8) / U256::from(100u8)).low_u128()
-                    };
-                    Decision { action: "migrate".into(), market: Some(pos.clone()), to: Some(d), amount: 0, fraction, basis: "judge leave_market + on-chain screen: migrate to the approved market that can take it".into(), detail }
-                }
-                _ if c.exit_allowed => Decision { action: "exit".into(), market: Some(pos.clone()), to: None, amount: 0, fraction: 0, basis: "judge leave_market + on-chain screen, no approved market can take the position: exit".into(), detail },
-                _ => none("leave_market, but no destination qualifies and exit is off", detail),
-            }
-        }
-        _ => none("judge hold (or no valid judgment): nothing to do", detail),
-    }
+    let record = json!({"attestation": att, "call": call, "outcome": outcome, "accepted": accepted.is_some(),
+        "applies": if accepted.is_some() { "the judgment, through the agreement rule" } else { "rules only" },
+        "input_block": s.block, "feed": feed.0, "seconds": t.elapsed().as_secs_f64()});
+    JudgeOutcome { record, feed, accepted }
 }
 
-// ------------------------------------------------------------------ propose
+fn spawn_judge(ctx: &Ctx, st: &mut State, s: &Snapshot, fired: &[Fired], tick: u64) {
+    let trigger = logic::fired_set(fired);
+    println!("RESULT judge started tick={tick} block={} trigger={trigger:?}", s.block);
+    let handle = tokio::spawn(judge_job(ctx.judge.clone(), st.feed.clone(), s.clone(), fired.to_vec(), st.vault.clone()));
+    st.inflight = Some(InFlight { handle, trigger, block: s.block, started: Instant::now() });
+}
 
-async fn propose(a: &Args, base: &Base, nearc: &near::Near, sk: &SigningKey, s: &Snapshot, d: &Decision, vault: &Value) -> Value {
-    let m = d.market.as_ref().unwrap();
+// ------------------------------------------------------------------ propose (build items 10, 11, 12, 50, 54)
+
+async fn propose(ctx: &Ctx, s: &Snapshot, d: &Decision, vault: &mut Value, status: &mut AgentStatus) -> Value {
+    let a = &ctx.a;
+    // fresh vault state right before the pre-flight: a revoke is seen here, not as a "no nonce" error later
+    match ctx.nearc.view(&a.vault, "get_state", &json!({})).await {
+        Ok(v) => *vault = v,
+        Err(e) => return json!({"proposed": false, "why_not_proposed": format!("vault state not readable for the pre-flight: {e}")}),
+    }
+    *status = logic::agent_status(vault, &ctx.our_pk, now());
+    let checks = logic::prechecks(d, s, vault, &ctx.our_pk, now());
+    let refused = logic::refusals(&checks);
+    if !logic::may_propose(*status, a.tee) {
+        println!("RESULT revoked status={} market={}: not proposing; ticking read-only", status.label(), d.market.name);
+        return json!({"proposed": false, "why_not_proposed": status.label(), "prechecks": checks});
+    }
+    let m = &d.market;
     let deadline = now() + DEADLINE_SECS - 10;
-    let (method, args, data) = match d.action.as_str() {
-        "reduce" => ("reduce", json!({"market": m.id, "amount": d.amount.to_string()}), chain::calldata_reduce(&m.id, d.amount, deadline)),
-        "migrate" => {
-            let t = d.to.as_ref().unwrap();
+    let (method, args, data) = match d.action {
+        Act::Reduce => ("reduce", json!({"market": m.id, "amount": d.amount.to_string()}), chain::calldata_reduce(&m.id, d.amount, deadline)),
+        Act::Migrate => {
+            let Some(t) = d.to.as_ref() else { return json!({"proposed": false, "why_not_proposed": "migrate without a destination"}) };
             ("migrate", json!({"from": m.id, "to": t.id, "fraction": d.fraction.to_string()}), chain::calldata_migrate(&m.id, &t.id, d.fraction, deadline))
         }
-        _ => ("exit", json!({"market": m.id}), chain::calldata_exit(&m.id, deadline)),
+        Act::Exit => ("exit", json!({"market": m.id}), chain::calldata_exit(&m.id, deadline)),
+        Act::None => return json!({"proposed": false, "why_not_proposed": "no action"}),
     };
-    // the vault's own pre-checks, mirrored so a refusal is explained before anything is sent
-    let vm = vault["markets"].as_array().and_then(|x| x.iter().find(|v| v["id"].as_str() == Some(&m.id))).cloned().unwrap_or_default();
-    let ours = near::pk_string(sk);
-    let agent_ok = vault["agent"]["public_key"].as_str() == Some(&ours) && vault["agent"]["expires_at"].as_u64().unwrap_or(0) > now();
-    let cooldown_ok = now() >= vault["last_agent_action"].as_u64().unwrap_or(0) + vault["cooldown_secs"].as_u64().unwrap_or(0);
-    let prechecks = json!({"agent_registered_with_this_key": agent_ok, "vault_cooldown_elapsed": cooldown_ok,
-        "vault_corridor_set": vm["corridor_set"], "executor": vm["executor"], "slice_max": vm["slice_max"]});
-    let (params, estimate) = match base.tx_params(&s.user, &s.executor, &data).await {
+    let swap = matches!(d.action, Act::Reduce | Act::Exit);
+    // estimate at the latest block right before the vault call; the margin depends on the call kind
+    let (params, estimate) = match ctx.base.tx_params(&s.user, &s.executor, &data, swap).await {
         Ok(x) => x,
-        Err(e) => return json!({"method": method, "args": args, "error": format!("tx params: {e}")}),
+        Err(e) => return json!({"proposed": false, "method": method, "args": args, "error": format!("tx params: {e}"), "prechecks": checks}),
     };
-    let unsigned = chain::unsigned_1559(&params, &s.executor, &data).unwrap_or_default();
-    let check = nearc
+    println!("RESULT gas method={method} estimate={:?} gas_limit={} margin_pct={} cap={}", estimate, params["gas_limit"], params["margin_pct"], chain::GAS_LIMIT_MAX);
+    let unsigned = match chain::unsigned_1559(&params, &s.executor, &data) {
+        Ok(u) => u,
+        Err(e) => return json!({"proposed": false, "method": method, "args": args, "error": format!("unsigned tx: {e}"), "prechecks": checks}),
+    };
+    let l1_fee = ctx.base.l1_fee(&unsigned).await.map(|x| x.to_string()).map_err(|e| e.to_string());
+    let check = ctx
+        .nearc
         .view(&a.vault, "check_transaction", &json!({"tx_hex": hex::encode(&unsigned), "caller": "agent"}))
         .await
         .map(|v| v.to_string())
         .unwrap_or_else(|e| e.to_string());
-    let mut out = json!({"method": method, "args": args, "tx": params, "estimate": estimate.as_ref().map_err(|e| e.clone()),
-        "calldata": format!("0x{data}"), "deadline_in_check": deadline, "unsigned_1559": format!("0x{}", hex::encode(&unsigned)),
-        "vault_check_transaction": check, "vault_prechecks": prechecks, "mode": a.mode});
+    let check_ok = check == "\"ok\"";
+    let mut out = json!({"proposed": true, "method": method, "args": args, "tx": params, "estimate": estimate.as_ref().map_err(|e| e.clone()),
+        "l1_fee_wei": l1_fee, "calldata": format!("0x{data}"), "deadline_in_check": deadline, "unsigned_1559": format!("0x{}", hex::encode(&unsigned)),
+        "vault_check_transaction": check, "prechecks": checks, "refusals": refused, "agent_status": status.label(), "mode": a.mode});
     if a.mode != "live" {
         out["sent"] = json!(false);
         return out;
     }
-    if estimate.is_err() || !s.executor_deployed {
+    let mut why = refused.clone();
+    if let Err(e) = &estimate {
+        why.push(format!("gas: {e}"));
+    }
+    if !check_ok {
+        why.push(format!("vault check_transaction: {check}"));
+    }
+    if !why.is_empty() {
         out["sent"] = json!(false);
-        out["why_not_sent"] = json!("the gas estimate failed or the executor is not deployed");
+        out["why_not_sent"] = json!(why);
         return out;
     }
     let mut call_args = args.clone();
-    call_args["tx"] = params.clone();
+    call_args["tx"] = json!({"nonce": params["nonce"], "gas_limit": params["gas_limit"], "max_fee_per_gas": params["max_fee_per_gas"],
+        "max_priority_fee_per_gas": params["max_priority_fee_per_gas"]});
     let t = Instant::now();
-    match nearc.function_call(sk, &a.vault, &a.vault, method, call_args.to_string().as_bytes(), AGENT_CALL_GAS, 0).await {
+    match ctx.nearc.function_call(&ctx.sk, &a.vault, &a.vault, method, call_args.to_string().as_bytes(), AGENT_CALL_GAS, 0).await {
         Ok((h, r)) => {
             out["near_tx"] = json!(h);
             out["near_gas"] = near::gas_summary(&r);
@@ -302,7 +285,7 @@ async fn propose(a: &Args, base: &Base, nearc: &near::Near, sk: &SigningKey, s: 
             out["signed"] = signed.clone().unwrap_or(Value::Null);
             if let Some(tx) = signed.as_ref().and_then(|v| v.as_array()).and_then(|v| v.first()) {
                 let t2 = Instant::now();
-                out["base"] = match base.broadcast(tx["raw"].as_str().unwrap_or(""), tx["hash"].as_str().unwrap_or("")).await {
+                out["base"] = match ctx.base.broadcast(tx["raw"].as_str().unwrap_or(""), tx["hash"].as_str().unwrap_or("")).await {
                     Ok(rc) => rc,
                     Err(e) => json!({"error": e.to_string()}),
                 };
@@ -315,67 +298,163 @@ async fn propose(a: &Args, base: &Base, nearc: &near::Near, sk: &SigningKey, s: 
     out
 }
 
-fn decision_json(d: &Decision) -> Value {
-    json!({"action": d.action, "market": d.market.as_ref().map(|m| &m.name), "to": d.to.as_ref().map(|m| &m.name),
-        "amount": d.amount.to_string(), "fraction": d.fraction.to_string(), "basis": d.basis, "detail": d.detail})
-}
+// ------------------------------------------------------------------ one tick (§4.9)
 
-async fn run_proposal(a: &Args, base: &Base, nearc: &near::Near, sk: &SigningKey, s: &Snapshot, d: &Decision, vault: &mut Value, loops: u64) -> Value {
-    let p = propose(a, base, nearc, sk, s, d, vault).await;
-    println!("RESULT proposal loop={loops} {}", json!({"method": p["method"], "args": p["args"], "tx": p["tx"], "estimate": p["estimate"],
-        "vault_check_transaction": p["vault_check_transaction"], "prechecks": p["vault_prechecks"], "sent": p["sent"], "near_tx": p["near_tx"],
-        "base": p["base"], "error": p["error"], "near_error": p["near_error"]}));
-    if let Ok(v) = nearc.view(&a.vault, "get_state", &json!({})).await {
-        *vault = v;
-    }
-    p
-}
-
-// ------------------------------------------------------------------ judge input
-
-fn judge_input(s: &Snapshot, fired: &[(String, String, String)], feed: &Value) -> (String, Vec<String>) {
-    let mut ids = vec![];
-    let mut markets = vec![];
-    for m in s.markets.iter().filter(|m| m.exists) {
-        let id = format!("chain:{}:market", m.name);
-        ids.push(id.clone());
-        let mut o = json!({"source_id": id, "market": m.name, "utilization": (m.utilization * 1e4).round() / 1e4,
-            "borrow_apr": (m.borrow_apr * 1e4).round() / 1e4, "oracle_usd_per_weth": (m.oracle_usd * 100.0).round() / 100.0,
-            "pool_usd_per_weth": m.pool_usd.map(|p| (p * 100.0).round() / 100.0),
-            "pool_vs_oracle_pct": m.pool_gap.map(|g| (g * 1e4).round() / 100.0),
-            "feeds": m.feeds.iter().zip(&m.feed_ages).map(|(f, age)| json!({"feed": if f.0 == chain::ETH_USD { "ETH/USD" } else if f.0 == chain::USDC_USD { "USDC/USD" } else { f.0.as_str() }, "age_s": age, "max_age_s": f.2})).collect::<Vec<_>>(),
-            "loan_token_available_to_borrow": m.liquidity as f64 / 1e6});
-        if m.debt > 0 || m.collateral > 0 {
-            let pid = format!("chain:{}:position", m.name);
-            ids.push(pid.clone());
-            let c = m.exec.as_ref().map(|x| json!({"target": wad(x.corridor.target as u128), "act": wad(x.corridor.act as u128), "floor": wad(x.corridor.floor as u128)}));
-            o["position"] = json!({"source_id": pid, "collateral_weth": m.collateral as f64 / 1e18, "debt": m.debt as f64 / 1e6,
-                "ltv": (wad(m.ltv_wad) * 1e4).round() / 1e4, "liquidation_ltv": 0.86,
-                "price_drop_to_liquidation_pct": ((1.0 - wad(m.ltv_wad) / 0.86) * 1e4).round() / 100.0, "corridor": c});
-        }
-        markets.push(o);
-    }
-    let sc: Vec<Value> = fired
+fn status_line(s: &Snapshot) -> String {
+    s.markets
         .iter()
-        .map(|f| {
-            let id = format!("screen:{}:{}", f.0, f.1);
-            ids.push(id.clone());
-            json!({"source_id": id, "detail": f.2})
+        .filter(|m| m.exists)
+        .map(|m| {
+            let l = m.ltv.as_f64().map(|v| format!("{v:.4}")).unwrap_or("no_collateral_value".into());
+            format!("{}: ltv={l} debt={} util={:.3} oracle={:.2} gap={:?}", m.name, m.debt, m.utilization, m.oracle_usd, m.pool_gap.map(|g| (g * 1e4).round() / 1e2))
         })
-        .collect();
-    let items: Vec<Value> = feed["items"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|i| {
-            ids.push(i["id"].as_str().unwrap_or("").to_string());
-            json!({"source_id": i["id"], "published": i["published"], "text": i["text"]})
-        })
-        .collect();
-    let user = json!({"now_utc": iso(s.timestamp), "base_block": s.block, "markets": markets, "screens_fired": sc,
-        "text_feed": {"source": judge::FEED_URL, "untrusted": true, "items": items}});
-    (serde_json::to_string_pretty(&user).unwrap(), ids)
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
+    let mut guard = st.lock().await;
+    let st = &mut *guard;
+    let t0 = Instant::now();
+    if n % STATUS_EVERY == 0 {
+        if let Ok(v) = ctx.nearc.view(&ctx.a.vault, "get_state", &json!({})).await {
+            st.vault = v;
+        }
+    }
+    let status = logic::agent_status(&st.vault, &ctx.our_pk, now());
+    if status != st.status {
+        println!("RESULT status agent={} (was {})", status.label(), st.status.label());
+        st.status = status;
+    }
+
+    // a judge result that arrived since the last tick is taken now (build item 44)
+    if st.inflight.as_ref().map(|f| f.handle.is_finished()).unwrap_or(false) {
+        if let Some(f) = st.inflight.take() {
+            let outcome = match f.handle.await {
+                Ok(o) => o,
+                Err(e) => JudgeOutcome { record: json!({"error": format!("judge task failed: {e}"), "outcome": "error", "applies": "rules only"}), feed: st.feed.clone(), accepted: None },
+            };
+            st.feed = outcome.feed.clone();
+            println!("RESULT judge arrived tick={n} block={} outcome={} accepted={} seconds={:.1}", f.block, outcome.record["outcome"], outcome.accepted.is_some(), f.started.elapsed().as_secs_f64());
+            st.ready = Some(Ready { outcome, trigger: f.trigger, block: f.block, arrived_tick: n });
+        }
+    }
+
+    let s = match ctx.base.snapshot(&ctx.base_address, &ctx.executor, &ctx.market_ids).await {
+        Ok(s) => s,
+        Err(e) => {
+            println!("TICK {n} failed: read error: {e}");
+            return;
+        }
+    };
+    let read_ms = t0.elapsed().as_millis();
+    if let Err(why) = logic::gate(&s) {
+        // a failed tick: no screens, no judge, no decision, and the screen state is left as it was
+        println!("TICK {n} block={} failed: {why}", s.block);
+        return;
+    }
+    let fired = logic::screens(&s);
+    let fired_set = logic::fired_set(&fired);
+    let new: Vec<String> = fired_set.difference(&st.fired_prev).cloned().collect();
+    let t_now = now();
+
+    // judge: on a new screen or a digest, at most one call in flight
+    let digest = t_now >= st.next_digest;
+    if digest {
+        st.next_digest = t_now + DIGEST_SECS;
+    }
+    if !new.is_empty() || digest {
+        st.judge_wanted = Some(st.judge_wanted.unwrap_or(false) || digest);
+    }
+    if let Some(want_digest) = st.judge_wanted {
+        if !want_digest && fired.is_empty() {
+            st.judge_wanted = None; // the screens that wanted a judgment are gone
+        } else if st.inflight.is_none() && st.ready.is_none() {
+            st.judge_wanted = None;
+            spawn_judge(&ctx, st, &s, &fired, n);
+        }
+    }
+
+    // a ready judgment: ignored if its screens are gone, else applied once both cooldowns let a proposal in
+    let free_at = logic::cooldown_free_at(&st.vault, &s);
+    let ready_relevant = st.ready.as_ref().map(|r| logic::relevant(&r.trigger, &fired_set));
+    let judge_ready = match ready_relevant {
+        Some(false) => true,
+        Some(true) => t_now >= free_at,
+        None => false,
+    };
+    let standing = logic::standing(&s, &fired);
+    let due = logic::due(t_now, !new.is_empty(), judge_ready, standing, st.next_recheck);
+    let judge_note = st.inflight.as_ref().map(|f| format!(" judge=in_flight({:.0}s)", f.started.elapsed().as_secs_f64())).unwrap_or_default();
+    if let Due::No { standing } = due {
+        if standing {
+            // one line per tick while a condition stays on; decide re-runs on the cooldown boundary (build item 53)
+            println!("TICK {n} block={} read_ms={read_ms} status={} screens={fired_set:?} waiting: next decision in {} s{judge_note}{}",
+                s.block, st.status.label(), st.next_recheck.saturating_sub(t_now),
+                if ready_relevant == Some(true) { format!(" judgment ready, applied in {} s", free_at.saturating_sub(t_now)) } else { String::new() });
+        } else if n % STATUS_EVERY == 1 || fired_set != st.fired_prev {
+            println!("TICK {n} block={} read_ms={read_ms} status={} l1_base_fee={:?} screens={fired_set:?}{judge_note} | {}", s.block, st.status.label(), s.l1_base_fee, status_line(&s));
+        }
+        st.fired_prev = fired_set;
+        return;
+    }
+
+    // ---- a decision loop: decide every market, propose at most one, write one transcript
+    st.loops += 1;
+    let loops = st.loops;
+    let tl = Instant::now();
+    let mut judge_record = Value::Null;
+    let mut judgment: Option<Judgment> = None;
+    if judge_ready {
+        if let Some(r) = st.ready.take() {
+            let mut rec = r.outcome.record;
+            rec["trigger"] = json!(r.trigger);
+            rec["arrived_tick"] = json!(r.arrived_tick);
+            if ready_relevant == Some(false) {
+                let gone: Vec<&String> = r.trigger.difference(&fired_set).collect();
+                rec["ignored"] = json!(format!("the screens it was asked about are gone: {gone:?}; rules only"));
+            } else if let Some((action, risk)) = r.outcome.accepted {
+                judgment = Some(Judgment { action, risk, trigger: r.trigger, block: r.block });
+            }
+            judge_record = rec;
+        }
+    }
+    let decisions = logic::decide_all(&s, &fired, judgment.as_ref(), &st.vault);
+    let chosen = logic::pick(&decisions);
+    let trigger = match due {
+        Due::NewScreens => "new_screens",
+        Due::JudgeResult => "judge_result",
+        _ => "recheck_on_cooldown",
+    };
+    let mut tr = json!({"agent": ctx.agent_record, "loop": loops, "tick": n, "time_utc": iso(t_now), "agent_status": st.status.label(),
+        "trigger": {"kind": trigger, "new_screens": new, "judge_in_flight": st.inflight.is_some()},
+        "inputs": {"snapshot": serde_json::to_value(&s).unwrap_or_else(|e| json!({"serialize_error": e.to_string()}))},
+        "screens": fired, "judge": judge_record, "judgment_applied": judgment,
+        "decisions": decisions.iter().map(|d| d.json()).collect::<Vec<_>>(), "chosen": chosen.map(|i| decisions[i].market.name.clone())});
+    for d in &decisions {
+        println!("RESULT decision loop={loops} market={} action={:?} protective={} amount={} fraction={} basis={}", d.market.name, d.action, d.protective, d.amount, d.fraction, d.basis);
+    }
+    if let Some(i) = chosen {
+        let d = &decisions[i];
+        let mut status = st.status;
+        let p = propose(&ctx, &s, d, &mut st.vault, &mut status).await;
+        st.status = status;
+        println!("RESULT proposal loop={loops} {}", json!({"market": d.market.name, "method": p["method"], "args": p["args"], "tx": p["tx"],
+            "estimate": p["estimate"], "l1_fee_wei": p["l1_fee_wei"], "vault_check_transaction": p["vault_check_transaction"], "refusals": p["refusals"],
+            "sent": p["sent"], "why_not_sent": p["why_not_sent"], "why_not_proposed": p["why_not_proposed"], "near_tx": p["near_tx"],
+            "base": p["base"], "error": p["error"], "near_error": p["near_error"]}));
+        tr["proposal"] = p;
+    }
+    st.next_recheck = logic::next_recheck(now(), logic::exec_cooldown(&s), logic::cooldown_free_at(&st.vault, &s));
+    tr["next_recheck_utc"] = json!(iso(st.next_recheck));
+    tr["seconds"] = json!(tl.elapsed().as_secs_f64());
+    let name = format!("transcripts/{}-{loops:04}.json", ctx.boot_id);
+    // a transcript that cannot be written is reported, never fatal (build item 49)
+    match serde_json::to_string_pretty(&tr).map_err(anyhow::Error::from).and_then(|t| tee::save_evidence(&ctx.a.evidence, &name, t.as_bytes())) {
+        Ok(h) => println!("RESULT transcript loop={loops} {name} sha256={h} seconds={:.1}", tl.elapsed().as_secs_f64()),
+        Err(e) => println!("RESULT transcript loop={loops} {name} write failed: {e}"),
+    }
+    st.fired_prev = fired_set;
 }
 
 // ------------------------------------------------------------------ main
@@ -395,7 +474,7 @@ async fn main() -> Result<()> {
         Some(f) => std::fs::read_to_string(f)?.trim().to_string(),
         None => std::env::var("NEARAI_API_KEY").map_err(|_| anyhow!("NEARAI_API_KEY not set"))?,
     };
-    let judge = judge::Judge::new(key);
+    let judge = Arc::new(judge::Judge::new(key));
     let mut agent_record = json!({"public_key": near::pk_string(&sk), "implicit_account": implicit, "boot": boot_id, "mode": a.mode});
 
     // ---- 1. quote, evidence, registration (§4.4)
@@ -456,118 +535,50 @@ async fn main() -> Result<()> {
     }
 
     // ---- 2. the tick loop (§4.9)
-    let mut vault = nearc.view(&a.vault, "get_state", &json!({})).await?;
+    let vault = nearc.view(&a.vault, "get_state", &json!({})).await?;
     let base_address = vault["base_address"].as_str().unwrap_or("").to_string();
-    let market_ids: Vec<String> = vault["markets"].as_array().unwrap().iter().map(|m| m["id"].as_str().unwrap().to_string()).collect();
-    let executor = vault["markets"][0]["executor"].as_str().unwrap_or("").to_string();
+    let markets = vault["markets"].as_array().ok_or_else(|| anyhow!("vault state has no markets: {vault}"))?;
+    let market_ids: Vec<String> = markets.iter().filter_map(|m| m["id"].as_str().map(|s| s.to_string())).collect();
+    let executor = markets.first().and_then(|m| m["executor"].as_str()).unwrap_or("").to_string();
+    if market_ids.is_empty() || base_address.is_empty() || executor.is_empty() {
+        return Err(anyhow!("vault state lacks markets, base address or executor"));
+    }
     println!("RESULT watching base_address={base_address} executor={executor} markets={market_ids:?} rpcs={:?}", a.base_rpcs);
-    let mut fired_prev: BTreeSet<String> = BTreeSet::new();
-    let mut next_digest = if a.digest_at_start { now() } else { now() + DIGEST_SECS };
-    let mut feed: (Value, u64) = (Value::Null, 0);
-    let mut last_proposal = 0u64;
-    let mut loops = 0u64;
-    let mut tick = 0u64;
-    while tick < a.max_ticks {
-        tick += 1;
+    let our_pk = near::pk_string(&sk);
+    let status = logic::agent_status(&vault, &our_pk, now());
+    println!("RESULT status agent={}", status.label());
+    let next_digest = if a.digest_at_start { now() } else { now() + DIGEST_SECS };
+    let (tick_secs, max_ticks) = (a.tick_secs, a.max_ticks);
+    let ctx = Arc::new(Ctx { a, base, nearc, sk, our_pk, judge, agent_record, boot_id, base_address, executor, market_ids });
+    let st = Arc::new(Mutex::new(State {
+        vault,
+        fired_prev: BTreeSet::new(),
+        next_digest,
+        feed: (Value::Null, 0),
+        loops: 0,
+        next_recheck: 0,
+        inflight: None,
+        ready: None,
+        judge_wanted: None,
+        status,
+    }));
+    let mut n = 0u64;
+    while n < max_ticks {
+        n += 1;
         let t0 = Instant::now();
-        if tick % 30 == 0 {
-            if let Ok(v) = nearc.view(&a.vault, "get_state", &json!({})).await {
-                vault = v;
-            }
+        // each tick in its own task: a panic anywhere in it is logged and the loop goes on (build item 49)
+        if let Err(e) = tokio::spawn(tick(ctx.clone(), st.clone(), n)).await {
+            println!("TICK {n} aborted: {e}");
         }
-        let s = match base.snapshot(&base_address, &executor, &market_ids).await {
-            Ok(s) => s,
-            Err(e) => {
-                println!("TICK {tick} read error: {e}");
-                tokio::time::sleep(Duration::from_secs(a.tick_secs)).await;
-                continue;
-            }
-        };
-        let read_ms = t0.elapsed().as_millis();
-        if !s.read_errors.is_empty() || !s.rpc_disagree.is_empty() || s.rpc_second_error.is_some() {
-            // a failed tick: no screens, no judge, no decision, and the screen state is left as it was
-            println!("TICK {tick} block={} failed: read_errors={:?} rpc_disagree={:?} second_err={:?}", s.block, s.read_errors, s.rpc_disagree, s.rpc_second_error);
-            tokio::time::sleep(Duration::from_secs(a.tick_secs)).await;
-            continue;
-        }
-        let fired = screens(&s);
-        let fired_set: BTreeSet<String> = fired.iter().map(|f| format!("{}:{}", f.0, f.1)).collect();
-        let new: Vec<String> = fired_set.difference(&fired_prev).cloned().collect();
-        let protective_again = fired.iter().any(|f| f.1 == "ltv_above_act") && now() >= last_proposal + vault["cooldown_secs"].as_u64().unwrap_or(120) + 5;
-        let digest = now() >= next_digest;
-        if tick % 30 == 1 || fired_set != fired_prev {
-            let pos: Vec<String> = s.markets.iter().filter(|m| m.exists).map(|m| format!("{}: ltv={:.4} debt={} util={:.3} oracle={:.2} gap={:?}", m.name, wad(m.ltv_wad), m.debt, m.utilization, m.oracle_usd, m.pool_gap.map(|g| (g * 1e4).round() / 1e2))).collect();
-            println!("TICK {tick} block={} read_ms={read_ms} rpc_disagree={:?} second_err={:?} executor_deployed={} screens={:?} | {}", s.block, s.rpc_disagree, s.rpc_second_error, s.executor_deployed, fired_set, pos.join(" | "));
-        }
-        let agree = s.rpc_disagree.is_empty() && s.rpc_second_error.is_none();
-        if (!new.is_empty() || digest || protective_again) && agree {
-            loops += 1;
-            let tl = Instant::now();
-            let mut tr = json!({"agent": agent_record, "loop": loops, "tick": tick, "time_utc": iso(now()),
-                "trigger": {"new_screens": new, "digest": digest, "protective_repeat": protective_again && new.is_empty() && !digest},
-                "inputs": {"snapshot": serde_json::to_value(&s).unwrap_or_else(|e| json!({"serialize_error": e.to_string()}))}, "screens": fired.iter().map(|f| json!({"market": f.0, "screen": f.1, "detail": f.2})).collect::<Vec<_>>()});
-            // rule first: a protective slice (LTV above act) is decided and proposed before, and independent of,
-            // the judge, whose call takes minutes with thinking on; the judge still runs in the same loop
-            let rule = decide(&s, &fired, None, &vault);
-            let rule_acts = rule.action == "reduce" && rule.basis.starts_with("rule:");
-            if rule_acts {
-                tr["decision"] = decision_json(&rule);
-                println!("RESULT decision loop={loops} action={} amount={} basis={}", rule.action, rule.amount, rule.basis);
-                tr["proposal"] = run_proposal(&a, &base, &nearc, &sk, &s, &rule, &mut vault, loops).await;
-                last_proposal = now();
-            }
-            // judge: on a new screen or a digest; a repeated protective slice is deterministic and skips it
-            let mut judged: Option<Value> = None;
-            if !new.is_empty() || digest {
-                if now() >= feed.1 + FEED_SECS {
-                    feed = (judge::fetch_feed(&reqwest::Client::new()).await.unwrap_or_else(|e| json!({"error": e.to_string(), "items": []})), now());
-                }
-                tr["inputs"]["feed"] = feed.0.clone();
-                let (user, ids) = judge_input(&s, &fired, &feed.0);
-                let tj = Instant::now();
-                let att = judge.attest().await.unwrap_or_else(|e| json!({"ok": false, "error": e.to_string()}));
-                let call = if att["ok"] == true {
-                    judge.ask(&user, &ids, att["signing_address"].as_str().unwrap_or("")).await.unwrap_or_else(|e| json!({"error": e.to_string()}))
-                } else {
-                    json!({"skipped": "model attestation did not verify"})
-                };
-                if call["valid"] == true && call["signature"]["ok"] == true {
-                    judged = call["parsed"].as_object().map(|o| Value::Object(o.clone()));
-                }
-                println!("RESULT judge loop={loops} attestation_ok={} dcap={} sig_ok={} kind={} valid={} parsed={} latency_s={} usage={} total_s={:.1}",
-                    att["ok"], att["dcap"], call["signature"]["ok"], call["signature"]["signature_kind"], call["valid"], call["parsed"], call["latency_s"], call["usage"], tj.elapsed().as_secs_f64());
-                tr["judge"] = json!({"attestation": att, "call": call, "seconds": tj.elapsed().as_secs_f64(), "accepted": judged.is_some()});
-                if digest {
-                    next_digest = now() + DIGEST_SECS;
-                }
-            } else {
-                tr["judge"] = json!({"skipped": "repeated protective slice: deterministic rule, no judge call"});
-            }
-            let d = decide(&s, &fired, judged.as_ref(), &vault);
-            if rule_acts {
-                tr["decision_after_judge"] = json!({"not_acted_on_this_loop": true, "decision": decision_json(&d)});
-            } else {
-                tr["decision"] = decision_json(&d);
-                println!("RESULT decision loop={loops} action={} amount={} fraction={} basis={}", d.action, d.amount, d.fraction, d.basis);
-                if d.action != "none" {
-                    tr["proposal"] = run_proposal(&a, &base, &nearc, &sk, &s, &d, &mut vault, loops).await;
-                    last_proposal = now();
-                }
-            }
-            tr["seconds"] = json!(tl.elapsed().as_secs_f64());
-            let name = format!("transcripts/{boot_id}-{loops:04}.json");
-            // a transcript that cannot be written is reported, never fatal
-            match serde_json::to_string_pretty(&tr).map_err(anyhow::Error::from).and_then(|t| tee::save_evidence(&a.evidence, &name, t.as_bytes())) {
-                Ok(h) => println!("RESULT transcript loop={loops} {name} sha256={h} seconds={:.1}", tl.elapsed().as_secs_f64()),
-                Err(e) => println!("RESULT transcript loop={loops} {name} write failed: {e}"),
-            }
-        }
-        fired_prev = fired_set;
         let el = t0.elapsed();
-        if el < Duration::from_secs(a.tick_secs) {
-            tokio::time::sleep(Duration::from_secs(a.tick_secs) - el).await;
+        if el < Duration::from_secs(tick_secs) {
+            tokio::time::sleep(Duration::from_secs(tick_secs) - el).await;
         }
     }
-    println!("RESULT done ticks={tick} loops={loops}");
+    let st = st.lock().await;
+    if let Some(f) = &st.inflight {
+        f.handle.abort();
+    }
+    println!("RESULT done ticks={n} loops={}", st.loops);
     Ok(())
 }

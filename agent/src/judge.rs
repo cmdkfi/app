@@ -4,6 +4,11 @@
 //! address and our nonce, and its TDX quote is verified with dcap-qvl against fresh Intel collateral.
 //! After: the response signature must be `provider_tee`, its text must be model:sha256(request):sha256(response)
 //! over the exact bytes, and the EIP-191 signer recovered here must be the attested address.
+//!
+//! Budget (build item 45): the decision of 28 Oct keeps thinking on with an 8,000-token `max_tokens` for every
+//! call; NEAR AI Cloud's documented chat-completions body has no separate thinking-budget parameter that has been
+//! verified here, so none is sent. An answer that never arrives (reasoning used the whole budget, content without a
+//! JSON object) is classified `no_answer` and the loop applies the rules only; `classify` names every outcome.
 use anyhow::{anyhow, bail, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
@@ -19,7 +24,8 @@ pub const RISKS: [&str; 4] = ["low", "elevated", "high", "critical"];
 pub const ACTIONS: [&str; 4] = ["hold", "reduce_light", "reduce_to_target", "leave_market"];
 
 pub const SYSTEM: &str = "You are the risk judge inside PRIME, an agent that guards one borrower's Morpho Blue loan on Base \
-(WETH collateral, a USD stablecoin debt; Morpho liquidates the position when its LTV reaches 86%). You never compute \
+(WETH collateral, a USD stablecoin debt; Morpho liquidates the position when its LTV reaches the market's \
+liquidation_ltv, 86% on these markets). You never compute \
 amounts and you never move funds: code maps your choice to a bounded action inside the owner's corridor, and a \
 contract re-checks it against Morpho's oracle.\n\
 Inputs: on-chain numbers computed by code from two RPC providers (trusted), the result of rule-based screens, and \
@@ -30,8 +36,10 @@ Choose one action:\n\
 - reduce_to_target: bring the LTV back to the owner's target.\n\
 - leave_market: this market itself is the problem (its oracle, its liquidity, its borrow rate), not the price of the \
 collateral; code moves the loan to another market the owner approved, or exits if none can take it.\n\
-Every field is required. `source_ids` lists at least one `source_id` copied exactly from the inputs you relied on. \
-A feed is stale only when its age exceeds its max_age_s. Answer with exactly one JSON object and nothing after it:\n\
+Every field is required: risk, action, reasons and source_ids. `source_ids` lists at least one `source_id` copied \
+exactly from the inputs you relied on. Judge against the thresholds given in the inputs: a feed is stale only when \
+its age exceeds its max_age_s; the corridor's act, target and floor, the market's liquidation_ltv, the remaining \
+sell budget and the agent limits are given with each position. Answer with exactly one JSON object and nothing after it:\n\
 {\"risk\": \"low|elevated|high|critical\", \"action\": \"hold|reduce_light|reduce_to_target|leave_market\", \
 \"reasons\": [\"short reason\", ...], \"source_ids\": [\"id\", ...]}";
 
@@ -122,6 +130,9 @@ pub fn validate(v: &Value, known_ids: &[String]) -> Result<(), String> {
         return Err("a reason is not a string".into());
     }
     let ids = v["source_ids"].as_array().ok_or("source_ids is not a list")?;
+    if ids.is_empty() {
+        return Err("source_ids is empty".into());
+    }
     for i in ids {
         let i = i.as_str().ok_or("a source id is not a string")?;
         if !known_ids.iter().any(|k| k == i) {
@@ -129,6 +140,24 @@ pub fn validate(v: &Value, known_ids: &[String]) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// The outcome of one judge call record (as `ask` returns it, or the error/skip records the loop builds):
+/// only "answer" is applied; every other outcome means rules only, and is recorded as such.
+pub fn classify(call: &Value) -> &'static str {
+    if call.get("skipped").is_some() {
+        "skipped_attestation_failed"
+    } else if call.get("error").is_some() {
+        "error"
+    } else if call["parsed"].is_null() {
+        "no_answer"
+    } else if call["valid"] != true {
+        "invalid_schema"
+    } else if call["signature"]["ok"] != true {
+        "signature_not_verified"
+    } else {
+        "answer"
+    }
 }
 
 impl Judge {
@@ -290,4 +319,65 @@ pub async fn fetch_feed(http: &reqwest::Client) -> Result<Value> {
         })
         .collect();
     Ok(json!({"url": FEED_URL, "fetched_ms": t.elapsed().as_millis(), "body_sha256": sha(&body), "bytes": body.len(), "items": items}))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ids() -> Vec<String> {
+        ["screen:live:oracle_pool_gap_above_2pct", "chain:live:market"].iter().map(|s| s.to_string()).collect()
+    }
+
+    /// The answer the strict schema rejected in the prototype's local smoke run (26 Oct,
+    /// prototype/agent/results/smoke/transcripts/boot-1793050064-eef3c603-0001.json): every field but `source_ids`.
+    const RECORDED_MISSING_SOURCE_IDS: &str = r#"<think>reasoning</think>{"risk": "high", "action": "leave_market", "reasons": ["Oracle/pool gap screen fired: oracle prices WETH at 2305.44 vs pool 2075.48 (-9.97%), so oracle-based health is overstated and a downward oracle correction would raise LTV abruptly", "One live-market price feed is ~44517s (~12.4h) stale, indicating degraded oracle inputs; the market's oracle cannot be trusted right now", "Live market has 0 loan token available to borrow despite 0.0 utilization, i.e. effectively no market liquidity - a market-level impairment, not a collateral-price move", "Status feed shows no active Base mainnet incident (latest item is a resolved Sepolia testnet RPC issue from Oct 23), so the divergence is not explained by a known chain-wide outage", "Alternative demo market's oracle (1300 USD/WETH) is far below pool (~2075), so any destination must be re-checked by code against Morpho's oracle before a move; exit if none can safely take the loan"]}"#;
+
+    #[test]
+    fn the_recorded_answer_without_source_ids_is_rejected() {
+        let v = extract_json(RECORDED_MISSING_SOURCE_IDS).expect("the JSON object is found after </think>");
+        assert_eq!(validate(&v, &ids()), Err("source_ids is not a list".to_string()));
+    }
+
+    #[test]
+    fn schema_is_strict() {
+        let ok = serde_json::json!({"risk": "high", "action": "hold", "reasons": ["r"], "source_ids": ["chain:live:market"]});
+        assert_eq!(validate(&ok, &ids()), Ok(()));
+        let mut bad = ok.clone();
+        bad["source_ids"] = serde_json::json!([]);
+        assert!(validate(&bad, &ids()).is_err(), "at least one source id");
+        let mut bad = ok.clone();
+        bad["source_ids"] = serde_json::json!(["made-up"]);
+        assert!(validate(&bad, &ids()).is_err());
+        let mut bad = ok.clone();
+        bad["amount"] = serde_json::json!(5);
+        assert!(validate(&bad, &ids()).is_err(), "no free numbers");
+        let mut bad = ok.clone();
+        bad["action"] = serde_json::json!("sell_everything");
+        assert!(validate(&bad, &ids()).is_err());
+        let mut bad = ok;
+        bad.as_object_mut().unwrap().remove("reasons");
+        assert!(validate(&bad, &ids()).is_err());
+    }
+
+    #[test]
+    fn the_prompt_names_every_required_field() {
+        for f in ["risk", "action", "reasons", "source_ids", "max_age_s", "liquidation_ltv"] {
+            assert!(SYSTEM.contains(f), "{f}");
+        }
+    }
+
+    #[test]
+    fn no_answer_is_its_own_outcome() {
+        // the whole budget went to reasoning: finish_reason length, no JSON object in the content
+        let call = serde_json::json!({"finish_reason": "length", "content": "", "parsed": null, "valid": false,
+            "invalid_reason": "no JSON object with \"risk\" in the final content", "signature": {"ok": true}});
+        assert_eq!(classify(&call), "no_answer");
+        assert_eq!(classify(&serde_json::json!({"error": "timeout"})), "error");
+        assert_eq!(classify(&serde_json::json!({"skipped": "model attestation did not verify"})), "skipped_attestation_failed");
+        let good = serde_json::json!({"parsed": {"risk": "low"}, "valid": true, "signature": {"ok": true}});
+        assert_eq!(classify(&good), "answer");
+        let unsigned = serde_json::json!({"parsed": {"risk": "low"}, "valid": true, "signature": {"ok": false}});
+        assert_eq!(classify(&unsigned), "signature_not_verified");
+    }
 }
