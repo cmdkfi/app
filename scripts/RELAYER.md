@@ -45,7 +45,7 @@ Example: `curl -s localhost:8787/fund-agent -d '{"implicit_account":"'$IMPLICIT'
 per 24 hours.
 
 **Owner call.** The relayer reads `get_state`, counts the Base transactions the method produces (setup: see
-below; set_corridor, open, repay, close, withdraw, cancel, sweep_eth 1; set_executor 0 while another
+below; set_corridor, open, open_from_stables, repay, close, withdraw, cancel, sweep_eth 1; set_executor 0 while another
 market still uses the old executor, else 1 for the revoke if flagged plus 1 per distinct token of the markets
 that used it; approve_measurement, revoke_agent 0), composes one `TxParams` each (nonce = pending count at the
 vault's Base address, consecutive; `max_fee_per_gas = min(2 x base fee + priority, 2 gwei)`; gas limit from the
@@ -68,7 +68,8 @@ and no measurement, or with a market listed twice, is refused.
 ## Pre-checks before a message reaches the chain
 
 - Message: JSON with exactly the vault's fields; `protocol` `cmdk-vault/1`, `network` `testnet`, the vault id,
-  nonce above `owner_nonce`, at least 30 s before expiry, a known method with exactly its argument fields and
+  nonce above `owner_nonce`, at least 30 s before expiry and at most 3600 s ahead (the vault refuses an expiry
+  more than an hour after its block time), a known method with exactly its argument fields and
   types; signature 65 bytes of hex. Market, token and destination as the vault checks them.
 - Flags against Base, `setup`: per executor of the listed markets, "some part has `authorize`" must equal
   "Morpho `isAuthorized(vault, executor)` is false" (true while already set reverts; false while unset leaves
@@ -78,7 +79,9 @@ and no measurement, or with a market listed twice, is refused.
 - Flags against Base, `set_executor`: `revoke_authorization` must equal "Morpho still authorizes the old executor" when a revoke is due.
 - `close`, `repay` (item 14): loan-token allowance to the executor and loan-token balance at least the debt
   (or the repay amount) plus 1%; `repay` with no debt is refused. `open`: Morpho authorization and collateral
-  allowance at least `collateral_in`.
+  allowance at least `collateral_in`. `open_from_stables` (`{"market", "stables_in", "target_ltv"}`; the
+  executor pulls `stables_in` of the loan token and swaps it to collateral): Morpho authorization, and
+  loan-token allowance to the executor and loan-token balance at the vault's Base address at least `stables_in`.
 - Funds: the vault's Base ETH covers `gas_limit x max_fee + value` for every transaction (L1 fee not included).
 - Create vault: the factory's checks (owner and tokens 20 bytes of hex, ids 32 bytes, non-zero executor, at
   least one market, no duplicate ids), plus types and unknown keys; deposit above 0 and at most 10 NEAR.

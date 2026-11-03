@@ -23,6 +23,7 @@ pub const SEL_TRANSFER: [u8; 4] = [0xa9, 0x05, 0x9c, 0xbb]; // transfer(address,
 pub const SEL_SET_AUTHORIZATION: [u8; 4] = [0xee, 0xce, 0xa0, 0x00]; // setAuthorization(address,bool)
 pub const SEL_SET_CORRIDOR: [u8; 4] = [0x25, 0x36, 0x16, 0xb9]; // setCorridor(bytes32,(uint64,uint64,uint64,uint64,bool,bool,bool),uint256)
 pub const SEL_OPEN: [u8; 4] = [0x2d, 0xc1, 0x81, 0xa4]; // open(bytes32,uint256,uint256,uint256)
+pub const SEL_OPEN_FROM_STABLES: [u8; 4] = [0x5f, 0x44, 0x77, 0x73]; // openFromStables(bytes32,uint256,uint256,uint256)
 pub const SEL_REPAY: [u8; 4] = [0xe4, 0x85, 0x84, 0x94]; // repay(bytes32,uint256,uint256)
 pub const SEL_CLOSE: [u8; 4] = [0x77, 0xe2, 0x83, 0xd0]; // close(bytes32,uint256)
 pub const SEL_REDUCE: [u8; 4] = [0x64, 0x3d, 0x3b, 0x9e]; // reduce(bytes32,uint256,uint256)

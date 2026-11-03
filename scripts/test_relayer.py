@@ -205,6 +205,14 @@ class TestMessage(unittest.TestCase):
         self.parse(message('setup', CREATE))
         self.parse(message('setup', dict(setup_args(dict(part(LIVE), corridor=None)), measurement=None)))   # null = absent
         self.parse(message('setup', setup_args(measurement={'anything': 'the vault validates'})))
+        self.parse(message('open_from_stables', {'market': LIVE, 'stables_in': '250000000', 'target_ltv': '5'}))
+
+    def test_expiry_upper_bound(self):
+        now = int(time.time())
+        msg = lambda expiry: message('cancel', {}, expiry=expiry)
+        self.assertEqual(R.parse_message(msg(now + 3600), SIG, VAULT, 4, now)['expiry'], now + 3600)
+        with self.assertRaisesRegex(R.Refused, 'more than 3600 s ahead'):
+            R.parse_message(msg(now + 3601), SIG, VAULT, 4, now)
 
     def test_refusals(self):
         ok = setup_args(part(LIVE))
@@ -230,6 +238,9 @@ class TestMessage(unittest.TestCase):
                message('repay', {'market': LIVE, 'amount': 5}),
                message('close', {'market': '0x1234'}),
                message('withdraw', {'token': USDC, 'amount': '1', 'destination': '0x12'}),
+               message('open_from_stables', {'market': LIVE, 'stables_in': 1, 'target_ltv': '5'}),
+               message('open_from_stables', {'market': LIVE, 'collateral_in': '1', 'target_ltv': '5'}),
+               message('open_from_stables', {'market': LIVE, 'stables_in': '1', 'target_ltv': '5', 'recipient': OWNER}),
                'not json', json.dumps({'protocol': 'cmdk-vault/1'})]
         for msg in bad:
             with self.assertRaises(R.Refused, msg=msg):
@@ -256,6 +267,9 @@ class TestPlan(unittest.TestCase):
         corridor = dict(CORRIDOR, market=LIVE)
         self.assertEqual(self.count('set_corridor', corridor), ['setCorridor'])
         self.assertEqual(self.count('open', {'market': LIVE, 'collateral_in': '1', 'target_ltv': '5'}), ['open'])
+        ofs = R.plan_txs('open_from_stables', {'market': LIVE, 'stables_in': '1', 'target_ltv': '5'}, vault_state())
+        self.assertEqual(ofs, [{'kind': 'openFromStables', 'to': EXEC, 'value': 0}])
+        self.assertEqual(R.gas_limit(ofs[0]['kind']), 800_000)
         self.assertEqual(self.count('repay', {'market': LIVE, 'amount': '1'}), ['repay'])
         self.assertEqual(self.count('close', {'market': DEMO}), ['close'])
         self.assertEqual(self.count('withdraw', {'token': USDC, 'amount': '1', 'destination': OWNER}), ['transfer'])
@@ -386,6 +400,16 @@ class TestFlags(unittest.TestCase):
             self.check('open', {'collateral_in': '10'}, {'authorized': False, 'collateral_allowance': 10})
         with self.assertRaises(R.Refused):
             self.check('open', {'collateral_in': '10'}, {'authorized': True, 'collateral_allowance': 9})
+
+    def test_open_from_stables(self):
+        ok = {'authorized': True, 'loan_allowance': 10, 'loan_balance': 10}
+        self.check('open_from_stables', {'stables_in': '10'}, ok)
+        with self.assertRaisesRegex(R.Refused, 'no authorization'):
+            self.check('open_from_stables', {'stables_in': '10'}, dict(ok, authorized=False))
+        with self.assertRaisesRegex(R.Refused, 'allowance to the executor is 9, below stables_in 10'):
+            self.check('open_from_stables', {'stables_in': '10'}, dict(ok, loan_allowance=9))
+        with self.assertRaisesRegex(R.Refused, 'holds 9 of the loan token, below stables_in 10'):
+            self.check('open_from_stables', {'stables_in': '10'}, dict(ok, loan_balance=9))
 
 
 class TestFeesAndGas(unittest.TestCase):
@@ -664,6 +688,29 @@ class TestHttp(unittest.TestCase):
         self.assertEqual(code, 400)
         self.assertIn('item 14', out['error'])
         self.assertEqual(c.sent_cmds, [])
+
+    def test_owner_call_open_from_stables(self):
+        # The loan token (USDC on live) is read at the vault's Base address, for the executor; refused before NEAR
+        # until allowance and balance cover stables_in, then one transaction with the openFromStables gas limit.
+        c = FakeChain()
+        c.authorized.add((BASE, EXEC))
+        c.allowances[(USDC, EXEC)] = 250_000_000
+        c.allowances[(WETH, EXEC)] = 2 ** 256 - 1
+        self.start(c)
+        args = {'market': LIVE, 'stables_in': '250000000', 'target_ltv': '400000000000000000'}
+        code, out = self.owner_call('open_from_stables', args)
+        self.assertEqual(code, 400)
+        self.assertIn('holds 0 of the loan token', out['error'])
+        c.balances[USDC] = 250_000_000
+        code, out = self.owner_call('open_from_stables', dict(args, stables_in='250000001'))
+        self.assertEqual(code, 400)
+        self.assertIn('allowance to the executor is 250000000', out['error'])
+        self.assertEqual(c.sent_cmds, [])
+        code, out = self.owner_call('open_from_stables', args)
+        self.assertEqual((code, out['ok'], len(out['signed'])), (200, True, 1))
+        sent = json.loads(c.sent_cmds[0][c.sent_cmds[0].index('json-args') + 1])
+        self.assertEqual(json.loads(sent['message'])['method'], 'open_from_stables')
+        self.assertEqual([t['gas_limit'] for t in sent['txs']], [800_000])
 
     def test_owner_call_broadcasts_in_nonce_order(self):
         c = FakeChain()

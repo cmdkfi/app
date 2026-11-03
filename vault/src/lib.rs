@@ -173,6 +173,13 @@ struct OpenArgs {
 }
 #[derive(Deserialize)]
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]
+struct OpenFromStablesArgs {
+    market: String,
+    stables_in: U128,
+    target_ltv: U128,
+}
+#[derive(Deserialize)]
+#[serde(crate = "near_sdk::serde", deny_unknown_fields)]
 struct AmountArgs {
     market: String,
     amount: U128,
@@ -329,6 +336,14 @@ impl Vault {
                 let mk = self.market(&a.market);
                 let words = [mk.id, w_u128(a.collateral_in.0), w_u128(a.target_ltv.0), dl];
                 vec![(mk.executor, 0, calldata(SEL_OPEN, &words))]
+            }
+            // §4.1, §4.10: the executor pulls `stables_in` of the loan token from the vault's Base address and swaps it
+            // to collateral before it supplies and borrows.
+            "open_from_stables" => {
+                let a: OpenFromStablesArgs = args(m.args);
+                let mk = self.market(&a.market);
+                let words = [mk.id, w_u128(a.stables_in.0), w_u128(a.target_ltv.0), dl];
+                vec![(mk.executor, 0, calldata(SEL_OPEN_FROM_STABLES, &words))]
             }
             "repay" => {
                 let a: AmountArgs = args(m.args);
@@ -742,6 +757,7 @@ impl Vault {
         let (n, ids, who) = match sel {
             SEL_SET_CORRIDOR => (9, 1, Caller::Owner),
             SEL_OPEN => (4, 1, Caller::Owner),
+            SEL_OPEN_FROM_STABLES => (4, 1, Caller::Owner),
             SEL_REPAY => (3, 1, Caller::Owner),
             SEL_CLOSE => (2, 1, Caller::Owner),
             SEL_REDUCE => (3, 1, Caller::Agent),

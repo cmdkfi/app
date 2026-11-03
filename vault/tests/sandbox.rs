@@ -327,6 +327,9 @@ async fn owner_messages() -> Result<()> {
     let now = env.now().await?;
     let m = env.message("close", json!({"market": LIVE}), 10, now - 1);
     expect_fail(env.submit(&m, &env.owner.sign(&m), params(3, 1)).await?, "message expired");
+    // Expiry more than an hour after block time (V6); the unit tests in owner.rs check the exact bound.
+    let m = env.message("close", json!({"market": LIVE}), 10, now + 3600 + 60);
+    expect_fail(env.submit(&m, &env.owner.sign(&m), params(3, 1)).await?, "message expiry too far ahead");
 
     // Signed by another wallet.
     let m = env.message("close", json!({"market": LIVE}), 10, now + 600);
@@ -392,6 +395,12 @@ async fn owner_messages() -> Result<()> {
     expect_fail(env.owner("setup", json!({"markets": [{"market": LIVE, "approve": true}]}), 3).await?, "bad args");
     assert_eq!(env.state().await?.owner_nonce, 11);
 
+    // An expiry exactly an hour after the chain time read here is accepted (block time only moves forward).
+    let m = env.message("close", json!({"market": LIVE}), 12, env.now().await? + 3600);
+    signed(&env.submit(&m, &env.owner.sign(&m), params(3, 1)).await?);
+    assert_eq!(env.state().await?.owner_nonce, 12);
+    env.nonce.set(12);
+
     env.print_gas("owner_messages");
     Ok(())
 }
@@ -426,6 +435,31 @@ async fn policy() -> Result<()> {
     env.record("owner_call open, 1 mock signature", &r);
     let data = decode_signed(signed(&r)[0]["raw"].as_str().unwrap())["input"].as_str().unwrap().to_string();
     assert_eq!((&data[..10], u256_of(&data, 1), u256_of(&data, 2)), ("0x2dc181a4", 2_000_000_000_000_000, 5 * WAD / 10));
+    // open_from_stables (V6): one executor call, openFromStables(id, stablesIn, targetLtv, deadline), owner only.
+    let before = env.now().await?;
+    let r = env.owner("open_from_stables", json!({"market": LIVE, "stables_in": "250000000", "target_ltv": "400000000000000000"}), 1).await?;
+    env.record("owner_call open_from_stables, 1 mock signature", &r);
+    let txs = signed(&r);
+    assert_eq!(txs.len(), 1);
+    let d = decode_signed(txs[0]["raw"].as_str().unwrap());
+    let data = d["input"].as_str().unwrap();
+    assert_eq!(d["to"].as_str().unwrap().to_lowercase(), EXEC.to_lowercase());
+    assert_eq!(hex_u128(&d["value"]), 0);
+    assert_eq!(data.len(), 10 + 4 * 64, "selector and four words");
+    assert_eq!((&data[..10], word_hex(data, 0)), ("0x5f447773", LIVE[2..].to_string()));
+    assert_eq!((u256_of(data, 1), u256_of(data, 2)), (250_000_000, 4 * WAD / 10));
+    let dl = u256_of(data, 3) as u64;
+    assert!(dl > before && dl <= env.now().await? + 600, "deadline {dl} is block time + 600 s");
+    let unsigned = unsigned_hex(txs[0]["raw"].as_str().unwrap())?;
+    assert_eq!(env.check_hex(&unsigned, "owner").await?, "ok");
+    assert!(env.check_hex(&unsigned, "agent").await?.contains("not allowed for the Agent"));
+    // Unknown or missing fields, a market outside the allowlist; the nonce stays.
+    let n = env.state().await?.owner_nonce;
+    let extra = json!({"market": LIVE, "stables_in": "1", "target_ltv": "1", "recipient": STRANGER});
+    expect_fail(env.owner("open_from_stables", extra, 1).await?, "bad args");
+    expect_fail(env.owner("open_from_stables", json!({"market": LIVE, "collateral_in": "1", "target_ltv": "1"}), 1).await?, "bad args");
+    expect_fail(env.owner("open_from_stables", json!({"market": UNKNOWN_MARKET, "stables_in": "1", "target_ltv": "1"}), 1).await?, "market not in the allowlist");
+    assert_eq!(env.state().await?.owner_nonce, n);
     let r = env.owner("repay", json!({"market": DEMO, "amount": "500000"}), 1).await?;
     let data = decode_signed(signed(&r)[0]["raw"].as_str().unwrap())["input"].as_str().unwrap().to_string();
     assert_eq!((&data[..10], word_hex(&data, 0), u256_of(&data, 1)), ("0xe4858494", DEMO[2..].to_string(), 500_000));
@@ -711,6 +745,17 @@ fn hex_u128(v: &Value) -> u128 {
     u128::from_str_radix(v.as_str().unwrap().trim_start_matches("0x"), 16).unwrap()
 }
 
+/// The unsigned transaction (hex, 0x02 || rlp of the first 9 fields) inside a raw signed type-2 transaction.
+fn unsigned_hex(raw: &str) -> Result<String> {
+    let raw = hex::decode(&raw[2..])?;
+    let r = Rlp::new(&raw[1..]);
+    let mut s = RlpStream::new_list(9);
+    for k in 0..9 {
+        s.append_raw(r.at(k)?.as_raw(), 1);
+    }
+    Ok(format!("0x02{}", hex::encode(s.out())))
+}
+
 #[tokio::test]
 async fn cancel_and_sweep() -> Result<()> {
     let env = setup("cancel").await?;
@@ -791,8 +836,16 @@ async fn allowlist() -> Result<()> {
     assert!(env.check(&tx(EXEC, calldata(SEL_EXIT, &[live, w_u128((now + 900) as u128)])), "agent").await?.contains("deadline"));
     assert!(env.check(&tx(EXEC, calldata(SEL_EXIT, &[live, w_u128((now - 10) as u128)])), "agent").await?.contains("deadline"));
     assert!(env.check(&tx(EXEC, calldata(SEL_EXIT, &[live, dl, dl])), "agent").await?.contains("calldata length"));
+    // openFromStables, selector from `cast sig "openFromStables(bytes32,uint256,uint256,uint256)"`: owner only (V6).
     let open_from_stables = calldata([0x5f, 0x44, 0x77, 0x73], &[live, w_u128(1), w_u128(1), dl]);
-    assert!(env.check(&tx(EXEC, open_from_stables), "owner").await?.contains("selector not allowed on the executor"));
+    assert_eq!(env.check(&tx(EXEC, open_from_stables.clone()), "owner").await?, ok);
+    assert!(env.check(&tx(EXEC, open_from_stables), "agent").await?.contains("not allowed for the Agent"));
+    let ofs_unknown = calldata([0x5f, 0x44, 0x77, 0x73], &[unknown, w_u128(1), w_u128(1), dl]);
+    assert!(env.check(&tx(EXEC, ofs_unknown), "owner").await?.contains("market id not allowlisted"));
+    let ofs_short = calldata([0x5f, 0x44, 0x77, 0x73], &[live, w_u128(1), dl]);
+    assert!(env.check(&tx(EXEC, ofs_short), "owner").await?.contains("calldata length"));
+    let deadline_late = calldata([0x5f, 0x44, 0x77, 0x73], &[live, w_u128(1), w_u128(1), w_u128((now + 900) as u128)]);
+    assert!(env.check(&tx(EXEC, deadline_late), "owner").await?.contains("deadline"));
     let mut corridor = vec![live, w_u128(1), w_u128(2), w_u128(3), w_u128(4), w_bool(true), w_bool(true), w_bool(false), dl];
     assert_eq!(env.check(&tx(EXEC, calldata(SEL_SET_CORRIDOR, &corridor)), "owner").await?, ok);
     corridor[5] = w_u128(2);

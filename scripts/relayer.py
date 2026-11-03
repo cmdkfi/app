@@ -53,6 +53,7 @@ DEPOSIT_MAX = 10 * YOCTO             # refuse a create-vault deposit above this 
 OWNER_CALL_GAS = '300 Tgas'
 CREATE_VAULT_GAS = '150 Tgas'        # DEPLOY.md step 6; the sandbox run burnt 20.5 Tgas
 EXPIRY_MARGIN = 30                   # seconds a message must still be valid for when it reaches the relayer
+EXPIRY_MAX_AHEAD = 3600              # the vault refuses an expiry more than this after its block time (owner.rs)
 REPAY_HEADROOM = 100                 # require allowance and balance of debt + 1/100 (interest accrues before repay)
 RECEIPT_TIMEOUT = 120
 B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -85,6 +86,7 @@ OWNER_ARGS = {
     'setup': None,                   # {markets: [...], measurement?}; checked by check_setup_args
     'set_corridor': ('market', 'target', 'act', 'floor', 'sell_budget', 'migrate_allowed', 'exit_allowed'),
     'open': ('market', 'collateral_in', 'target_ltv'),
+    'open_from_stables': ('market', 'stables_in', 'target_ltv'),
     'repay': ('market', 'amount'),
     'close': ('market',),
     'withdraw': ('token', 'amount', 'destination'),
@@ -100,7 +102,7 @@ ARG_KIND = {
     'market': 'id', 'token': 'addr', 'destination': 'addr', 'executor': 'addr',
     'approve': 'bool', 'authorize': 'bool', 'migrate_allowed': 'bool', 'exit_allowed': 'bool', 'revoke_authorization': 'bool',
     'target': 'u128', 'act': 'u128', 'floor': 'u128', 'sell_budget': 'u128', 'collateral_in': 'u128',
-    'target_ltv': 'u128', 'amount': 'u128',
+    'stables_in': 'u128', 'target_ltv': 'u128', 'amount': 'u128',
 }
 
 
@@ -295,6 +297,8 @@ def parse_message(message, signature, vault, last_nonce, now):
         raise Refused('message nonce %r is not above the vault owner_nonce %d' % (m['nonce'], last_nonce))
     if type(m['expiry']) is not int or m['expiry'] < now + EXPIRY_MARGIN:
         raise Refused('message expired or expires within %d s' % EXPIRY_MARGIN)
+    if m['expiry'] > now + EXPIRY_MAX_AHEAD:
+        raise Refused('message expiry is more than %d s ahead; the vault refuses it' % EXPIRY_MAX_AHEAD)
     if m['method'] not in OWNER_ARGS:
         raise Refused('unknown method %r' % m['method'])
     fields = OWNER_ARGS[m['method']]
@@ -401,6 +405,8 @@ def plan_txs(method, args, st):
         if any(int(args[k]) > U64_MAX for k in ('target', 'act', 'floor', 'sell_budget')):
             raise Refused('set_corridor: corridor value above uint64')
         return [{'kind': 'setCorridor', 'to': mk['executor'], 'value': 0}]
+    if method == 'open_from_stables':
+        return [{'kind': 'openFromStables', 'to': mk['executor'], 'value': 0}]
     return [{'kind': method, 'to': mk['executor'], 'value': 0}]       # open, repay, close
 
 
@@ -443,6 +449,16 @@ def check_flags(method, args, plan, f):
             raise Refused('open: Morpho has no authorization for the executor; sign setup for this market first')
         if f['collateral_allowance'] < int(args['collateral_in']):
             raise Refused('open: collateral-token allowance to the executor is below collateral_in; sign setup first')
+    if method == 'open_from_stables':
+        need = int(args['stables_in'])
+        if not f['authorized']:
+            raise Refused('open_from_stables: Morpho has no authorization for the executor; sign setup for this market first')
+        if f['loan_allowance'] < need:
+            raise Refused('open_from_stables: loan-token allowance to the executor is %d, below stables_in %d; sign setup '
+                          'for this market first' % (f['loan_allowance'], need))
+        if f['loan_balance'] < need:
+            raise Refused('open_from_stables: the vault holds %d of the loan token, below stables_in %d'
+                          % (f['loan_balance'], need))
     if method in ('close', 'repay'):
         if method == 'repay' and f['debt'] == 0:
             raise Refused('repay: no debt on this market (the executor reverts with NoDebt)')
@@ -635,12 +651,16 @@ def base_facts(chain, method, args, st):
             parts.append({'executor': ex, 'authorized': read_authorized(chain, morpho, base, ex),
                           'allowances': {t: read_allowance(chain, t, base, ex) for t in tokens_of([mk])}})
         return {'markets': parts}
-    if method not in ('open', 'close', 'repay'):
+    if method not in ('open', 'open_from_stables', 'close', 'repay'):
         return {}
     mk = find_market(st, args['market'])
     if method == 'open':
         return {'authorized': read_authorized(chain, morpho, base, mk['executor']),
                 'collateral_allowance': read_allowance(chain, mk['collateral_token'], base, mk['executor'])}
+    if method == 'open_from_stables':
+        return {'authorized': read_authorized(chain, morpho, base, mk['executor']),
+                'loan_allowance': read_allowance(chain, mk['loan_token'], base, mk['executor']),
+                'loan_balance': read_balance(chain, mk['loan_token'], base)}
     return {'loan_allowance': read_allowance(chain, mk['loan_token'], base, mk['executor']),
             'loan_balance': read_balance(chain, mk['loan_token'], base),
             'debt': read_position(chain, morpho, mk['id'], base)['debt']}
