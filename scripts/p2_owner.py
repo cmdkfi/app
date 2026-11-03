@@ -24,8 +24,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--vault', required=True); ap.add_argument('--method', required=True)
     ap.add_argument('--args', required=True); ap.add_argument('--out', required=True)
-    ap.add_argument('--nonce', type=int); ap.add_argument('--ttl', type=int, default=600)
+    ap.add_argument('--nonce', type=int); ap.add_argument('--ttl', type=int, default=600)  # the vault refuses expiry > now + 3600 (owner.rs)
     a = ap.parse_args()
+    if not 0 < a.ttl <= 3600:
+        ap.error('--ttl must be between 1 and 3600 seconds (the vault refuses an expiry more than 1 hour ahead)')
     st = relayer.near_view(a.vault, 'get_state', {})
     k, addr = key()
     if addr.lower() != st['owner'].lower():
