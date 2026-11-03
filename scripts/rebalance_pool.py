@@ -306,11 +306,14 @@ def guard(m, me, p, back, a):
         print('guard: cost $%.4f <= %.2f: pass' % (p['usd'], a.max_cost_usdc))
 
 
-def swap_to_oracle(m, me, o, dry, reserve_usdc=RESERVE_USDC):
-    """Limit-priced exact-input swap that stops at the oracle price (U, step 2), sized from the tick walk + 2%."""
-    _, _, sq, tick, liq = m.read()
+def swap_to_oracle(m, me, o, dry, reserve_usdc=RESERVE_USDC, plan=None):
+    """Limit-priced exact-input swap that stops at the oracle price (U, step 2), sized from the tick walk + 2%.
+    plan: (token in, token out, raw in) a dry run modelled with our burnt bands taken out, used instead of the walk."""
     tsq = m.sqrt_x96(o)
-    tin, tout, need, _, _ = walk(m, sq, tick, liq, tsq)
+    if plan: tin, tout, need = plan
+    else:
+        _, _, sq, tick, liq = m.read()
+        tin, tout, need, _, _ = walk(m, sq, tick, liq, tsq)
     need = int(need * 1.02) + 1
     if tin == DUSDC.lower():
         have = bal(DUSDC, me)
@@ -318,8 +321,9 @@ def swap_to_oracle(m, me, o, dry, reserve_usdc=RESERVE_USDC):
         amt = need
     else:
         reserve = reserve_usdc if tin == USDC.lower() else RESERVE_WETH
-        if m.name == 'demo' and tin == WETH.lower(): wrap_if_short(me, need, dry); reserve = 0
-        amt = min(need, max(bal(tin, me) - reserve, 0))
+        wrap = m.name == 'demo' and tin == WETH.lower()
+        if wrap: wrap_if_short(me, need, dry); reserve = 0
+        amt = need if wrap and dry else min(need, max(bal(tin, me) - reserve, 0))   # a dry run does not wrap
     print('swap %s -> %s: up to %s (tick walk + 2%%), limit at the oracle' % (tin, tout, m.human(tin, amt)))
     if amt <= 0: print('  nothing to swap with'); return
     b_in, b_out = (0, 0) if dry else (bal(tin, me), bal(tout, me))
@@ -337,7 +341,9 @@ def wrap_if_short(me, need, dry):
     if have >= need: return
     eth = eth_bal(me)
     amt = need - have
-    if eth - amt < ETH_RESERVE: raise SystemExit('not enough ETH to wrap %d wei (have %d, keep %d)' % (amt, eth, ETH_RESERVE))
+    if dry: print('  dry-run: wrap %.6f ETH (wallet %.6f ETH, keeps %.6f)%s' % (amt / 1e18, eth / 1e18, ETH_RESERVE / 1e18,
+                                                                         '' if eth - amt >= ETH_RESERVE else '; NOT ENOUGH ETH, a real run stops here'))
+    if eth - amt < ETH_RESERVE and not dry: raise SystemExit('not enough ETH to wrap %d wei (have %d, keep %d)' % (amt, eth, ETH_RESERVE))
     send('wrap ETH', WETH, 'deposit()', value=amt, dry=dry)
 
 
@@ -445,19 +451,28 @@ def move_demo_price(m, me, a, st):
     the next price and set the oracle to it, so no block shows a gap above 1.9% (27 Oct: setting the oracle first left
     an unsettled pool for 37 blocks, and the agent's reduce ran out of gas against it). Before the last setPrice the
     bands are minted at the new pool price, so the sale the new price triggers meets them (results.md item 42)."""
+    # a dry run burns nothing, so it walks each step with our bands taken out, as the real run meets the pool after the burn
+    burnt = [position(st[side]['token_id']) for side in ('sell', 'buy') if side in st] if a.dry_run else []
     for side in ('sell', 'buy'):
         if side in st: burn(side, st[side]['token_id'], me, a.dry_run); del st[side]; m.save(st)
     target = int(round(a.set_price * 1e6)) * 10 ** 18
     o = int(call(MOCK_ORACLE, 'price()(uint256)')[0])
+    if a.dry_run: _, _, sq0, tick0, liq0 = m.read(); walked = 0; n = 0
     while o != target:
         up = target > o
         last = abs(target / o - 1) <= DEMO_STEP
         nxt = target if last else int(o * (1 + DEMO_STEP)) if up else int(o * (1 - DEMO_STEP))
-        swap_to_oracle(m, me, nxt, a.dry_run)                               # the pool first, to the next price
+        plan = None
+        if a.dry_run:                       # the walk from the pool as it is to this step, less the steps before
+            tin, tout, cum, _, crossed = walk(m, sq0, tick0, liq0, m.sqrt_x96(nxt), burnt)
+            plan = (tin, tout, cum - walked); walked = cum; n += 1; t = m.tick_of(nxt)
+            print('step %d: pool and oracle to $%.2f (tick %d): swap about %s in (tick walk with our bands burnt, %d initialised ticks '
+                  'from the start)%s' % (n, m.usd(nxt), t, m.human(tin, plan[2]), crossed,
+                                         '; then bands sell [%d, %d) buy [%d, %d)' % (t - DEMO_SELL_TICKS, t, t + 1, t + 1 + DEMO_BUY_TICKS) if last else ''))
+        swap_to_oracle(m, me, nxt, a.dry_run, plan=plan)                    # the pool first, to the next price
         if last: mint_demo_bands(m, me, a, st)                              # bands in place before the oracle moves
         send('MockOracle.setPrice $%.2f' % m.usd(nxt), MOCK_ORACLE, 'setPrice(uint256)', nxt, dry=a.dry_run)
         o = nxt
-        if a.dry_run: break
     SUMMARY['action'] = 'set-price-%.2f' % a.set_price
 
 
@@ -465,6 +480,7 @@ def run_demo(m, me, a):
     st = m.load()
     if a.set_price:
         move_demo_price(m, me, a, st)
+        if a.dry_run: print('dry-run: a real run ends here with the bands just minted (within tolerance, bands kept)'); return
     o, po, sq, tick, liq = m.read()
     dev = po / o - 1
     print('demo: oracle $%.2f pool $%.2f deviation %+.3f%% tick %d L %.3e' % (m.usd(o), m.usd(po), 100 * dev, tick, liq))

@@ -84,10 +84,13 @@ Measured on Base Sepolia on 3 Nov (step 2):
 | $2,340.53 → $1,340.00 | 30 | 98 | 0.001597 WETH | 0.000035981 ETH | about 5 min |
 | $1,340.00 → $2,244.68 | 28 | 92 | 2.587932 dUSDC (minted) | 0.000033629 ETH | about 5 min |
 
-**`--set-price … --dry-run` does not work while the bands are in place.** A dry run does not burn them, so the tick
-walk of the first step goes through the 20,000 dUSDC sell band. On 3 Nov it then stopped with "not enough ETH to wrap
-8400067137035300560 wei". The real run burns the bands first and is unaffected (rehearsed on a fork, then run).
-Reported for a fix in `rebalance_pool.py`; until then, rehearse a move on an anvil fork with a copied `STATE_DIR`:
+**`--set-price … --dry-run` models the whole move (fixed 3 Nov).** A dry run reads our band positions, costs every step
+with the tick walk that excludes them (as the real run burns them first), prints the swap input per step and the band
+ranges of the last step, never raises on wrapping, and ends with the state-file byte check. On a fork the per-step
+inputs matched the real spend to the last unit. Two caveats: a dry run's balances do not include what the band burn
+returns (so it may print a dUSDC mint or a wrap the real run does not need), and the repair path of `--remint` still
+walks through the unburnt bands in a dry run (no cost today, since the pool sits at the oracle).
+To rehearse a move for real, use an anvil fork with a copied `STATE_DIR`:
 
 ```sh
 anvil --fork-url https://base-sepolia-rpc.publicnode.com --port 8547 &
