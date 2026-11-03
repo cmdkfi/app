@@ -2,10 +2,13 @@
 """Keep the executor's fixed Uniswap v3 pools at the Morpho market oracle price (Base Sepolia, testnet only).
 
 Prototype P1, 26 Oct 2026; adapted from research_notes/Measurements/U_artifacts/rebalance_pool.py (measurement U).
+Venue row, 3 Nov 2026: budget guard, --status, L1 data fee per run, one RUN line per run for scripts/rebalance.sh.
 Reads the test wallet key from ~/.config/prime/base_sepolia_eoa.json (never printed). RPC from $RPC.
+Addresses from $DEPLOYMENTS: deployments/testnet.json (default) or the old flat executor/deployments.json.
 
-  rebalance_pool.py --market live [--tolerance 0.0025] [--remint] [--dry-run]
+  rebalance_pool.py --market live [--tolerance 0.0025] [--max-cost-usdc 6] [--reserve-usdc 8] [--remint] [--dry-run]
   rebalance_pool.py --market demo [--set-price 1600] [--tolerance 0.0025] [--remint] [--dry-run]
+  rebalance_pool.py --market live|demo --status        reads only: tick, oracle, gap, our band, wallet, L1 fee, repair cost
 
 Reference price: the market's Morpho oracle, which is what the executor's minimum output is computed from
 (measurement U used the Chainlink ETH/USD answer; the live Morpho oracle also divides by USDC/USD).
@@ -13,30 +16,61 @@ Reference price: the market's Morpho oracle, which is what the executor's minimu
 live: USDC(token0)/WETH(token1) 0.01% pool 0x5718...156c. When the pool is off the oracle (or the tick left our band):
       burn our band first, then the limit-priced swap to the oracle against what remains, then a two-sided +-1% band
       at the oracle (27 Oct order change; U swapped through its own band first). State: state/live.json.
-demo: WETH(token0)/dUSDC(token1) 0.01% pool from prototype/executor/deployments.json, MockOracle as reference.
+      Budget guard (results.md item 40 and §4.8): before anything is sent, the repair cost is computed from the
+      pool's initialised ticks with our band taken out (it is burnt first), and cross-checked with QuoterV2 when our
+      band is not on the path. The run is refused (exit 3) when the cost is above --max-cost-usdc, or when it would
+      leave the wallet (plus what the band burn returns) under --reserve-usdc. A new band keeps reserve + max cost
+      in the wallet, so the next repair can still be paid.
+demo: WETH(token0)/dUSDC(token1) 0.01% pool from the deployments, MockOracle as reference.
       dUSDC is mintable and test WETH is scarce, so the layout differs from U:
         anchor  a small full-range position, so moving the price to a new mock price costs only dust;
         sell    a deep dUSDC-only band just below the price (absorbs the executor's collateral sales);
         buy     a small WETH-only band just above the price (for openFromStables).
       A move: burn sell and buy bands, swap through the anchor to the oracle with the price limit, mint both again.
       --set-price USD moves the pool and the MockOracle together in steps of at most 1.9% (the test wallet owns the
-      oracle), then re-mints the bands. State: state/demo.json.
+      oracle). On the last step the bands are minted at the new pool price before the oracle is set, so a sale the
+      new price triggers meets the bands and not the anchor alone (results.md item 42). State: state/demo.json.
+      The guard applies when a repair spends WETH; dUSDC is minted. --set-price moves are not guarded.
+
+Exit codes: 0 done, 1 error, 3 refused by the budget guard, 4 another run holds the lock.
 """
-import argparse, json, math, os, subprocess, time
+import argparse, fcntl, json, math, os, subprocess, time
 
 RPC = os.environ.get('RPC', 'https://base-sepolia-rpc.publicnode.com')
 CAST = os.path.expanduser('~/.foundry/bin/cast')
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_DIR = os.environ.get('STATE_DIR', os.path.join(HERE, 'state'))
-DEPLOYMENTS = os.environ.get('DEPLOYMENTS', os.path.join(HERE, '..', 'executor', 'deployments.json'))
-WETH = '0x4200000000000000000000000000000000000006'
-USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
-DUSDC = '0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5'
-ROUTER = '0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4'
-NPM = '0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2'
-LIVE_POOL = '0x57183717A087d2fe3Ad890873877244c3B96156c'
-LIVE_ORACLE = '0x7D0ebc71EBBEC6F215C2Ab818F9dB538A52f6a3E'
-MOCK_ORACLE = '0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f'
+_NEW_DEP = os.path.join(HERE, '..', 'deployments', 'testnet.json')
+_OLD_DEP = os.path.join(HERE, '..', 'executor', 'deployments.json')
+DEPLOYMENTS = os.environ.get('DEPLOYMENTS', _NEW_DEP if os.path.exists(_NEW_DEP) else _OLD_DEP)
+CHAIN_ID = 84532                      # Base Sepolia (an anvil fork of it keeps this id); anything else is refused
+# Base Sepolia contracts the old flat file does not list
+_BASE_DEFAULTS = {'router': '0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4', 'npm': '0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2',
+                  'quoter': '0xC5290058841028F1614F3A6F0F5816cAd0df5E27', 'gasPriceOracle': '0x420000000000000000000000000000000000000F',
+                  'irm': '0x46415998764C29aB2a25CbeA6254146D50D22687', 'lltv': 860000000000000000}
+
+
+def load_deployments(path=None):
+    """Either shape, returned flat with the old file's keys (executor/deployments.json) plus router, npm, quoter,
+    gasPriceOracle, irm, lltv and backupPool."""
+    d = json.load(open(path or DEPLOYMENTS))
+    if 'base' not in d:                                     # old flat shape
+        out = dict(_BASE_DEFAULTS); out.update(d); out.setdefault('backupPool', d['livePool']); return out
+    b = d['base']; mk = b['markets']; t = b['tokens']; u = b['uniswapV3']
+    return {'chainId': b['chainId'], 'executor': b['executor'], 'block': b['executorDeployBlock'],
+            'cooldownSeconds': b['cooldownSeconds'], 'morpho': b['morpho'], 'irm': b['irm'],
+            'usdc': t['usdc'], 'weth': t['weth'], 'dusdc': t['dusdc'],
+            'liveMarketId': mk['live']['id'], 'backupMarketId': mk['backup']['id'], 'demoMarketId': mk['demo']['id'],
+            'liveOracle': mk['live']['oracle'], 'backupOracle': mk['backup']['oracle'], 'mockOracle': b['mockOracle']['address'],
+            'livePool': mk['live']['pool'], 'backupPool': mk['backup']['pool'], 'demoPool': mk['demo']['pool'],
+            'router': u['swapRouter02'], 'npm': u['nonfungiblePositionManager'], 'quoter': u['quoterV2'],
+            'gasPriceOracle': b['gasPriceOracle'], 'lltv': int(mk['live']['lltv'])}
+
+
+DEP = load_deployments()
+WETH, USDC, DUSDC = DEP['weth'], DEP['usdc'], DEP['dusdc']
+ROUTER, NPM, QUOTER, GPO = DEP['router'], DEP['npm'], DEP['quoter'], DEP['gasPriceOracle']
+LIVE_POOL, LIVE_ORACLE, MOCK_ORACLE = DEP['livePool'], DEP['liveOracle'], DEP['mockOracle']
 FEE = 100; SPACING = 1; MIN_TICK = -887272; MAX_TICK = 887272
 Q = 2 ** 96; MAXU128 = 2 ** 128 - 1
 LIVE_BAND = 100                       # +-1% (U)
@@ -46,7 +80,17 @@ DEMO_SELL_DUSDC = 20_000 * 10 ** 6    # minted; depth for sales of about $10,000
 DEMO_BUY_WETH = 5 * 10 ** 15          # 0.005 WETH
 DEMO_ANCHOR_WETH = 5 * 10 ** 15       # 0.005 WETH full range (plus dUSDC at the price)
 ETH_RESERVE = 2 * 10 ** 15            # keep 0.002 ETH for gas when wrapping
-RESERVE_USDC = 2_000_000; RESERVE_WETH = 10 ** 15   # live mode: as U
+RESERVE_USDC = 2_000_000; RESERVE_WETH = 10 ** 15   # hard floors inside a swap: as U
+L1_TX_BYTES = 400                     # a typical unsigned rebalancer transaction (mint, swap), for the L1 fee bound
+
+COSTS = {'txs': [], 'l2_wei': 0, 'l1_wei': 0, 'swap_in': {}, 'swap_out': {}}
+SUMMARY = {}
+
+
+class Refused(SystemExit):
+    """The budget guard's refusal: exit code 3, with the reason in the RUN line."""
+    def __init__(self, msg):
+        print('REFUSED:', msg); SUMMARY['why'] = msg; super().__init__(3)
 
 
 def key():
@@ -76,12 +120,31 @@ def send(label, to, sig, *args, value=None, dry=False):
     if r.returncode != 0:
         raise SystemExit('  %s: FAILED %s' % (label, (r.stderr.strip() or r.stdout.strip())[-400:]))
     j = json.loads(r.stdout)
-    print('  %s: tx %s status %s gas %d' % (label, j['transactionHash'], int(j['status'], 16), int(j['gasUsed'], 16)))
+    gas = int(j['gasUsed'], 16); l2 = gas * int(j.get('effectiveGasPrice', '0x0'), 16); l1 = int(j.get('l1Fee') or '0x0', 16)
+    COSTS['txs'].append(j['transactionHash']); COSTS['l2_wei'] += l2; COSTS['l1_wei'] += l1
+    print('  %s: tx %s status %s gas %d, fee %d wei (L2 %d + L1 %d)' % (label, j['transactionHash'], int(j['status'], 16), gas, l2 + l1, l2, l1))
     if int(j['status'], 16) != 1: raise SystemExit('  reverted')
     return j
 
 
 def bal(token, who): return int(call(token, 'balanceOf(address)(uint256)', who)[0])
+
+
+def eth_bal(who): return int(subprocess.run([CAST, 'balance', who, '--rpc-url', RPC], capture_output=True, text=True, check=True).stdout.strip())
+
+
+def l1_fee():
+    """Base's GasPriceOracle, read every run (results.md item 12: 290 wei to 2.44e12 wei per transaction within 27 Oct)."""
+    r = {'l1BaseFee': int(call(GPO, 'l1BaseFee()(uint256)')[0]), 'blobBaseFee': int(call(GPO, 'blobBaseFee()(uint256)')[0]),
+         'baseFeeScalar': int(call(GPO, 'baseFeeScalar()(uint32)')[0]), 'blobBaseFeeScalar': int(call(GPO, 'blobBaseFeeScalar()(uint32)')[0]),
+         'l2BaseFee': int(subprocess.run([CAST, 'base-fee', '--rpc-url', RPC], capture_output=True, text=True, check=True).stdout.strip())}
+    try: r['upperBound'] = int(call(GPO, 'getL1FeeUpperBound(uint256)(uint256)', L1_TX_BYTES)[0])
+    except subprocess.CalledProcessError: r['upperBound'] = None      # before Fjord
+    print('L1 data fee (GasPriceOracle): l1BaseFee %d wei, blobBaseFee %d wei, scalars %d/%d, upper bound for a %d-byte tx '
+          '%s wei; L2 base fee %d wei' % (r['l1BaseFee'], r['blobBaseFee'], r['baseFeeScalar'], r['blobBaseFeeScalar'],
+                                          L1_TX_BYTES, r['upperBound'], r['l2BaseFee']))
+    SUMMARY['l1_bound_wei'] = r['upperBound']
+    return r
 
 
 class Market:
@@ -90,9 +153,9 @@ class Market:
         if name == 'live':
             self.pool, self.oracle, self.loan, self.coll = LIVE_POOL, LIVE_ORACLE, USDC, WETH
         else:
-            dep = json.load(open(DEPLOYMENTS))
-            self.pool, self.oracle, self.loan, self.coll = dep['demoPool'], MOCK_ORACLE, DUSDC, WETH
+            self.pool, self.oracle, self.loan, self.coll = DEP['demoPool'], MOCK_ORACLE, DUSDC, WETH
         self.t0 = call(self.pool, 'token0()(address)')[0].lower()
+        self.t1 = call(self.pool, 'token1()(address)')[0].lower()
         self.coll0 = self.t0 == self.coll.lower()          # collateral is token0
         self.state_file = os.path.join(STATE_DIR, name + '.json')
 
@@ -122,105 +185,280 @@ class Market:
     def snapshot(self):
         return open(self.state_file, 'rb').read() if os.path.exists(self.state_file) else None
 
+    def human(self, token, raw):
+        t = token.lower()
+        if t == WETH.lower(): return '%.6f WETH' % (raw / 1e18)
+        return '%.6f %s' % (raw / 1e6, 'USDC' if t == USDC.lower() else 'dUSDC')
 
-def swap_to_oracle(m, me, o, sq, liq, dry):
-    """Limit-priced exact-input swap that stops at the oracle price (U, step 2)."""
+    def value_usd(self, token, raw, o):
+        return raw / 1e18 * self.usd(o) if token.lower() == WETH.lower() else raw / 1e6
+
+
+# ---- repair cost from the pool's initialised ticks (results.md §4.8; prototype AFTER_FUNDING.md step 2b) ----
+
+def sqrt_at(t): return 1.0001 ** (t / 2)
+
+
+def position(token_id):
+    p = call(NPM, 'positions(uint256)(uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128)', token_id)
+    return {'lo': int(p[5]), 'hi': int(p[6]), 'L': int(p[7]), 'owed0': int(p[10]), 'owed1': int(p[11])}
+
+
+def position_amounts(pos, sq):
+    """Raw token0, token1 a burn returns at the current price (fees accrued since the last poke not included)."""
+    s, sa, sb, L = sq / Q, sqrt_at(pos['lo']), sqrt_at(pos['hi']), pos['L']
+    if s <= sa: a0, a1 = L * (1 / sa - 1 / sb), 0.0
+    elif s >= sb: a0, a1 = 0.0, L * (sb - sa)
+    else: a0, a1 = L * (1 / s - 1 / sb), L * (s - sa)
+    return int(a0) + pos['owed0'], int(a1) + pos['owed1']
+
+
+def initialised(pool, a, b):
+    """Initialised ticks in [a, b] (tick spacing 1: bitmap word = tick >> 8, bit = tick & 255)."""
+    if b < a: return []
+    if (b >> 8) - (a >> 8) > 400: raise SystemExit('repair path spans %d bitmap words; not walking it' % ((b >> 8) - (a >> 8)))
+    out = []
+    for w in range(a >> 8, (b >> 8) + 1):
+        bm = int(call(pool, 'tickBitmap(int16)(uint256)', w)[0])
+        out += [w * 256 + i for i in range(256) if bm >> i & 1 and a <= w * 256 + i <= b]
+    return out
+
+
+def walk(m, sq, tick, liq, tsq, exclude=()):
+    """Swap from sqrt price sq to tsq computed from the pool's tick liquidity, with the positions in exclude
+    (dicts lo, hi, L) taken out as if burnt. Returns (token in, token out, raw in with the 0.01% fee, raw out, ticks crossed)."""
+    s, t = sq / Q, tsq / Q
+    down = t < s                                            # token0 in, raw price falls
+    tin, tout = (m.t0, m.t1) if down else (m.t1, m.t0)
+    if tsq == sq: return tin, tout, 0, 0, 0
+    ttick = math.floor(2 * math.log(t) / math.log(1.0001))
+    adj, L = {}, liq
+    for p in exclude:
+        if not p['L']: continue
+        adj[p['lo']] = adj.get(p['lo'], 0) - p['L']; adj[p['hi']] = adj.get(p['hi'], 0) + p['L']
+        if p['lo'] <= tick < p['hi']: L -= p['L']
+    a, b = (ttick + 1, tick) if down else (tick + 1, ttick)  # the ticks the price crosses on the way
+    path = sorted(set(initialised(m.pool, a, b)) | {k for k in adj if a <= k <= b}, reverse=down)
+    amt_in = amt_out = 0.0; cur = s
+    for ti in path + [None]:
+        nxt = t if ti is None else sqrt_at(ti)
+        Lf = max(L, 0)
+        if down: amt_in += Lf * (1 / nxt - 1 / cur); amt_out += Lf * (cur - nxt)
+        else: amt_in += Lf * (nxt - cur); amt_out += Lf * (1 / cur - 1 / nxt)
+        cur = nxt
+        if ti is not None:
+            net = int(call(m.pool, 'ticks(int24)(uint128,int128,uint256,uint256,int56,uint160,uint32,bool)', ti)[1]) + adj.get(ti, 0)
+            L = L - net if down else L + net
+    return tin, tout, int(amt_in / (1 - FEE / 1e6)) + 1, int(amt_out), len(path)
+
+
+def quoter(tin, tout, tsq):
+    """QuoterV2 on the pool as it is (our positions in place): the output up to the price limit, then the input for it."""
+    sig_in = 'quoteExactInputSingle((address,address,uint256,uint24,uint160))(uint256,uint160,uint32,uint256)'
+    sig_out = 'quoteExactOutputSingle((address,address,uint256,uint24,uint160))(uint256,uint160,uint32,uint256)'
+    try:
+        out = int(call(QUOTER, sig_in, '(%s,%s,%d,%d,%d)' % (tin, tout, 10 ** 30, FEE, tsq))[0])
+        if out == 0: return 0
+        return int(call(QUOTER, sig_out, '(%s,%s,%d,%d,%d)' % (tin, tout, out, FEE, tsq))[0])
+    except subprocess.CalledProcessError:
+        return None
+
+
+def plan_repair(m, o, sq, tick, liq, burnt):
+    """The repair a run would pay: the swap to the oracle after burning the positions in burnt."""
     tsq = m.sqrt_x96(o)
-    sqP, sqT = sq / Q, tsq / Q
-    zero_for_one = sqT < sqP                                # token0 in: raw price falls
-    tin = m.t0 if zero_for_one else call(m.pool, 'token1()(address)')[0].lower()
-    tout = call(m.pool, 'token1()(address)')[0].lower() if zero_for_one else m.t0
-    need = int(liq * ((1 / sqT - 1 / sqP) if zero_for_one else (sqT - sqP)) * 1.5) + 1
+    tin, tout, amt, out, crossed = walk(m, sq, tick, liq, tsq, burnt)
+    ttick = m.tick_of(o)
+    lo, hi = min(tick, ttick), max(tick, ttick)
+    on_path = any(p['L'] and p['lo'] <= hi and p['hi'] > lo for p in burnt)
+    qa = quoter(tin, tout, tsq)
+    cost = amt if on_path or qa is None else max(amt, qa)    # the quote is exact when our positions are not on the path
+    return {'tin': tin, 'tout': tout, 'walk_in': amt, 'walk_out': out, 'crossed': crossed, 'quoter_in': qa, 'on_path': on_path,
+            'in': cost, 'usd': m.value_usd(tin, cost, o), 'target_tick': ttick}
+
+
+def print_plan(m, p):
+    q = 'n/a' if p['quoter_in'] is None else m.human(p['tin'], p['quoter_in'])
+    print('repair: %s in for about %s out, to tick %d (%d initialised ticks crossed; tick walk with our positions burnt first); '
+          'QuoterV2 with them in place %s%s; cost used %s = $%.4f' % (
+              m.human(p['tin'], p['walk_in']), m.human(p['tout'], p['walk_out']), p['target_tick'], p['crossed'], q,
+              ' (our positions lie on the path, so the quote overstates)' if p['on_path'] else '', m.human(p['tin'], p['in']), p['usd']))
+
+
+def guard(m, me, p, back, a):
+    """back: raw amounts {token: raw} the burn returns to the wallet before the swap. Raises Refused."""
+    if p['in'] == 0: return
+    if p['tin'] == DUSDC.lower(): print('guard: dUSDC is minted, no budget check'); return
+    if p['usd'] > a.max_cost_usdc:
+        raise Refused('repair cost $%.4f (%s) above --max-cost-usdc %.2f; claim faucet USDC or raise the limit' % (
+            p['usd'], m.human(p['tin'], p['in']), a.max_cost_usdc))
+    have = bal(p['tin'], me) + back.get(p['tin'], 0)
+    if p['tin'] == USDC.lower():
+        left = (have - p['in']) / 1e6
+        if left < a.reserve_usdc:
+            raise Refused('repair cost %.6f USDC would leave %.6f USDC (wallet plus band burn), under --reserve-usdc %.2f' % (
+                p['in'] / 1e6, left, a.reserve_usdc))
+        print('guard: cost $%.4f <= %.2f, wallet USDC after %.6f >= reserve %.2f: pass' % (p['usd'], a.max_cost_usdc, left, a.reserve_usdc))
+    else:
+        if m.name == 'live' and have - p['in'] < RESERVE_WETH:
+            raise Refused('repair needs %s; the wallet would keep %s, under %s (wrap ETH first)' % (
+                m.human(WETH, p['in']), m.human(WETH, have - p['in']), m.human(WETH, RESERVE_WETH)))
+        print('guard: cost $%.4f <= %.2f: pass' % (p['usd'], a.max_cost_usdc))
+
+
+def swap_to_oracle(m, me, o, dry, reserve_usdc=RESERVE_USDC):
+    """Limit-priced exact-input swap that stops at the oracle price (U, step 2), sized from the tick walk + 2%."""
+    _, _, sq, tick, liq = m.read()
+    tsq = m.sqrt_x96(o)
+    tin, tout, need, _, _ = walk(m, sq, tick, liq, tsq)
+    need = int(need * 1.02) + 1
     if tin == DUSDC.lower():
         have = bal(DUSDC, me)
         if have < need: send('mint dUSDC for the swap', DUSDC, 'mint(address,uint256)', me, need - have, dry=dry)
         amt = need
     else:
-        reserve = RESERVE_USDC if tin == USDC.lower() else RESERVE_WETH
+        reserve = reserve_usdc if tin == USDC.lower() else RESERVE_WETH
         if m.name == 'demo' and tin == WETH.lower(): wrap_if_short(me, need, dry); reserve = 0
         amt = min(need, max(bal(tin, me) - reserve, 0))
-    print('swap %s -> %s: up to %d (L-estimate x1.5 %d), limit at the oracle' % (tin, tout, amt, need))
+    print('swap %s -> %s: up to %s (tick walk + 2%%), limit at the oracle' % (tin, tout, m.human(tin, amt)))
     if amt <= 0: print('  nothing to swap with'); return
+    b_in, b_out = (0, 0) if dry else (bal(tin, me), bal(tout, me))
     send('approve router', tin, 'approve(address,uint256)', ROUTER, amt, dry=dry)
     send('swap to oracle', ROUTER, 'exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))',
          '(%s,%s,%d,%s,%d,0,%d)' % (tin, tout, FEE, me, amt, tsq), dry=dry)
+    if not dry:
+        spent, got = b_in - bal(tin, me), bal(tout, me) - b_out
+        COSTS['swap_in'][tin] = COSTS['swap_in'].get(tin, 0) + spent; COSTS['swap_out'][tout] = COSTS['swap_out'].get(tout, 0) + got
+        print('  spent %s, received %s' % (m.human(tin, spent), m.human(tout, got)))
 
 
 def wrap_if_short(me, need, dry):
     have = bal(WETH, me)
     if have >= need: return
-    eth = int(subprocess.run([CAST, 'balance', me, '--rpc-url', RPC], capture_output=True, text=True, check=True).stdout.strip())
+    eth = eth_bal(me)
     amt = need - have
     if eth - amt < ETH_RESERVE: raise SystemExit('not enough ETH to wrap %d wei (have %d, keep %d)' % (amt, eth, ETH_RESERVE))
     send('wrap ETH', WETH, 'deposit()', value=amt, dry=dry)
 
 
+def deadline():
+    """Latest block time + 600 s: the chain's clock, not this machine's (an anvil fork may run ahead)."""
+    return int(subprocess.run([CAST, 'block', 'latest', '-f', 'timestamp', '--rpc-url', RPC], capture_output=True, text=True, check=True).stdout.strip()) + 600
+
+
 def burn(label, token_id, me, dry):
-    pos = call(NPM, 'positions(uint256)(uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128)', token_id)
-    L = int(pos[7])
-    if L: send('decreaseLiquidity ' + label, NPM, 'decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))', '(%d,%d,0,0,%d)' % (token_id, L, int(time.time()) + 600), dry=dry)
+    L = position(token_id)['L']
+    if L: send('decreaseLiquidity ' + label, NPM, 'decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))', '(%d,%d,0,0,%d)' % (token_id, L, deadline()), dry=dry)
     send('collect ' + label, NPM, 'collect((uint256,address,uint128,uint128))', '(%d,%s,%d,%d)' % (token_id, me, MAXU128, MAXU128), dry=dry)
 
 
 def mint(label, m, lo, hi, a0, a1, me, dry):
     """NonfungiblePositionManager.mint; amounts are token0/token1 desired. Returns the token id."""
-    t1 = call(m.pool, 'token1()(address)')[0]
     if a0: send('approve token0 to NPM', m.t0, 'approve(address,uint256)', NPM, a0, dry=dry)
-    if a1: send('approve token1 to NPM', t1, 'approve(address,uint256)', NPM, a1, dry=dry)
+    if a1: send('approve token1 to NPM', m.t1, 'approve(address,uint256)', NPM, a1, dry=dry)
     j = send('mint ' + label, NPM, 'mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))',
-             '(%s,%s,%d,%d,%d,%d,%d,0,0,%s,%d)' % (m.t0, t1, FEE, lo, hi, a0, a1, me, int(time.time()) + 600), dry=dry)
+             '(%s,%s,%d,%d,%d,%d,%d,0,0,%s,%d)' % (m.t0, m.t1, FEE, lo, hi, a0, a1, me, deadline()), dry=dry)
     if not j: return None
     tid = [int(l['topics'][3], 16) for l in j['logs'] if l['address'].lower() == NPM.lower() and l['topics'][0].startswith('0xddf252ad')][0]
     print('  %s position %d, ticks [%d, %d)' % (label, tid, lo, hi))
     return tid
 
 
+def ours(m, st):
+    """Our positions on this market's pool, from the state file: [(label, token id, position)]."""
+    out = []
+    for k in (('band',) if m.name == 'live' else ('anchor', 'sell', 'buy')):
+        v = st.get(k)
+        if v: tid = v if isinstance(v, int) else v['token_id']; out.append((k, tid, position(tid)))
+    return out
+
+
+def back_amounts(m, mine, sq):
+    back = {}
+    for _, _, p in mine:
+        a0, a1 = position_amounts(p, sq); back[m.t0] = back.get(m.t0, 0) + a0; back[m.t1] = back.get(m.t1, 0) + a1
+    return back
+
+
 def run_live(m, me, a):
     o, po, sq, tick, liq = m.read()
     dev = po / o - 1
     print('live: oracle $%.2f pool $%.2f deviation %+.3f%% tick %d L %.3e' % (m.usd(o), m.usd(po), 100 * dev, tick, liq))
+    st = m.load().get('band')
+    burn_band = bool(st) and (a.remint or abs(dev) > a.tolerance or not (st['lo'] <= tick < st['hi']))
+    # the budget guard runs before anything is sent: the cost after burning our band, against wallet + what the burn returns
+    if abs(dev) > a.tolerance:
+        mine = ours(m, {'band': st}) if burn_band else []
+        p = plan_repair(m, o, sq, tick, liq, [x[2] for x in mine]); print_plan(m, p)
+        SUMMARY['repair_quote'] = m.human(p['tin'], p['in'])
+        guard(m, me, p, back_amounts(m, mine, sq), a)
     # our band first: a repair swap through our own band buys our own liquidity back (27 Oct: 45.5 USDC with the band
     # between the pool and the oracle, about 8 without it). Burn it, repair against what remains, mint a new band at the oracle.
-    st = m.load().get('band')
-    if st and (a.remint or abs(dev) > a.tolerance or not (st['lo'] <= tick < st['hi'])):
+    if burn_band:
         burn('band', st['token_id'], me, a.dry_run); st = None; m.save({})
         o, po, sq, tick, liq = m.read(); print('band burned: pool $%.2f deviation %+.3f%% tick %d L %.3e' % (m.usd(po), 100 * (po / o - 1), tick, liq))
+        SUMMARY['action'] = 'reband'
     # the amount comes from the in-range liquidity, which changes when the price crosses initialised ticks: repeat (max 3)
     for _ in range(3):
         if abs(po / o - 1) <= a.tolerance or a.dry_run: break
-        swap_to_oracle(m, me, o, sq, liq, a.dry_run)
+        p = plan_repair(m, o, sq, tick, liq, []); guard(m, me, p, {}, a)       # exact now that the band is burnt
+        swap_to_oracle(m, me, o, a.dry_run, reserve_usdc=int(a.reserve_usdc * 1e6))
         o, po, sq, tick, liq = m.read(); print('after swap: pool $%.2f deviation %+.3f%%' % (m.usd(po), 100 * (po / o - 1)))
+        SUMMARY['action'] = 'repair'
     if st is None:
         ot = m.tick_of(o); lo, hi = ot - LIVE_BAND, ot + LIVE_BAND
-        aw = max(bal(WETH, me) - RESERVE_WETH, 0); au = max(bal(USDC, me) - RESERVE_USDC, 0)
+        keep = int((a.reserve_usdc + a.max_cost_usdc) * 1e6)          # the next repair must still be payable
+        aw = max(bal(WETH, me) - RESERVE_WETH, 0); au = max(bal(USDC, me) - keep, 0)
         v = min(aw / 1e18 * m.usd(o), au / 1e6); aw = int(v / m.usd(o) * 1e18); au = int(v * 1e6)
-        print('mint +-1%% band [%d, %d) with %.6f WETH + %.2f USDC' % (lo, hi, aw / 1e18, au / 1e6))
+        print('mint +-1%% band [%d, %d) with %.6f WETH + %.6f USDC (keeps %.2f USDC, reserve + max cost, in the wallet)' % (
+            lo, hi, aw / 1e18, au / 1e6, keep / 1e6))
         if aw > 0 and au > 0:
             tid = mint('band', m, lo, hi, au, aw, me, a.dry_run)       # USDC is token0 here
             if tid: m.save({'band': {'token_id': tid, 'lo': lo, 'hi': hi}})
+        pre = SUMMARY['action'] + '+' if 'action' in SUMMARY else ''
+        SUMMARY['action'] = pre + ('band' if aw > 0 and au > 0 else 'no-band(USDC_under_reserve+max_cost)')
     else:
         print('tick %d inside band [%d, %d), position %d kept' % (tick, st['lo'], st['hi'], st['token_id']))
+        SUMMARY.setdefault('action', 'kept')
 
 
 DEMO_STEP = 0.019                     # pool and oracle move together in steps under the agent's 2% gap screen
 
 
+def mint_demo_bands(m, me, a, st):
+    """Sell band (dUSDC only, the 2% below the pool's tick) and buy band (WETH only, the 1% above)."""
+    _, po, sq, tick, liq = m.read()
+    # WETH is token0: ticks below the current one hold only dUSDC (token1), ticks above only WETH (token0)
+    have = bal(DUSDC, me)
+    if have < DEMO_SELL_DUSDC: send('mint dUSDC for the sell band', DUSDC, 'mint(address,uint256)', me, DEMO_SELL_DUSDC - have, dry=a.dry_run)
+    lo, hi = tick - DEMO_SELL_TICKS, tick
+    tid = mint('sell', m, lo, hi, 0, DEMO_SELL_DUSDC, me, a.dry_run)
+    if tid: st['sell'] = {'token_id': tid, 'lo': lo, 'hi': hi}; m.save(st)
+    wrap_if_short(me, DEMO_BUY_WETH, a.dry_run)
+    lo, hi = tick + 1, tick + 1 + DEMO_BUY_TICKS
+    tid = mint('buy', m, lo, hi, DEMO_BUY_WETH, 0, me, a.dry_run)
+    if tid: st['buy'] = {'token_id': tid, 'lo': lo, 'hi': hi}; m.save(st)
+
+
 def move_demo_price(m, me, a, st):
     """Move the demo pool and the MockOracle together: burn the bands, then per step of at most 1.9% swap the pool to
     the next price and set the oracle to it, so no block shows a gap above 1.9% (27 Oct: setting the oracle first left
-    an unsettled pool for 37 blocks, and the agent's reduce ran out of gas against it)."""
+    an unsettled pool for 37 blocks, and the agent's reduce ran out of gas against it). Before the last setPrice the
+    bands are minted at the new pool price, so the sale the new price triggers meets them (results.md item 42)."""
     for side in ('sell', 'buy'):
         if side in st: burn(side, st[side]['token_id'], me, a.dry_run); del st[side]; m.save(st)
     target = int(round(a.set_price * 1e6)) * 10 ** 18
     o = int(call(MOCK_ORACLE, 'price()(uint256)')[0])
     while o != target:
         up = target > o
-        nxt = target if abs(target / o - 1) <= DEMO_STEP else int(o * (1 + DEMO_STEP)) if up else int(o * (1 - DEMO_STEP))
-        _, po, sq, tick, liq = m.read()
-        swap_to_oracle(m, me, nxt, sq, liq, a.dry_run)                      # the pool first, to the next price
+        last = abs(target / o - 1) <= DEMO_STEP
+        nxt = target if last else int(o * (1 + DEMO_STEP)) if up else int(o * (1 - DEMO_STEP))
+        swap_to_oracle(m, me, nxt, a.dry_run)                               # the pool first, to the next price
+        if last: mint_demo_bands(m, me, a, st)                              # bands in place before the oracle moves
         send('MockOracle.setPrice $%.2f' % m.usd(nxt), MOCK_ORACLE, 'setPrice(uint256)', nxt, dry=a.dry_run)
         o = nxt
         if a.dry_run: break
+    SUMMARY['action'] = 'set-price-%.2f' % a.set_price
 
 
 def run_demo(m, me, a):
@@ -238,41 +476,107 @@ def run_demo(m, me, a):
         m.save(st)
         o, po, sq, tick, liq = m.read(); dev = po / o - 1
     if not (a.remint or abs(dev) > a.tolerance or 'sell' not in st):
-        print('within tolerance, bands kept'); return
+        print('within tolerance, bands kept'); SUMMARY.setdefault('action', 'kept'); return
+    if abs(dev) > 1e-5:
+        mine = [x for x in ours(m, st) if x[0] != 'anchor']
+        p = plan_repair(m, o, sq, tick, liq, [x[2] for x in mine]); print_plan(m, p)
+        SUMMARY['repair_quote'] = m.human(p['tin'], p['in'])
+        guard(m, me, p, back_amounts(m, mine, sq), a)
     for side in ('sell', 'buy'):
         if side in st: burn(side, st[side]['token_id'], me, a.dry_run); del st[side]; m.save(st)
     o, po, sq, tick, liq = m.read()
     if abs(po / o - 1) > 1e-5:
-        swap_to_oracle(m, me, o, sq, liq, a.dry_run)
+        swap_to_oracle(m, me, o, a.dry_run)
         if not a.dry_run: o, po, sq, tick, liq = m.read()
     print('pool $%.4f at oracle $%.4f (deviation %+.4f%%), tick %d' % (m.usd(po), m.usd(o), 100 * (po / o - 1), tick))
-    # WETH is token0: ticks below the current one hold only dUSDC (token1), ticks above only WETH (token0)
-    have = bal(DUSDC, me)
-    if have < DEMO_SELL_DUSDC: send('mint dUSDC for the sell band', DUSDC, 'mint(address,uint256)', me, DEMO_SELL_DUSDC - have, dry=a.dry_run)
-    lo, hi = tick - DEMO_SELL_TICKS, tick
-    tid = mint('sell', m, lo, hi, 0, DEMO_SELL_DUSDC, me, a.dry_run)
-    if tid: st['sell'] = {'token_id': tid, 'lo': lo, 'hi': hi}; m.save(st)
-    wrap_if_short(me, DEMO_BUY_WETH, a.dry_run)
-    lo, hi = tick + 1, tick + 1 + DEMO_BUY_TICKS
-    tid = mint('buy', m, lo, hi, DEMO_BUY_WETH, 0, me, a.dry_run)
-    if tid: st['buy'] = {'token_id': tid, 'lo': lo, 'hi': hi}; m.save(st)
+    mint_demo_bands(m, me, a, st)
+    SUMMARY.setdefault('action', 'repair+bands')
+
+
+def status(m, me, a):
+    """Reads only: nothing is sent and no state is written."""
+    o, po, sq, tick, liq = m.read()
+    dev = po / o - 1
+    print('%s: pool %s, oracle %s' % (m.name, m.pool, m.oracle))
+    print('pool tick %d ($%.2f), oracle $%.2f (tick %d), gap %+.3f%%, tolerance %.2f%%, in-range L %.3e' % (
+        tick, m.usd(po), m.usd(o), m.tick_of(o), 100 * dev, 100 * a.tolerance, liq))
+    mine = ours(m, m.load())
+    for label, tid, p in mine:
+        a0, a1 = position_amounts(p, sq)
+        where = 'in range' if p['lo'] <= tick < p['hi'] else 'out of range'
+        print('our %s: position %d [%d, %d) L %d, %s; a burn returns %s + %s' % (label, tid, p['lo'], p['hi'], p['L'], where, m.human(m.t0, a0), m.human(m.t1, a1)))
+    if not mine: print('our positions: none in %s' % m.state_file)
+    print('wallet %s: %.6f ETH, %.6f WETH, %.6f USDC, %.6f dUSDC' % (me, eth_bal(me) / 1e18, bal(WETH, me) / 1e18, bal(USDC, me) / 1e6, bal(DUSDC, me) / 1e6))
+    if abs(dev) > a.tolerance:
+        burnt = [x for x in mine if x[0] != 'anchor']
+        p = plan_repair(m, o, sq, tick, liq, [x[2] for x in burnt]); print_plan(m, p)
+        SUMMARY['repair_quote'] = m.human(p['tin'], p['in'])
+        try: guard(m, me, p, back_amounts(m, burnt, sq), a); print('status: a run would repair')
+        except Refused: print('status: a run would be refused')
+    else:
+        print('status: within tolerance; repair cost 0')
+    SUMMARY['action'] = 'status'
+
+
+def run_line(m, o, po, tick):
+    c = COSTS
+    swaps = ','.join(m.human(t, v).replace(' ', '') for t, v in c['swap_in'].items()) or '0'
+    why = ('(%s)' % SUMMARY['why'].replace(' ', '_')) if 'why' in SUMMARY else ''
+    return ('RUN %s market=%s tick=%d oracle=%.2f pool=%.2f gap=%+.3f%% action=%s%s repair_quote=%s swap_in=%s txs=%d '
+            'fee_eth=%.9f l1_fee_wei=%d l1_bound_wei=%s' % (
+                time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), m.name, tick, m.usd(o), m.usd(po), 100 * (po / o - 1),
+                SUMMARY.get('action', '?'), why, SUMMARY.get('repair_quote', '0').replace(' ', ''), swaps, len(c['txs']),
+                (c['l2_wei'] + c['l1_wei']) / 1e18, c['l1_wei'], SUMMARY.get('l1_bound_wei')))
+
+
+def lock():
+    """One sending run at a time: the timer and a manual run share the wallet's nonce."""
+    os.makedirs(STATE_DIR, exist_ok=True)
+    fd = os.open(STATE_DIR, os.O_RDONLY)
+    try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError: os.close(fd); print('another rebalancer run holds the lock on %s' % STATE_DIR); raise SystemExit(4)
+    return fd
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--market', choices=['live', 'demo'], required=True)
     ap.add_argument('--tolerance', type=float, default=0.0025)
+    ap.add_argument('--max-cost-usdc', type=float, default=6.0, help='refuse a repair whose swap input is worth more (USD)')
+    ap.add_argument('--reserve-usdc', type=float, default=8.0, help='refuse a repair that leaves less USDC in the wallet')
     ap.add_argument('--remint', action='store_true')
     ap.add_argument('--set-price', type=float, help='demo only: MockOracle price in USD per ETH, set first')
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--status', action='store_true', help='read only: print the state and the repair cost, send nothing')
     a = ap.parse_args(); _, me = key()
+    if a.status: a.dry_run = True
+    chain = int(subprocess.run([CAST, 'chain-id', '--rpc-url', RPC], capture_output=True, text=True, check=True).stdout.strip())
+    if chain != CHAIN_ID: raise SystemExit('chain id %d is not Base Sepolia (%d): testnet only' % (chain, CHAIN_ID))
     m = Market(a.market, a.dry_run)
-    print('rpc %s, wallet %s: %.6f ETH, %.6f WETH' % (RPC, me, int(subprocess.run([CAST, 'balance', me, '--rpc-url', RPC], capture_output=True, text=True).stdout.strip()) / 1e18, bal(WETH, me) / 1e18))
+    print('rpc %s, deployments %s, wallet %s: %.6f ETH, %.6f WETH, %.6f USDC' % (
+        RPC, os.path.abspath(DEPLOYMENTS), me, eth_bal(me) / 1e18, bal(WETH, me) / 1e18, bal(USDC, me) / 1e6))
+    l1_fee()
+    fd = None if a.dry_run else lock()
     before = m.snapshot()
-    (run_live if a.market == 'live' else run_demo)(m, me, a)
-    if a.dry_run:
-        if m.snapshot() != before: raise SystemExit('dry run changed %s' % m.state_file)
-        print('dry-run: %s unchanged' % m.state_file)
+    try:
+        (status if a.status else run_live if a.market == 'live' else run_demo)(m, me, a)
+        if a.dry_run and not a.status: SUMMARY['action'] = 'dry-run:' + SUMMARY.get('action', '?')
+    except SystemExit as e:
+        if not isinstance(e, Refused): SUMMARY['action'] = 'error'; SUMMARY['why'] = str(e.code).strip()[:160]
+        else: SUMMARY['action'] = 'refused'
+        raise
+    except Exception as e:
+        SUMMARY['action'] = 'error'; SUMMARY['why'] = repr(e)[:160]
+        raise
+    finally:
+        try:
+            o, po, sq, tick, liq = m.read(); print(run_line(m, o, po, tick))
+        except Exception as e:                              # the RUN line must not hide the run's own error
+            print('RUN %s market=%s action=%s read-failed %s' % (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), m.name, SUMMARY.get('action'), e))
+        if fd is not None: os.close(fd)
+        if a.dry_run:
+            if m.snapshot() != before: raise SystemExit('dry run changed %s' % m.state_file)
+            print('dry-run: %s unchanged' % m.state_file)
 
 
 if __name__ == '__main__':
