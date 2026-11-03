@@ -406,6 +406,8 @@ def plan_txs(method, args, st):
             raise Refused('set_corridor: corridor value above uint64')
         return [{'kind': 'setCorridor', 'to': mk['executor'], 'value': 0}]
     if method == 'open_from_stables':
+        if int(args['stables_in']) == 0:
+            raise Refused('open_from_stables: zero stables_in')     # the vault's wording; open with collateral_in 0 is allowed
         return [{'kind': 'openFromStables', 'to': mk['executor'], 'value': 0}]
     return [{'kind': method, 'to': mk['executor'], 'value': 0}]       # open, repay, close
 
@@ -447,8 +449,13 @@ def check_flags(method, args, plan, f):
     if method == 'open':
         if not f['authorized']:
             raise Refused('open: Morpho has no authorization for the executor; sign setup for this market first')
-        if f['collateral_allowance'] < int(args['collateral_in']):
-            raise Refused('open: collateral-token allowance to the executor is below collateral_in; sign setup first')
+        need = int(args['collateral_in'])
+        if f['collateral_allowance'] < need:
+            raise Refused('open: collateral-token allowance to the executor is %d, below collateral_in %d; sign setup '
+                          'for this market first' % (f['collateral_allowance'], need))
+        if f['collateral_balance'] < need:
+            raise Refused('open: the vault holds %d of the collateral token, below collateral_in %d'
+                          % (f['collateral_balance'], need))
     if method == 'open_from_stables':
         need = int(args['stables_in'])
         if not f['authorized']:
@@ -656,7 +663,8 @@ def base_facts(chain, method, args, st):
     mk = find_market(st, args['market'])
     if method == 'open':
         return {'authorized': read_authorized(chain, morpho, base, mk['executor']),
-                'collateral_allowance': read_allowance(chain, mk['collateral_token'], base, mk['executor'])}
+                'collateral_allowance': read_allowance(chain, mk['collateral_token'], base, mk['executor']),
+                'collateral_balance': read_balance(chain, mk['collateral_token'], base)}
     if method == 'open_from_stables':
         return {'authorized': read_authorized(chain, morpho, base, mk['executor']),
                 'loan_allowance': read_allowance(chain, mk['loan_token'], base, mk['executor']),

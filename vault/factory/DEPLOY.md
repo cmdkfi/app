@@ -11,7 +11,7 @@ so nobody can change, redeploy or withdraw from it. A mistake found after step 5
 
 ```sh
 cd /Users/vf/cmdk/app/vault
-ACCOUNT=<your account>.testnet          # pays steps 2 and 3; needs at least 80 NEAR
+ACCOUNT=<your account>.testnet          # pays steps 2 and 3; needs at least 81 NEAR
 RELAYER=<relayer account>.testnet       # pays step 6; needs at least 2.1 NEAR
 OWNER=<owner EVM address, 0x...>        # the wallet that signs owner messages for vault v1
 FACTORY=factory.$ACCOUNT
@@ -24,23 +24,46 @@ All signing uses `sign-with-keychain`, as in the research notes' earlier testnet
 
 ## 1. Build both wasms (no NEAR)
 
+The vault is built reproducibly (decided 3 Nov): `cargo near build reproducible-wasm` (cargo-near 0.22.0) builds
+inside the Docker image pinned in `vault/Cargo.toml`, `[package.metadata.near.reproducible_build]`
+(`sourcescan/cargo-near:0.21.1-rust-1.96.0`, identified by its digest), with `--locked` against the committed
+`Cargo.lock`. It first clones the local repository at `HEAD` into a temporary directory, so only committed files
+are built; uncommitted changes give a warning and are left out. It writes NEP-330 build info into the wasm
+(`contract_source_metadata`): `link` `https://github.com/cmdkfi/app/tree/<commit>` (from `package.repository`)
+and the image digest. The build does not contact GitHub; `cargo near deploy` would (it checks the commit is on the
+remote), and this file does not use it. A verifier rebuilds from that link, so it works once `cmdkfi/app` is
+public with the commit in its history.
+
+`cmdkfi/app` is private until the deadline, so on Friday the build runs from a public mirror of the exact commit
+to be published: a full clone with history (same commit hash; a squashed or re-committed copy has another hash
+and the link in the wasm would name a commit that does not exist). Before building: Docker running with room to
+pull the image and build; the mirror's working tree clean (`git status --short` prints nothing).
+
 ```sh
-HASH=$(cargo near build non-reproducible-wasm 2>&1 | awk '/checksum bs58/ {print $NF}'); echo "$HASH"
+cd <mirror clone>/vault
+git rev-parse HEAD                          # the commit named in the wasm's link
+HASH=$(cargo near build reproducible-wasm 2>&1 | awk '/checksum bs58/ {print $NF}'); echo "$HASH"
 shasum -a 256 target/near/cmdk_vault.wasm
 (cd factory && cargo near build non-reproducible-wasm)
 ls -l target/near/cmdk_vault.wasm factory/target/near/cmdk_factory.wasm
 ```
 
-`HASH` is the base58 SHA-256 of the vault wasm, the Global Contract's code hash. On 2 Nov this build gave
-767,944 bytes, hex `abab650ee74355348029d0fce8e9995d1cb9682968d1be9bda09b2b3ae287547`, base58
-`CZ8JKs2Fpvyr7WHLz1RLdDtgMuhqhpa3Mbb49YZxASmt`; the factory wasm was 152,851 bytes. A non-reproducible build on
-another day or toolchain may give a different hash; that is fine as long as the same `HASH` is used in steps 2
-and 4. If `HASH` is empty, read the "SHA-256 checksum bs58" line of the build output by hand.
+Run the remaining steps from the mirror's `vault/` directory (step 0's `cd` names the private checkout), so the
+wasm published is the one just built.
+
+`HASH` is the base58 SHA-256 of the vault wasm, the Global Contract's code hash. On 3 Nov (after V6 and the
+`stables_in` 0 refusal) the non-reproducible build (`cargo near build non-reproducible-wasm`, Rust 1.95.0 on the
+host) gave 782,389 bytes, hex `bcd0111f4ae942d3a04a6e66e9cbbb9377d12039358fb2881cdcc24866a8203d`, base58
+`Di3fRwTG356m252JJgEL58EBnMKrwD4tSR5NALksn24c`; the factory wasm was 152,851 bytes. The reproducible build uses
+another toolchain (Rust 1.96.0 in the image) and embeds the build info, so its size and hash differ; that is
+fine as long as the same `HASH` is used in steps 2 and 4. Record its size and hash here after the build. If
+`HASH` is empty, read the "SHA-256 checksum bs58" line of the build output by hand.
 
 ## 2. Publish the vault as a Global Contract by hash (spends about 78.24 NEAR, burnt)
 
-The cost is 0.0001 NEAR per byte, burnt and not refundable: 782,345 bytes (3 Nov, after V6) = 78.2345 NEAR, plus gas (the sandbox
-run burnt 59.8 Tgas, 0.006 NEAR; the root account's balance fell by 76.800357 NEAR in total).
+The cost is 0.0001 NEAR per byte, burnt and not refundable: 782,389 bytes (3 Nov, non-reproducible build) =
+78.2389 NEAR, plus gas (the sandbox run burnt 59.8 Tgas, 0.006 NEAR; the root account's balance fell by 76.800357
+NEAR in total). Recompute with the size of the reproducible wasm from step 1.
 
 ```sh
 near contract deploy-as-global use-file target/near/cmdk_vault.wasm as-global-hash $ACCOUNT \

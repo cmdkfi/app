@@ -341,6 +341,9 @@ impl Vault {
             // to collateral before it supplies and borrows.
             "open_from_stables" => {
                 let a: OpenFromStablesArgs = args(m.args);
+                // Unlike `open` (collateral_in 0 borrows more against the collateral already supplied), a swap of
+                // nothing has no meaning (decided 3 Nov, V6).
+                require!(a.stables_in.0 > 0, "zero stables_in");
                 let mk = self.market(&a.market);
                 let words = [mk.id, w_u128(a.stables_in.0), w_u128(a.target_ltv.0), dl];
                 vec![(mk.executor, 0, calldata(SEL_OPEN_FROM_STABLES, &words))]
@@ -787,5 +790,66 @@ impl Vault {
             return Err(format!("deadline {deadline} outside ({now}, {}]", now + DEADLINE_SECS));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::owner::tests::{sign, wallet};
+    use near_sdk::test_utils::VMContextBuilder;
+    use near_sdk::testing_env;
+
+    const VAULT: &str = "vault.test.near";
+    const NOW: u64 = 1_793_000_000;
+    const LIVE: &str = "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c";
+    const EXEC: &str = "0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40";
+
+    /// A vault at block time NOW with one market and a throwaway owner wallet; `owner_call(method, args)` signs
+    /// the message with that wallet and submits it with one set of transaction parameters.
+    fn owner_call(method: &str, args: Value) -> PromiseOrValue<Vec<SignedTx>> {
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(VAULT.parse().unwrap())
+            .block_timestamp(NOW * 1_000_000_000)
+            .build());
+        let (sk, owner) = wallet();
+        let policy = Policy {
+            cooldown_secs: 300,
+            markets: vec![MarketInit {
+                id: LIVE.into(),
+                loan_token: "0x036CbD53842c5426634e7929541eC2318f3dCF7e".into(),
+                collateral_token: "0x4200000000000000000000000000000000000006".into(),
+                executor: EXEC.into(),
+                slice_max: U128(1_000_000_000),
+            }],
+        };
+        let mut v = Vault::init(
+            h(&owner),
+            "signer.test.near".parse().unwrap(),
+            "cmdk-base".into(),
+            "0x00000000000000000000000000000000000000ab".into(),
+            "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb".into(),
+            policy,
+        );
+        let m = json!({"protocol": owner::PROTOCOL, "network": owner::NETWORK, "vault": VAULT, "method": method,
+                       "args": args, "nonce": 1, "expiry": NOW + 60})
+        .to_string();
+        let tx = TxParams { nonce: 0, gas_limit: 800_000, max_fee_per_gas: 1_000_000_000, max_priority_fee_per_gas: 0 };
+        v.owner_call(m.clone(), sign(&sk, &m), vec![tx])
+    }
+
+    #[test]
+    #[should_panic(expected = "zero stables_in")]
+    fn open_from_stables_with_zero_stables_in_is_refused() {
+        let _ = owner_call("open_from_stables", json!({"market": LIVE, "stables_in": "0", "target_ltv": "1"}));
+    }
+
+    #[test]
+    fn open_from_stables_with_one_unit_and_open_with_zero_collateral_reach_signing() {
+        let one = json!({"market": LIVE, "stables_in": "1", "target_ltv": "400000000000000000"});
+        assert!(matches!(owner_call("open_from_stables", one), PromiseOrValue::Promise(_)));
+        // collateral_in 0 stays allowed: borrow more against the collateral already supplied.
+        let zero = json!({"market": LIVE, "collateral_in": "0", "target_ltv": "400000000000000000"});
+        assert!(matches!(owner_call("open", zero), PromiseOrValue::Promise(_)));
     }
 }

@@ -82,7 +82,7 @@ pub fn verify(message: &str, signature_hex: &str, owner: &Addr, last_nonce: u64)
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use near_crypto::{KeyType, SecretKey, Signature};
     use near_sdk::test_utils::VMContextBuilder;
@@ -92,14 +92,14 @@ mod tests {
     const NOW: u64 = 1_793_000_000;
 
     /// A throwaway secp256k1 key and its EVM address (keccak of the 64-byte public key, last 20 bytes).
-    fn wallet() -> (SecretKey, Addr) {
+    pub(crate) fn wallet() -> (SecretKey, Addr) {
         let sk = SecretKey::from_random(KeyType::SECP256K1);
         let h = env::keccak256_array(sk.public_key().key_data());
         (sk, h[12..].try_into().unwrap())
     }
 
     /// ERC-191 personal-sign, r‖s‖v with v = 27/28 as a wallet returns it.
-    fn sign(sk: &SecretKey, message: &str) -> String {
+    pub(crate) fn sign(sk: &SecretKey, message: &str) -> String {
         let prefixed = format!("\x19Ethereum Signed Message:\n{}{}", message.len(), message);
         let mut sig: [u8; 65] = match sk.sign(&env::keccak256_array(prefixed.as_bytes())) {
             Signature::SECP256K1(s) => s.into(),

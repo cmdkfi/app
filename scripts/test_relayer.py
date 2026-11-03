@@ -280,6 +280,13 @@ class TestPlan(unittest.TestCase):
         self.assertEqual((sweep[0]['kind'], sweep[0]['to'], sweep[0]['value']), ('sweep_eth', OWNER, 7))
         self.assertEqual(R.plan_txs('cancel', {}, vault_state())[0]['to'], BASE)
 
+    def test_zero_amounts(self):
+        # open_from_stables with stables_in 0 is refused before any read, in the vault's wording ("zero stables_in");
+        # open with collateral_in 0 is planned (borrow more against the collateral already supplied).
+        with self.assertRaisesRegex(R.Refused, '^open_from_stables: zero stables_in$'):
+            R.plan_txs('open_from_stables', {'market': LIVE, 'stables_in': '0', 'target_ltv': '5'}, vault_state())
+        self.assertEqual(self.count('open', {'market': LIVE, 'collateral_in': '0', 'target_ltv': '5'}), ['open'])
+
     def test_targets(self):
         p = R.plan_txs('setup', setup_args(part(DEMO)), vault_state())
         self.assertEqual([x['to'] for x in p], [DUSDC, WETH, MORPHO])
@@ -395,11 +402,16 @@ class TestFlags(unittest.TestCase):
             self.check('repay', {'amount': '1'}, dict(ok, debt=0))
 
     def test_open(self):
-        self.check('open', {'collateral_in': '10'}, {'authorized': True, 'collateral_allowance': 10})
-        with self.assertRaises(R.Refused):
-            self.check('open', {'collateral_in': '10'}, {'authorized': False, 'collateral_allowance': 10})
-        with self.assertRaises(R.Refused):
-            self.check('open', {'collateral_in': '10'}, {'authorized': True, 'collateral_allowance': 9})
+        # Symmetric with open_from_stables: authorization, then allowance and balance of the token pulled.
+        ok = {'authorized': True, 'collateral_allowance': 10, 'collateral_balance': 10}
+        self.check('open', {'collateral_in': '10'}, ok)
+        self.check('open', {'collateral_in': '0'}, dict(ok, collateral_allowance=0, collateral_balance=0))  # borrow more
+        with self.assertRaisesRegex(R.Refused, 'no authorization'):
+            self.check('open', {'collateral_in': '10'}, dict(ok, authorized=False))
+        with self.assertRaisesRegex(R.Refused, 'allowance to the executor is 9, below collateral_in 10'):
+            self.check('open', {'collateral_in': '10'}, dict(ok, collateral_allowance=9))
+        with self.assertRaisesRegex(R.Refused, 'holds 9 of the collateral token, below collateral_in 10'):
+            self.check('open', {'collateral_in': '10'}, dict(ok, collateral_balance=9))
 
     def test_open_from_stables(self):
         ok = {'authorized': True, 'loan_allowance': 10, 'loan_balance': 10}
@@ -711,6 +723,36 @@ class TestHttp(unittest.TestCase):
         sent = json.loads(c.sent_cmds[0][c.sent_cmds[0].index('json-args') + 1])
         self.assertEqual(json.loads(sent['message'])['method'], 'open_from_stables')
         self.assertEqual([t['gas_limit'] for t in sent['txs']], [800_000])
+
+    def test_owner_call_open(self):
+        # The collateral token (WETH on live) is read at the vault's Base address, for the executor; refused before
+        # NEAR until allowance and balance cover collateral_in, then one transaction.
+        c = FakeChain()
+        c.authorized.add((BASE, EXEC))
+        c.allowances[(WETH, EXEC)] = 10 ** 15
+        self.start(c)
+        args = {'market': LIVE, 'collateral_in': str(10 ** 15), 'target_ltv': '500000000000000000'}
+        code, out = self.owner_call('open', args)
+        self.assertEqual(code, 400)
+        self.assertIn('holds 0 of the collateral token, below collateral_in %d' % 10 ** 15, out['error'])
+        c.balances[WETH] = 10 ** 15
+        code, out = self.owner_call('open', dict(args, collateral_in=str(10 ** 15 + 1)))
+        self.assertEqual(code, 400)
+        self.assertIn('allowance to the executor is %d' % 10 ** 15, out['error'])
+        self.assertEqual(c.sent_cmds, [])
+        code, out = self.owner_call('open', args)
+        self.assertEqual((code, out['ok'], len(out['signed'])), (200, True, 1))
+        self.assertEqual(json.loads(json.loads(c.sent_cmds[0][c.sent_cmds[0].index('json-args') + 1])['message'])['method'],
+                         'open')
+
+    def test_owner_call_open_from_stables_zero(self):
+        c = FakeChain()
+        c.authorized.add((BASE, EXEC))
+        self.start(c)
+        code, out = self.owner_call('open_from_stables', {'market': LIVE, 'stables_in': '0', 'target_ltv': '5'})
+        self.assertEqual((code, out['ok']), (400, False))
+        self.assertIn('open_from_stables: zero stables_in', out['error'])
+        self.assertEqual(c.sent_cmds, [])
 
     def test_owner_call_broadcasts_in_nonce_order(self):
         c = FakeChain()

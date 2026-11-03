@@ -459,6 +459,8 @@ async fn policy() -> Result<()> {
     expect_fail(env.owner("open_from_stables", extra, 1).await?, "bad args");
     expect_fail(env.owner("open_from_stables", json!({"market": LIVE, "collateral_in": "1", "target_ltv": "1"}), 1).await?, "bad args");
     expect_fail(env.owner("open_from_stables", json!({"market": UNKNOWN_MARKET, "stables_in": "1", "target_ltv": "1"}), 1).await?, "market not in the allowlist");
+    // stables_in 0 is refused (decided 3 Nov); open with collateral_in 0 stays allowed (borrow more).
+    expect_fail(env.owner("open_from_stables", json!({"market": LIVE, "stables_in": "0", "target_ltv": "1"}), 1).await?, "zero stables_in");
     assert_eq!(env.state().await?.owner_nonce, n);
     let r = env.owner("repay", json!({"market": DEMO, "amount": "500000"}), 1).await?;
     let data = decode_signed(signed(&r)[0]["raw"].as_str().unwrap())["input"].as_str().unwrap().to_string();
