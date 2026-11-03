@@ -157,15 +157,37 @@ The vault checks which code runs, not who runs it. To run the published agent un
    Compare your image ID with the published image's: `docker pull <image>@sha256:<digest>` then
    `docker image inspect -f '{{.Id}}' <image>@sha256:<digest>`. The ID is the config digest, independent of how the
    registry compresses layers. **Status (3 Nov): reproducible on the founder's Mac** (Docker Desktop 27.4.0, buildx
-   v0.19.2): `REPRODUCIBLE image sha256:6472af962cb83bece6649abb7b432beb846db068a60955366aa68c315de7b593
-   SOURCE_DATE_EPOCH=1793718091`, binary sha256 `2247b3ec3eab3600984d79f09c539591485be66324ea5a5364a275dc26fd6637`,
-   89.3 MB, 927 s for the two builds. The builder must be on the `docker-container` driver (`build.sh` creates
-   `cmdk-repro`; this run: BuildKit v0.34.2, `moby/buildkit@sha256:c5f8862f…`). On the `docker` driver with the
-   classic image store the daemon's exporter ignored `rewrite-timestamp`: the two images had identical file bytes,
-   but the directories COPY creates and the binary kept each build's wall-clock mtime, so the IDs differed
-   (`60b8cb4c…` and `85dc8a17…`). An earlier attempt stopped in `apt-get update` because Docker's disk was full
-   (46 of 47 GB used; apt reports this as "At least one invalid signature"); the snapshot's `InRelease` itself
-   verifies with the image's keyring (gpgv, 3 Nov).
+   v0.19.2), for commit `029558a`: `REPRODUCIBLE image
+   sha256:6e34092aef2864dd261a58bd260d72167d87ab6604605f52fa5b91ee00000618 SOURCE_DATE_EPOCH=1793720609`, binary
+   sha256 `f2c5b71039da22e5b13f18b0b93425278b61f26f85b3dcbad2f8cf0771e9e77a`, 89.3 MB (89,284,047 bytes), 447 s for
+   the two builds. The builder must be on the `docker-container` driver (`build.sh` creates `cmdk-repro` on
+   `moby/buildkit@sha256:c5f8862f…`, BuildKit v0.34.2). On the `docker` driver with the classic image store the
+   daemon's exporter ignored `rewrite-timestamp`: the two images had identical file bytes, but the directories COPY
+   creates and the binary kept each build's wall-clock mtime, so the IDs differed. An earlier attempt stopped in
+   `apt-get update` because Docker's disk was full (46 of 47 GB used; apt reports this as "At least one invalid
+   signature"); the snapshot's `InRelease` itself verifies with the image's keyring (gpgv, 3 Nov).
+
+   **Push and pin our image (Friday, in this order, from `agent/`):**
+   ```
+   ./build.sh                                   # REPRODUCIBLE image sha256:6e34092a… (rebuild only if src changed)
+   docker tag cmdk-agent:repro-1 ghcr.io/cmdkfi/agent:029558a
+   gh auth status                               # fffilimonov active, scopes include write:packages
+   gh auth token | docker login ghcr.io -u fffilimonov --password-stdin
+   docker push ghcr.io/cmdkfi/agent:029558a
+   docker buildx imagetools inspect ghcr.io/cmdkfi/agent:029558a      # "Digest: sha256:<registry digest>"
+   ```
+   Set the package public: github.com/orgs/cmdkfi/packages/container/agent/settings, "Change visibility", Public
+   (a new GHCR package is private). Then:
+   ```
+   sed -i '' 's/REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS/<registry digest hex>/' docker-compose.yml docker-compose.live.yml
+   docker logout ghcr.io                        # the checks below run anonymously, as the CVM pulls
+   docker buildx imagetools inspect --raw ghcr.io/cmdkfi/agent@sha256:<registry digest hex>   # config digest sha256:6e34092a…
+   docker pull ghcr.io/cmdkfi/agent@sha256:<registry digest hex>
+   docker image inspect -f '{{.Id}}' ghcr.io/cmdkfi/agent@sha256:<registry digest hex>        # sha256:6e34092a…
+   git add docker-compose.yml docker-compose.live.yml && git commit   # the pin commit
+   ```
+   The `--raw` line reads the config digest from the registry itself; the pull can be satisfied from the local copy,
+   which has the same ID.
 2. **Choose your operator name** and put it in the compose's `--operator` (1–32 of a-z, 0-9, '-').
 3. **Push the image** to a registry the CVM can pull from anonymously, put its digest in the compose.
 4. **Deploy** with the command in §2, then read the agent's `measurement=` line and the evidence (§4), and reproduce
