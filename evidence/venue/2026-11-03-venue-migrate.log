@@ -1,0 +1,25 @@
+executor 0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40 on https://base-sepolia-rpc.publicnode.com, caller 0x0B7Ed66f46fe83252a208563A88201BA60490d25
+  movesInWindow 0
+  lastAgentCall 1793135980
+  chain time 1793685303
+  before migrate live (block 53817177): collateral 0.003000000000000000 WETH, borrow shares 3372448000000, debt 3.372448, ltvOf 0.500000; market supply 3.550003, borrow 3.372448
+  before migrate backup (block 53817182): collateral 0.003000000000000000 WETH, borrow shares 3372448000000, debt 3.372448, ltvOf 0.500000; market supply 7.090093, borrow 3.372448
+  migrate live->backup 100%: tx 0xea755366ca15a9fa8ad2719ba670bfd8ce83e5b8c7d61b1aac16a19d357becc5 status 1 gas 352310, fee 1761550419372 wei (L2 1761550352310 + L1 67062)
+  after migrate live (block 53817203): collateral 0.000000000000000000 WETH, borrow shares 0, debt 0.000000, ltvOf 0.000000; market supply 3.550003, borrow 0.000000
+  after migrate backup (block 53817208): collateral 0.006000000000000000 WETH, borrow shares 6744896000000, debt 6.744896, ltvOf 0.500000; market supply 7.090093, borrow 6.744896
+
+| Step | Gas used | L1 fee (wei) | Tx |
+|---|---|---|---|
+| approve Morpho USDC | 55,437 | 48,662 | 0xc0d4d7108efa904f493b19e90716762aefc5a1f438442f0e421930ff28e2dc79 |
+| supply 0.55 USDC to live | 93,464 | 89,183 | 0xcf19cfb828caeac4339b73944ffa8f10fe7fd61ef8b066c7a7a90dfe381eefd2 |
+| approve Morpho USDC | 55,437 | 48,662 | 0xeec4a5da528fc8e981abbc7c630ae56d9cca3b0951869da5f2857b5d9ccbec5b |
+| supply 1.09 USDC to backup | 93,464 | 88,369 | 0xec27bb69ec636754414f74f8276a5e33bd2e4cdb246f61bc54d741c789d4c43d |
+| setCorridor live | 47,064 | 71,164 | 0xaba50fa3fd7fa4bbde0461b07845d07133e6b914368d9be8e73c5a9edb1655bf |
+| setCorridor backup | 47,064 | 71,164 | 0xceaefae8a204fd49b3e69d8a09180e98cd30b2165e8a845131222298d45b2997 |
+| setCorridor demo | 47,064 | 72,426 | 0xe7380bccc1f45eca951b69cb031bf37ac2cb4de063a84e5cd58a32980b3ed426 |
+| open live 0.003 WETH at 50% | 270,499 | 56,248 | 0x5b855cab52d466af599e49bc1c1c5cd33d22e3c4ed13af59dfe3196ae09d0cf3 |
+| open backup 0.003 WETH at 50% | 270,499 | 56,248 | 0xdb9c55881f33fd3e0cc61a476dfc020fca750d303fa4d33241d7548a08983dd7 |
+| open demo 0.003 WETH at 50% | 203,378 | 56,248 | 0xedd892c85e143cc1840bbce0943adeba1c73a767f033a6d71d592bc548d9ef09 |
+| migrate live->backup 100% | 352,310 | 67,062 | 0xea755366ca15a9fa8ad2719ba670bfd8ce83e5b8c7d61b1aac16a19d357becc5 |
+
+written /Users/vf/cmdk/app/scripts/../evidence/venue/2026-11-03-venue-step2.json

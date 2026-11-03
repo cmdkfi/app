@@ -4,7 +4,8 @@ Testnet only (Base Sepolia, chain 84532). The scripts refuse any other chain id.
 0x0B7Ed66f46fe83252a208563A88201BA60490d25 signs everything. Its key is read from
 `~/.config/prime/base_sepolia_eoa.json` and handed only to `cast`; it is never printed. Addresses are in
 `deployments/testnet.json`. `rebalance_pool.py` and `liquidate.py` read that file by default, and also accept the
-old flat `executor/deployments.json` through `DEPLOYMENTS=...`. `p1_onchain_run.py` still reads only the old file.
+old flat `executor/deployments.json` through `DEPLOYMENTS=...`. `p1_onchain_run.py` reads it through the same
+`rebalance_pool.load_deployments` (3 Nov, step 2), so either file works there too.
 
 | Market | Oracle | Pool | Kept at the oracle by |
 |---|---|---|---|
@@ -76,6 +77,24 @@ screen (item 42). The sell and buy bands are burnt first. On the last step they 
 *before* the oracle is set, so the sale the new price triggers meets the bands and not the anchor alone. A move is
 not budget-guarded. On a fork on 3 Nov, $2,340.53 → $2,200 (four steps) swapped 0.000156 WETH through the anchor.
 
+Measured on Base Sepolia on 3 Nov (step 2):
+
+| Move | Steps | Transactions | Swapped through the anchor | Fee | Wall time |
+|---|---|---|---|---|---|
+| $2,340.53 → $1,340.00 | 30 | 98 | 0.001597 WETH | 0.000035981 ETH | about 5 min |
+| $1,340.00 → $2,244.68 | 28 | 92 | 2.587932 dUSDC (minted) | 0.000033629 ETH | about 5 min |
+
+**`--set-price … --dry-run` does not work while the bands are in place.** A dry run does not burn them, so the tick
+walk of the first step goes through the 20,000 dUSDC sell band. On 3 Nov it then stopped with "not enough ETH to wrap
+8400067137035300560 wei". The real run burns the bands first and is unaffected (rehearsed on a fork, then run).
+Reported for a fix in `rebalance_pool.py`; until then, rehearse a move on an anvil fork with a copied `STATE_DIR`:
+
+```sh
+anvil --fork-url https://base-sepolia-rpc.publicnode.com --port 8547 &
+mkdir -p /tmp/fork-state && cp scripts/state/*.json /tmp/fork-state/
+RPC=http://127.0.0.1:8547 STATE_DIR=/tmp/fork-state python3 -I scripts/rebalance_pool.py --market demo --set-price 1340
+```
+
 ## Liquidator (testnet tooling)
 
 ```sh
@@ -109,7 +128,34 @@ Morpho's health rule: liquidatable when debt (shares rounded up) > collateral ×
 | $2,000 | computed 18.000007 dUSDC repaid and 0.009394575 WETH seized | both exact |
 | $1,700 | seize-all mode | repaid 16.286002 dUSDC; 1.714 dUSDC written off as bad debt by Morpho |
 
-Not yet run on Base Sepolia: that is step 2 of the venue row, with a test position opened for it.
+**Run on Base Sepolia on 3 Nov (step 2).** The victim was the wallet's own demo position: 0.003 WETH and 3.510793
+dUSDC. The liquidator was the same wallet; Morpho allows self-liquidation.
+- Liquidatable below 3.510793 / (0.003 × 0.86) = $1,360.77; seize-all below 3.510793 × 1.043841 / 0.003 = $1,221.57.
+- Price used: $1,340 (`--set-price 1340`), where the LTV is 0.8733.
+- Result: repaid 3.510793 dUSDC and seized 0.002734858 WETH, exactly as the dry run computed. 0.000265 WETH collateral
+  stays in the position, and no bad debt was booked.
+- Gas: liquidate 108,899; approve and reset 29,016 and 24,180.
+
+Hashes are in `evidence/venue/2026-11-03-venue-step2.md`.
+
+## Test positions (step 2, 3 Nov)
+
+```sh
+python3 -I scripts/p1_onchain_run.py --venue-open      # lender top-up if short, corridors (50/70/30, budget 100%), open 0.003 WETH at 50% on live, backup, demo
+python3 -I scripts/p1_onchain_run.py --venue-migrate   # migrate(live, backup, 1e18) on the wallet's live position
+```
+
+Both write `evidence/venue/2026-11-03-venue-step2.json` (or `$OUT`). On 3 Nov:
+- **Lender supply.** Live had only 3.0 USDC to lend and backup 6.0, against 3.37 per open plus live's 3.37 moving into
+  backup. The script supplied 0.55 USDC to live and 1.09 USDC to backup.
+- **Opens.** Each landed at `ltvOf` 0.49999. Gas: 270,499 on live and backup, 203,378 on demo (no Chainlink feed checks).
+- **Migrate.** 352,310 gas; 0.003 WETH and 3.372448 USDC moved exactly.
+
+What is left open:
+- Backup: 0.006 WETH collateral and 6.744896 USDC debt. The backup market is 95% utilised, so its adaptive IRM rate
+  rises while it stays above the 90% target (4.11% a year right after the move).
+- Demo: the 0.000265 WETH remainder, with no debt.
+- The 6.74 USDC borrowed is in the wallet: 19.18 USDC after step 2.
 
 ## USDC budget
 
@@ -123,6 +169,10 @@ Not yet run on Base Sepolia: that is step 2 of the venue row, with a test positi
 | The same drift on 27 Oct with the band between the pool and the oracle | 45.5 USDC against 8.3 USDC once the band was burnt first | results.md item 40 |
 
 The rebalancer always burns first.
+
+**Borrowed USDC and the band (step 2).** The wallet holds 19.18 USDC after step 2, 6.74 of it borrowed on backup.
+The next live re-band mints with the USDC above reserve plus max cost (14), so it would put about 5.2 USDC of that into
+the band, plus matching WETH.
 
 **What the guard allows.**
 - The live pool is thin outside our band. On the fork, a stranger's 0.006 WETH sale (about $13) moved it 12%.
@@ -142,7 +192,7 @@ it is read every run.
 | Wallet floor (`--reserve-usdc`) | 8 |
 | One maximum repair (`--max-cost-usdc`) | 6 |
 | Live band, the rest | about 4.3 on 3 Nov |
-| Lender supply already in live / backup (not touched) | 3 / 6 |
+| Lender supply in live / backup (not touched; 3.55 / 7.09 after step 2, of which backup lends 6.74 to the wallet's own position) | 3 / 6 |
 
 **Faucet.** Circle's faucet (faucet.circle.com, Base Sepolia) gives 20 USDC per claim, once per 2 hours
 (results.md §4.8). It needs a person at the web form. Claim once a day to the test wallet, and at once after any
@@ -153,8 +203,15 @@ repairs (6 each) above the 8 USDC floor before the next claim.
 
 | When | What |
 |---|---|
-| 3–4 Nov | The timer started by the reviewer and left to run for 24 h unattended (the venue row's done-criterion). Daily: read the RUN lines (`grep -c 'exit=3'`, `grep -v 'exit=0'`), claim the faucet |
-| 4–5 Nov (step 2) | On test positions: supply and borrow on all three markets, a `migrate` live → backup, a scripted liquidation (`liquidate.py`). Every live sale follows a live rebalance (§4.8) |
+| 3 Nov (step 2, done) | On test positions: supply and borrow on all three markets, a `migrate` live → backup, a scripted liquidation (`liquidate.py`). Evidence: `evidence/venue/2026-11-03-venue-step2.md` |
+| 3–4 Nov | The timer started at 06:10 UTC on 3 Nov after step 2 and left to run for 24 h unattended (the venue row's done-criterion). Daily: read the RUN lines (`grep -c 'exit=3'`, `grep -v 'exit=0'`), claim the faucet |
 | 6 Nov | The executor is redeployed. Update `deployments/testnet.json` (executor; markets and pools if they change; NEAR `factory`, `vault_code_hash`, `relayer`). If a market gets a new pool, start its state file afresh and add it to the timer |
 | 6–14 Nov | The timer runs throughout the build and the evidence scenes; demo price moves only through `--set-price` |
 | 14–25 Nov | Operations: the timer on its host with restart; faucet claim daily; check wallet ETH weekly (at about 0.000005 ETH per repair, 0.2878 ETH lasts far beyond 25 Nov); `--status` on both markets before each clean-machine run on 18 and 25 Nov |
+
+## Operations log
+
+| When (UTC) | What |
+|---|---|
+| 2026-11-03 05:54–06:07 | Step 2 transactions (204, all status 1; `evidence/venue/2026-11-03-venue-step2.md`). Demo restored to the live oracle price, $2,244.68, once, and re-banded (sell 83639, buy 83640) |
+| 2026-11-03 06:10:03 | Timer started: `cd /Users/vf/cmdk/app && nohup caffeinate -i scripts/rebalance.sh >> ~/.local/state/cmdk/rebalance.log 2>&1 &`. PID 55442 (`/bin/sh scripts/rebalance.sh`, parent 1), with `caffeinate -i` as its child, PID 55444. Stop with `kill 55442`: the trap lets a run in progress finish. First round: live `action=kept` gap +0.188% `exit=0`; demo `action=kept` gap +0.000% `exit=0` |

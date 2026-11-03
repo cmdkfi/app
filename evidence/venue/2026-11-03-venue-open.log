@@ -1,0 +1,39 @@
+executor 0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40 on https://base-sepolia-rpc.publicnode.com, caller 0x0B7Ed66f46fe83252a208563A88201BA60490d25
+  before live (block 53816996): collateral 0.000000000000000000 WETH, borrow shares 0, debt 0.000000, ltvOf 0.000000; market supply 3.000003, borrow 0.000000
+  before backup (block 53817000): collateral 0.000000000000000000 WETH, borrow shares 0, debt 0.000000, ltvOf 0.000000; market supply 6.000093, borrow 0.000000
+  before demo (block 53817005): collateral 0.000000000000000000 WETH, borrow shares 0, debt 0.000000, ltvOf 0.000000; market supply 5000.000156, borrow 0.000000
+lender liquidity (USDC markets): free supply against what the opens and the migrate will borrow
+  live: free 3.000003 USDC, needs 3.372450; supply 0.55
+  approve Morpho USDC: tx 0xc0d4d7108efa904f493b19e90716762aefc5a1f438442f0e421930ff28e2dc79 status 1 gas 55437, fee 277185104099 wei (L2 277185055437 + L1 48662)
+  supply 0.55 USDC to live: tx 0xcf19cfb828caeac4339b73944ffa8f10fe7fd61ef8b066c7a7a90dfe381eefd2 status 1 gas 93464, fee 560784089183 wei (L2 560784000000 + L1 89183)
+  backup: free 6.000093 USDC, needs 6.744900; supply 1.09
+  approve Morpho USDC: tx 0xeec4a5da528fc8e981abbc7c630ae56d9cca3b0951869da5f2857b5d9ccbec5b status 1 gas 55437, fee 277185104099 wei (L2 277185055437 + L1 48662)
+  supply 1.09 USDC to backup: tx 0xec27bb69ec636754414f74f8276a5e33bd2e4cdb246f61bc54d741c789d4c43d status 1 gas 93464, fee 467320181833 wei (L2 467320093464 + L1 88369)
+corridor target 0.50 act 0.70 floor 0.30 budget 1.00 migrate True exit True: corridorValid True
+  setCorridor live: tx 0xaba50fa3fd7fa4bbde0461b07845d07133e6b914368d9be8e73c5a9edb1655bf status 1 gas 47064, fee 235320118228 wei (L2 235320047064 + L1 71164)
+  on chain: 500000000000000000 700000000000000000 300000000000000000 1000000000000000000 true true true
+  setCorridor backup: tx 0xceaefae8a204fd49b3e69d8a09180e98cd30b2165e8a845131222298d45b2997 status 1 gas 47064, fee 235320118228 wei (L2 235320047064 + L1 71164)
+  on chain: 500000000000000000 700000000000000000 300000000000000000 1000000000000000000 true true true
+  setCorridor demo: tx 0xe7380bccc1f45eca951b69cb031bf37ac2cb4de063a84e5cd58a32980b3ed426 status 1 gas 47064, fee 282384072426 wei (L2 282384000000 + L1 72426)
+  on chain: 500000000000000000 700000000000000000 300000000000000000 1000000000000000000 true true true
+  open live 0.003 WETH at 50%: tx 0x5b855cab52d466af599e49bc1c1c5cd33d22e3c4ed13af59dfe3196ae09d0cf3 status 1 gas 270499, fee 1352495326747 wei (L2 1352495270499 + L1 56248)
+  after open live (block 53817109): collateral 0.003000000000000000 WETH, borrow shares 3372448000000, debt 3.372448, ltvOf 0.500000; market supply 3.550003, borrow 3.372448
+  open backup 0.003 WETH at 50%: tx 0xdb9c55881f33fd3e0cc61a476dfc020fca750d303fa4d33241d7548a08983dd7 status 1 gas 270499, fee 1352495326747 wei (L2 1352495270499 + L1 56248)
+  after open backup (block 53817131): collateral 0.003000000000000000 WETH, borrow shares 3372448000000, debt 3.372448, ltvOf 0.500000; market supply 7.090093, borrow 3.372448
+  open demo 0.003 WETH at 50%: tx 0xedd892c85e143cc1840bbce0943adeba1c73a767f033a6d71d592bc548d9ef09 status 1 gas 203378, fee 1016890259626 wei (L2 1016890203378 + L1 56248)
+  after open demo (block 53817144): collateral 0.003000000000000000 WETH, borrow shares 3510793000000, debt 3.510793, ltvOf 0.500000; market supply 5000.000156, borrow 3.510793
+
+| Step | Gas used | L1 fee (wei) | Tx |
+|---|---|---|---|
+| approve Morpho USDC | 55,437 | 48,662 | 0xc0d4d7108efa904f493b19e90716762aefc5a1f438442f0e421930ff28e2dc79 |
+| supply 0.55 USDC to live | 93,464 | 89,183 | 0xcf19cfb828caeac4339b73944ffa8f10fe7fd61ef8b066c7a7a90dfe381eefd2 |
+| approve Morpho USDC | 55,437 | 48,662 | 0xeec4a5da528fc8e981abbc7c630ae56d9cca3b0951869da5f2857b5d9ccbec5b |
+| supply 1.09 USDC to backup | 93,464 | 88,369 | 0xec27bb69ec636754414f74f8276a5e33bd2e4cdb246f61bc54d741c789d4c43d |
+| setCorridor live | 47,064 | 71,164 | 0xaba50fa3fd7fa4bbde0461b07845d07133e6b914368d9be8e73c5a9edb1655bf |
+| setCorridor backup | 47,064 | 71,164 | 0xceaefae8a204fd49b3e69d8a09180e98cd30b2165e8a845131222298d45b2997 |
+| setCorridor demo | 47,064 | 72,426 | 0xe7380bccc1f45eca951b69cb031bf37ac2cb4de063a84e5cd58a32980b3ed426 |
+| open live 0.003 WETH at 50% | 270,499 | 56,248 | 0x5b855cab52d466af599e49bc1c1c5cd33d22e3c4ed13af59dfe3196ae09d0cf3 |
+| open backup 0.003 WETH at 50% | 270,499 | 56,248 | 0xdb9c55881f33fd3e0cc61a476dfc020fca750d303fa4d33241d7548a08983dd7 |
+| open demo 0.003 WETH at 50% | 203,378 | 56,248 | 0xedd892c85e143cc1840bbce0943adeba1c73a767f033a6d71d592bc548d9ef09 |
+
+written /Users/vf/cmdk/app/scripts/../evidence/venue/2026-11-03-venue-step2.json

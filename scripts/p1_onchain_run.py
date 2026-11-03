@@ -3,10 +3,18 @@
 
 The test wallet 0x0B7E...0d25 is the caller (the executor is permissionless and caller-scoped; in P5 the vault's
 derived address is the caller). Testnet only. Key from ~/.config/prime/base_sepolia_eoa.json, never printed.
-RPC from $RPC (an anvil fork for a rehearsal); addresses from $DEPLOYMENTS (default ../executor/deployments.json).
+RPC from $RPC (an anvil fork for a rehearsal); addresses through rebalance_pool.load_deployments: $DEPLOYMENTS,
+default ../deployments/testnet.json, or the old flat ../executor/deployments.json (either shape is accepted).
 Output: $OUT (default ../executor/gas_onchain.json) and a table on stdout.
 
-  p1_onchain_run.py [--anvil] [--live-sale | --live-sale-only]
+  p1_onchain_run.py [--anvil] [--live-sale | --live-sale-only | --venue-open | --venue-migrate]
+    --venue-open    venue row step 2 (3 Nov): corridors on live, backup and demo (target 50%, act 70%, floor 30%,
+                 sell budget 100%, migrate and exit allowed), then open 0.003 WETH at 50% on each. Before that, USDC lender
+                 supply tops up live and backup when their free liquidity is short of what the opens and the later
+                 migrate borrow (live: one open; backup: its open plus live's debt), plus 5%. Prints each position.
+                 Output: $OUT (default ../evidence/venue/2026-11-03-venue-step2.json).
+    --venue-migrate  venue row step 2: migrate(live, backup, 1e18) on the caller's live position; prints both
+                 positions before and after. Same default output file (rows are appended).
     --anvil      skip cooldowns with evm_increaseTime instead of waiting (rehearsal on a local fork)
     --live-sale-only  the live sale and nothing else (27 Oct): check that the live pool is within the rebalancer's
                  tolerance of the oracle (otherwise stop: the repair needs AFTER_FUNDING.md step 2b's quoted stop rule),
@@ -27,7 +35,7 @@ sys.path.insert(0, HERE)
 import rebalance_pool as rp   # noqa: E402  (shared cast helpers; our own file)
 
 CAST = rp.CAST
-DEP = json.load(open(os.environ.get('DEPLOYMENTS', os.path.join(HERE, '..', 'executor', 'deployments.json'))))
+DEP = rp.load_deployments()           # $DEPLOYMENTS, deployments/testnet.json by default; the old flat file also works
 OUT = os.environ.get('OUT', os.path.join(HERE, '..', 'executor', 'gas_onchain.json'))
 EXEC = DEP['executor']; MORPHO = DEP['morpho']
 LIVE, BACKUP, DEMO = DEP['liveMarketId'], DEP['backupMarketId'], DEP['demoMarketId']
@@ -38,6 +46,12 @@ CORRIDOR_T = '(uint64,uint64,uint64,uint64,bool,bool,bool)'
 COOLDOWN = int(DEP['cooldownSeconds'])
 TOLERANCE = 0.0025                       # rebalance_pool.py's default
 rows = []
+positions = []                           # venue modes: position readings, written next to the rows
+VENUE_OUT = os.path.join(HERE, '..', 'evidence', 'venue', '2026-11-03-venue-step2.json')
+VENUE_CORRIDOR = (5 * 10 ** 17, 7 * 10 ** 17, 3 * 10 ** 17, 10 ** 18, True, True)   # target, act, floor, budget, migrate, exit
+VENUE_COLL = 3 * 10 ** 15                # 0.003 WETH per test position
+VENUE_TARGET = 5 * 10 ** 17
+MARKET_T = '(uint128,uint128,uint128,uint128,uint128,uint128)'
 
 
 def now():
@@ -53,8 +67,14 @@ def tx(step, to, sig, *args, value=None):
          'status': int(j['status'], 16), 'gasUsed': int(j['gasUsed'], 16),
          'effectiveGasPrice': int(j.get('effectiveGasPrice', '0x0'), 16), 'l1FeeWei': int(j.get('l1Fee', '0x0') or '0x0', 16)}
     rows.append(r)
-    json.dump({'rpc': rp.RPC, 'deployments': DEP, 'rows': rows}, open(OUT, 'w'), indent=1)
+    dump()
     return j
+
+
+def dump():
+    d = {'rpc': rp.RPC, 'deployments': DEP, 'rows': rows}
+    if positions: d['positions'] = positions
+    json.dump(d, open(OUT, 'w'), indent=1)
 
 
 def wait_cooldown(anvil):
@@ -101,13 +121,88 @@ def live_sale_only(a):
     tx('exit live (idle USDC, no sale)', EXEC, 'exit(bytes32,uint256)', LIVE, dl())
 
 
+def position(name, mid, label):
+    """Morpho position of the caller with debt (shares rounded up, at the stored totals) and the executor's ltvOf."""
+    p = rp.call(MORPHO, 'position(bytes32,address)(uint256,uint128,uint128)', mid, ME)
+    mk = [int(x) for x in rp.call(MORPHO, 'market(bytes32)%s' % MARKET_T, mid)]
+    shares, coll = int(p[1]), int(p[2])
+    debt = (shares * (mk[2] + 1) + mk[3] + 10 ** 6 - 1) // (mk[3] + 10 ** 6)
+    r = {'when': label, 'market': name, 'id': mid, 'block': int(subprocess.run([CAST, 'block-number', '--rpc-url', rp.RPC],
+         capture_output=True, text=True, check=True).stdout.strip()), 'supplyShares': int(p[0]), 'borrowShares': shares,
+         'collateral': coll, 'debt': debt, 'ltvOf': int(rp.call(EXEC, 'ltvOf(address,bytes32)(uint256)', ME, mid)[0]),
+         'marketSupply': mk[0], 'marketBorrow': mk[2]}
+    positions.append(r); dump()
+    print('  %s %s (block %d): collateral %.18f WETH, borrow shares %d, debt %.6f, ltvOf %.6f; market supply %.6f, borrow %.6f' % (
+        label, name, r['block'], coll / 1e18, shares, debt / 1e6, r['ltvOf'] / 1e18, mk[0] / 1e6, mk[2] / 1e6))
+    return r
+
+
+def corridor_valid(target, act, floor, lltv, budget):
+    """CorridorMath.corridorValid: floor < target, target + 0.001e18 < act < lltv, budget <= 1e18."""
+    return floor < target and target + 10 ** 15 < act and act < lltv and budget <= 10 ** 18
+
+
+def venue_open(a):
+    names = (('live', LIVE, DEP['liveOracle'], USDC), ('backup', BACKUP, DEP['backupOracle'], USDC), ('demo', DEMO, DEP['mockOracle'], DUSDC))
+    for name, mid, _, _ in names: position(name, mid, 'before')
+    print('lender liquidity (USDC markets): free supply against what the opens and the migrate will borrow')
+    live_borrow = VENUE_COLL * int(rp.call(DEP['liveOracle'], 'price()(uint256)')[0]) // 10 ** 36 * VENUE_TARGET // 10 ** 18
+    for name, mid, oracle, _ in names[:2]:
+        borrow = VENUE_COLL * int(rp.call(oracle, 'price()(uint256)')[0]) // 10 ** 36 * VENUE_TARGET // 10 ** 18
+        need = borrow + (live_borrow if name == 'backup' else 0)
+        mk = [int(x) for x in rp.call(MORPHO, 'market(bytes32)%s' % MARKET_T, mid)]
+        free = mk[0] - mk[2]
+        top = max(0, (need * 105 // 100 - free + 9999) // 10000 * 10000)
+        print('  %s: free %.6f USDC, needs %.6f; supply %.2f' % (name, free / 1e6, need / 1e6, top / 1e6))
+        if top:
+            if rp.bal(USDC, ME) - top < 8 * 10 ** 6: raise SystemExit('stop: the supply would leave the wallet under 8 USDC')
+            tx('approve Morpho USDC', USDC, 'approve(address,uint256)', MORPHO, top)
+            tx('supply %.2f USDC to %s' % (top / 1e6, name), MORPHO, 'supply((address,address,address,address,uint256),uint256,uint256,address,bytes)',
+               '(%s,%s,%s,%s,%d)' % (USDC, WETH, oracle, DEP['irm'], DEP['lltv']), top, 0, ME, '0x')
+    t, act, fl, bud, mig, ex = VENUE_CORRIDOR
+    ok = corridor_valid(t, act, fl, DEP['lltv'], bud)
+    print('corridor target %.2f act %.2f floor %.2f budget %.2f migrate %s exit %s: corridorValid %s' % (t / 1e18, act / 1e18, fl / 1e18, bud / 1e18, mig, ex, ok))
+    if not ok: raise SystemExit('stop: corridor not valid')
+    c = '(%d,%d,%d,%d,%s,%s,false)' % (t, act, fl, bud, str(mig).lower(), str(ex).lower())
+    for name, mid, _, _ in names:
+        tx('setCorridor %s' % name, EXEC, 'setCorridor(bytes32,%s,uint256)' % CORRIDOR_T, mid, c, dl())
+        print('  on chain:', ' '.join(rp.call(EXEC, 'corridors(address,bytes32)%s' % CORRIDOR_T, ME, mid)))
+    for name, mid, _, _ in names:
+        rp.wrap_if_short(ME, VENUE_COLL, False)
+        tx('open %s 0.003 WETH at 50%%' % name, EXEC, 'open(bytes32,uint256,uint256,uint256)', mid, VENUE_COLL, VENUE_TARGET, dl())
+        position(name, mid, 'after open')
+
+
+def venue_migrate(a):
+    for k, v in (('movesInWindow', rp.call(EXEC, 'movesInWindow(address)(uint256)', ME)[0]),
+                 ('lastAgentCall', rp.call(EXEC, 'lastAgentCall(address)(uint256)', ME)[0]), ('chain time', now())):
+        print('  %s %s' % (k, v))
+    for name, mid in (('live', LIVE), ('backup', BACKUP)): position(name, mid, 'before migrate')
+    tx('migrate live->backup 100%', EXEC, 'migrate(bytes32,bytes32,uint256,uint256)', LIVE, BACKUP, 10 ** 18, dl())
+    for name, mid in (('live', LIVE), ('backup', BACKUP)): position(name, mid, 'after migrate')
+
+
 def main():
     global ME, OUT
     ap = argparse.ArgumentParser(); ap.add_argument('--anvil', action='store_true'); ap.add_argument('--live-sale', action='store_true')
     ap.add_argument('--live-sale-only', action='store_true')
+    ap.add_argument('--venue-open', action='store_true'); ap.add_argument('--venue-migrate', action='store_true')
     a = ap.parse_args()
     _, ME = rp.key()
     print('executor %s on %s, caller %s' % (EXEC, rp.RPC, ME))
+    if a.venue_open or a.venue_migrate:
+        chain = int(subprocess.run([CAST, 'chain-id', '--rpc-url', rp.RPC], capture_output=True, text=True, check=True).stdout.strip())
+        if chain != rp.CHAIN_ID: raise SystemExit('chain id %d is not Base Sepolia (%d): testnet only' % (chain, rp.CHAIN_ID))
+        OUT = os.environ.get('OUT', VENUE_OUT)
+        os.makedirs(os.path.dirname(os.path.abspath(OUT)), exist_ok=True)
+        if os.path.exists(OUT):                          # the second mode appends to the first one's file
+            old = json.load(open(OUT)); rows.extend(old.get('rows', [])); positions.extend(old.get('positions', []))
+        venue_open(a) if a.venue_open else venue_migrate(a)
+        print('\n| Step | Gas used | L1 fee (wei) | Tx |\n|---|---|---|---|')
+        for r in rows:
+            print('| %s | %s | %s | %s |' % (r['step'], format(r['gasUsed'], ','), format(r['l1FeeWei'], ','), r['tx']))
+        print('\nwritten', OUT)
+        return
     if a.live_sale_only:
         OUT = os.environ.get('OUT', os.path.join(HERE, '..', 'executor', 'gas_onchain_live_sale.json'))
         live_sale_only(a)
