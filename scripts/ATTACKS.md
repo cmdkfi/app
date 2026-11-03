@@ -1,9 +1,13 @@
 # Attack scripts: `attack-corridor.sh` and `attack-key.sh`
 
 Two scripts that try what a compromised agent could try and print the refusal it gets, decoded. Testnet only:
-Base Sepolia (or a local anvil fork of it) and NEAR testnet (or a local NEAR sandbox). They correspond to the
-judges' README "Verify it" steps 7 and 8. The prototype ran the same attacks by hand on 28 Oct (planning repo,
-`research_notes/Prototype/results.md`, "P5 Attacks and close-out", parts A and B); the scripts repeat them.
+Base Sepolia (or a local anvil fork of it) and NEAR testnet (or a local NEAR sandbox). In the judges' README
+"Verify it", `attack-corridor.sh` is step 7; `attack-key.sh` is covered by the sentence between steps 6 and 7 (the
+agent key's limits). `attack-key.sh` has been run only against a local NEAR sandbox: a vault's only key is the
+agent's function-call key, made and sealed inside the enclave, so outside the enclave nothing can sign as the
+agent; the sandbox run gives the vault a test key in its place (below). The prototype ran the same attacks by
+hand on 28 Oct (planning repo, `research_notes/Prototype/results.md`, "P5 Attacks and close-out", parts A and B);
+the scripts repeat them.
 
 ## `attack-corridor.sh`: the executor's corridor reverts
 
@@ -224,9 +228,9 @@ scripts/attack-key.sh <vault>.testnet --key-file <path to the key's near-credent
 ```
 
 The script needs a key it can sign with. The build's vaults have no full-access key, and the only function-call
-key is the agent's, made inside the CVM, so outside the CVM there is nothing to sign with (see the open question
-below). (a) and (b) depend only on the key's permission, so any key with the `register_agent` permission on that
-vault shows them. (c) needs the registered agent key.
+key is the agent's, made inside the CVM, so outside the CVM there is nothing to sign with. (a) and (b) depend
+only on the key's permission, so any key with the `register_agent` permission on that vault shows them. (c)
+needs the registered agent key.
 
 ## Names against the judges' README (planning repo `docs/02-judges-README.md`, steps 7 and 8)
 
@@ -234,7 +238,7 @@ vault shows them. (c) needs the registered agent key.
 |---|---|---|
 | `BelowFloor`, `SellBudget`, `MoveLimit`, `UnapprovedMarket`, `Expired` | the same custom errors in `executor/src/Executor.sol` | match |
 | `InvalidAccessKeyError::ReceiverMismatch`, `MethodNameMismatch` | RPC: `InvalidTxError` → `InvalidAccessKeyError` → `ReceiverMismatch {ak_receiver, tx_receiver}` / `MethodNameMismatch {method_name}` | names match; the RPC nests them in JSON |
-| `PolicyViolation::SliceMax` on NEAR | `Smart contract panicked: amount above the slice maximum` (`vault/src/lib.rs` `reduce`; also for amount 0) | no `PolicyViolation` type exists; the README string does not appear anywhere |
+| `PolicyViolation::SliceMax` on NEAR | `Smart contract panicked: amount above the slice maximum` (`vault/src/lib.rs` `reduce`; amount 0 gets `zero amount` since 3 Nov) | no `PolicyViolation` type exists; the README string does not appear anywhere |
 | step 8 lists `PolicyViolation::SliceMax` with the executor reverts | it is a NEAR panic, run by `attack-key.sh` (c) | different script |
 | step 8: "Same test vault, the agent key with all model-side checks bypassed" | `attack-corridor.sh` uses a wallet's own executor position (P5 B) | the vault and agent key are not involved |
 | step 8: `Expired` "including after `revoke_agent`" | the script's Expired is a wallet-signed call published after its deadline | a vault-signed transaction held past `revoke_agent` is not covered (README step 13 / `evidence/revoke.txt`) |

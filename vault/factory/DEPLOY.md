@@ -60,8 +60,8 @@ fine as long as the same `HASH` is used in steps 2 and 4. Record its size and ha
 ## 2. Publish the vault as a Global Contract by hash (spends about 78.24 NEAR, burnt)
 
 The cost is 0.0001 NEAR per byte, burnt and not refundable: 782,389 bytes (3 Nov, non-reproducible build) =
-78.2389 NEAR, plus gas (the sandbox run burnt 59.8 Tgas, 0.006 NEAR; the root account's balance fell by 76.800357
-NEAR in total). Recompute with the size of the reproducible wasm from step 1.
+78.2389 NEAR, plus gas (the sandbox run burnt 59.8 Tgas, about 0.006 NEAR). The final figure is read from
+Friday's reproducible wasm: its size from step 1 × 0.0001 NEAR.
 
 ```sh
 near contract deploy-as-global use-file target/near/cmdk_vault.wasm as-global-hash $ACCOUNT \
@@ -119,12 +119,12 @@ curl -s $RPC -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"cmdk
 ## 6. Create vault v1 from the relayer (spends 2 NEAR deposit plus gas)
 
 The deposit becomes the vault's balance (it pays the agent key's gas later). The policy below uses the Base
-Sepolia deployment in `executor/deployments.json`; `cooldown_secs` 120 is §4.1's figure and `slice_max`
-1,000,000,000 (1,000 USDC at 6 decimals) is the sandbox tests' value: confirm both before running. dUSDC's
-decimals were not checked for this file.
+Sepolia executor in `deployments/testnet.json` (`base.executor`, written by the root `DEPLOY.md` step 2);
+`cooldown_secs` 120 is §4.1's figure and `slice_max` 1,000,000,000 (1,000 USDC at 6 decimals) is the sandbox
+tests' value: confirm both before running. dUSDC's decimals were not checked for this file.
 
 ```sh
-EXEC=0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40
+EXEC=$(jq -r .base.executor ../deployments/testnet.json); echo $EXEC   # must print the step 2 executor
 USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e; DUSDC=0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5
 M='"collateral_token":"0x4200000000000000000000000000000000000006","executor":"'$EXEC'","slice_max":"1000000000"'
 POLICY='{"cooldown_secs":120,"markets":[

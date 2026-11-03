@@ -1,0 +1,14 @@
+# Build dstack-mr (linux/amd64) from the dstack v0.5.12 source and place it next to
+# dstack-acpi-tables (patched QEMU) taken from the official dstack-kms image.
+FROM --platform=$BUILDPLATFORM rust:1.95-bookworm AS build
+RUN apt-get update && apt-get install -y --no-install-recommends gcc-x86-64-linux-gnu libc6-dev-amd64-cross && rm -rf /var/lib/apt/lists/*
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc CC_x86_64_unknown_linux_gnu=x86_64-linux-gnu-gcc
+WORKDIR /src
+COPY . .
+# rust-toolchain.toml pins 1.92; add the target to that toolchain (after COPY so the override applies)
+RUN rustup target add x86_64-unknown-linux-gnu
+RUN cargo build --release -p dstack-mr-cli --target x86_64-unknown-linux-gnu
+
+FROM --platform=linux/amd64 dstacktee/dstack-kms@sha256:11ac59f524a22462ccd2152219b0bec48a28ceb734e32500152d4abefab7a62a
+COPY --from=build /src/target/x86_64-unknown-linux-gnu/release/dstack-mr /usr/local/bin/dstack-mr
+ENTRYPOINT ["/usr/local/bin/dstack-mr"]

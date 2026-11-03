@@ -1,5 +1,5 @@
 //! Sandbox-only stand-in for `v1.signer-prod.testnet` (the cmdk vault's sandbox tests). Same `sign` arguments,
-//! same 1 yoctoNEAR deposit rule, same response JSON; the key is sha256("prime-mock-signer:" + predecessor + ","
+//! same 1 yoctoNEAR deposit rule, same response JSON; the key is sha256("cmdk-mock-signer:" + predecessor + ","
 //! + path), so the tests can compute the derived address with `derived_address`. Answers synchronously (no
 //! yield/resume). Records every payload it is asked to sign (`payloads`), so the tests can compare them with the
 //! transactions the vault returns.
@@ -14,7 +14,7 @@ pub struct MockSigner {
 }
 
 fn key(predecessor: &str, path: &str) -> SigningKey {
-    let seed = env::sha256_array(format!("prime-mock-signer:{predecessor},{path}").as_bytes());
+    let seed = env::sha256_array(format!("cmdk-mock-signer:{predecessor},{path}").as_bytes());
     SigningKey::from_bytes(&seed.into()).expect("key")
 }
 

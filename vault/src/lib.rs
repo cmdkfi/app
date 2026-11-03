@@ -1,7 +1,7 @@
 //! cmdk vault on NEAR (hackathon build, from the 27–31 Oct prototype). Spec: docs/01-design-and-feasibility.md
-//! §4.1 (methods, state, transaction path), §4.4 (attestation), §4.5 (owner model). This version: one vault per
-//! owner, a plain deployment to its own account; the executor of each market is set at `init` and by
-//! `set_executor`; a factory that deploys vaults is to come (item V4).
+//! §4.1 (methods, state, transaction path), §4.4 (attestation), §4.5 (owner model). One vault per owner, at
+//! `v<n>.<factory>`, created and initialised in one batch by the factory (`vault/factory`, item V4) from this code
+//! published as a Global Contract; the executor of each market is set at `init` and by `set_executor`.
 //!
 //! Three kinds of caller:
 //! - the owner, through `owner_call(message, signature, txs)`: an ERC-191 message signed by the owner's EVM wallet,
@@ -228,7 +228,7 @@ pub struct Vault {
 
 #[near]
 impl Vault {
-    /// Prototype: callable once by whoever deploys (the product's factory does this in one batch, §4.1).
+    /// Callable once, with no caller check: the factory creates the account and calls `init` in the same batch (§4.1).
     #[init]
     pub fn init(
         owner: String,
@@ -435,7 +435,8 @@ impl Vault {
     pub fn reduce(&mut self, market: String, amount: U128, tx: TxParams) -> PromiseOrValue<Vec<SignedTx>> {
         self.agent_check();
         let mk = self.agent_market(&market);
-        require!(amount.0 > 0 && amount.0 <= mk.slice_max, "amount above the slice maximum");
+        require!(amount.0 > 0, "zero amount");
+        require!(amount.0 <= mk.slice_max, "amount above the slice maximum");
         let dl = w_u128((now_secs() + DEADLINE_SECS) as u128);
         let data = calldata(SEL_REDUCE, &[mk.id, w_u128(amount.0), dl]);
         self.sign(vec![(mk.executor, 0, data)], vec![tx], Caller::Agent)
@@ -813,6 +814,18 @@ mod tests {
             .block_timestamp(NOW * 1_000_000_000)
             .build());
         let (sk, owner) = wallet();
+        let mut v = vault(&owner);
+        let m = json!({"protocol": owner::PROTOCOL, "network": owner::NETWORK, "vault": VAULT, "method": method,
+                       "args": args, "nonce": 1, "expiry": NOW + 60})
+        .to_string();
+        v.owner_call(m.clone(), sign(&sk, &m), vec![tx()])
+    }
+
+    fn tx() -> TxParams {
+        TxParams { nonce: 0, gas_limit: 800_000, max_fee_per_gas: 1_000_000_000, max_priority_fee_per_gas: 0 }
+    }
+
+    fn vault(owner: &Addr) -> Vault {
         let policy = Policy {
             cooldown_secs: 300,
             markets: vec![MarketInit {
@@ -823,19 +836,14 @@ mod tests {
                 slice_max: U128(1_000_000_000),
             }],
         };
-        let mut v = Vault::init(
-            h(&owner),
+        Vault::init(
+            h(owner),
             "signer.test.near".parse().unwrap(),
             "cmdk-base".into(),
             "0x00000000000000000000000000000000000000ab".into(),
             "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb".into(),
             policy,
-        );
-        let m = json!({"protocol": owner::PROTOCOL, "network": owner::NETWORK, "vault": VAULT, "method": method,
-                       "args": args, "nonce": 1, "expiry": NOW + 60})
-        .to_string();
-        let tx = TxParams { nonce: 0, gas_limit: 800_000, max_fee_per_gas: 1_000_000_000, max_priority_fee_per_gas: 0 };
-        v.owner_call(m.clone(), sign(&sk, &m), vec![tx])
+        )
     }
 
     #[test]
@@ -851,5 +859,22 @@ mod tests {
         // collateral_in 0 stays allowed: borrow more against the collateral already supplied.
         let zero = json!({"market": LIVE, "collateral_in": "0", "target_ltv": "400000000000000000"});
         assert!(matches!(owner_call("open", zero), PromiseOrValue::Promise(_)));
+    }
+
+    /// An agent call: registered agent key, corridor set, called by that key on the vault's own account.
+    #[test]
+    #[should_panic(expected = "zero amount")]
+    fn reduce_with_zero_amount_is_refused() {
+        let key: PublicKey = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(VAULT.parse().unwrap())
+            .predecessor_account_id(VAULT.parse().unwrap())
+            .signer_account_pk(key.clone())
+            .block_timestamp(NOW * 1_000_000_000)
+            .build());
+        let mut v = vault(&wallet().1);
+        v.markets[0].corridor_set = true;
+        v.agent = Some(Agent { public_key: key, expires_at: NOW + 3600 });
+        let _ = v.reduce(LIVE.into(), U128(0), tx());
     }
 }

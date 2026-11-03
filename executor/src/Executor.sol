@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {MarketParams, IMorpho, IOracle, IChainlinkFeed, IUniswapV3Pool, IERC20} from "./Interfaces.sol";
 import {CorridorMath as M} from "./CorridorMath.sol";
 
-/// PRIME executor prototype (throwaway, 27-31 Oct 2026). Spec: docs/01-design-and-feasibility.md §3, §4.2, §4.8.
+/// cmdk executor on Base (hackathon build). Spec: docs/01-design-and-feasibility.md §3, §4.2, §4.8.
 /// Permissionless and caller-scoped: every method acts only on msg.sender's Morpho position and sends tokens only to
 /// msg.sender (or to the market's fixed pool as payment inside a swap). No admin, no upgrade, no native value.
 /// Agent actions: reduce, migrate, exit. Owner paths: open, openFromStables, repay, close, setCorridor.

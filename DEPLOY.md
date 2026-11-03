@@ -324,9 +324,8 @@ this checkout. `cmdkfi/app` is made public on Friday, at deploy time. Record the
 **7b. Vault v1 (F; 2 NEAR deposit).** Use `vault/factory/DEPLOY.md` step 6, with two settings:
 - **`OWNER`.** `OWNER=0x0B7Ed66f46fe83252a208563A88201BA60490d25`, the test wallet. `scripts/p2_owner.py` signs
   owner messages only when the test wallet is the owner.
-- **`EXEC`.** That file still sets `EXEC` to the prototype executor. Run
-  `EXEC=$(jq -r .base.executor /Users/vf/cmdk/app/deployments/testnet.json)` after its `EXEC=` line; `echo $EXEC`
-  must print the step 2 address.
+- **`EXEC`.** That file's step 6 reads it from `deployments/testnet.json` (`base.executor`) and prints it;
+  it must print the step 2 address.
 
 Then run its step 7 checks.
 

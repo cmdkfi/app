@@ -2,14 +2,15 @@
 # P3 (throwaway): measurement H's reproduction, parameterised for the production OS image the P3 CVM runs
 # (dstack-0.5.12, not dstack-dev-0.5.12). Rebuilds MRTD and RTMR0-2 with dstack-mr from the public release tarball,
 # replays RTMR3 from the event log, and checks os_image_hash = sha256(sha256sum.txt) against the event log.
-# Reuses H's Dockerfile.dstack-mr and verify_measurements.py (research_notes/Measurements/H_artifacts/, read only).
+# Reuses H's Dockerfile.dstack-mr and verify_measurements.py, copied from the planning repo's
+# research_notes/Measurements/H_artifacts/ to scripts/measurements/ (override the directory with H_ARTIFACTS).
 #
 #   p3_reproduce_measurements.sh <work-dir> <evidence-dir> [image-name] [vcpu] [memory]
 # <evidence-dir> holds tdx_quote.hex, event_log.json, vm_config.json (as saved by the agent).
 set -euo pipefail
 WORK=$(mkdir -p "$1" && cd "$1" && pwd); EV=$(cd "$2" && pwd)
 IMAGE=${3:-dstack-0.5.12}; VCPU=${4:-1}; MEM=${5:-2G}
-H=$(cd "$(dirname "$0")/../../research_notes/Measurements/H_artifacts" && pwd)
+H=$(cd "${H_ARTIFACTS:-$(dirname "$0")/measurements}" && pwd)
 URL=https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.12/${IMAGE}.tar.gz
 EXPECTED=$(python3 -I -c "import json,sys; print(next(e['event_payload'] for e in json.load(open(sys.argv[1])) if e['imr']==3 and e['event']=='os-image-hash'))" "$EV/event_log.json")
 echo "vm_config: $(cat "$EV/vm_config.json")"

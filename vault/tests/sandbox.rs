@@ -38,7 +38,7 @@ const MORPHO: &str = "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb";
 const EXEC: &str = "0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40";
 const EXEC2: &str = "0x2222222222222222222222222222222222222222";
 const STRANGER: &str = "0x3333333333333333333333333333333333333333";
-const PATH: &str = "prime-base";
+const PATH: &str = "cmdk-base";
 const SLICE: u128 = 1_000_000_000; // 1,000 USDC (6 decimals)
 const COOLDOWN: u64 = 300;
 const WAD: u128 = 1_000_000_000_000_000_000;
@@ -666,7 +666,7 @@ async fn agent_key() -> Result<()> {
     expect_fail(reduce(&agent, LIVE, 1).await?, "cooldown");
     env.reset_cooldown().await?;
     expect_fail(reduce(&agent, LIVE, SLICE + 1).await?, "amount above the slice maximum");
-    expect_fail(reduce(&agent, LIVE, 0).await?, "amount above the slice maximum");
+    expect_fail(reduce(&agent, LIVE, 0).await?, "zero amount");
     expect_fail(reduce(&agent, UNKNOWN_MARKET, 1).await?, "market not in the allowlist");
     expect_fail(reduce(&agent, DEMO, 1).await?, "no corridor set");
 
