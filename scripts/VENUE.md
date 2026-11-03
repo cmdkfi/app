@@ -56,18 +56,21 @@ INTERVAL_MIN=5 scripts/rebalance.sh --max-cost-usdc 4 # extra arguments go to bo
   non-zero code is a crash: it is logged with its last line, and the next round runs as usual.
 - **Stopping:** Ctrl-C or SIGTERM lets a run in progress finish, then stops. A burn without its re-mint would leave
   the pool bare.
-- **Keeping it up:**
-  - nohup, from 6 Nov:
-    `nohup caffeinate -s scripts/rebalance.sh --band-usdc 10 >> ~/.local/state/cmdk/rebalance.log 2>&1 &`
-    (`DEPLOY.md` step 6).
-    - `caffeinate -s` prevents system sleep, but only while the Mac is on AC power. The 3 Nov run used `-i`, which
-      prevents idle sleep only, and paused three times when the lid closed.
-    - Whether `-s` holds through a lid close has not been measured.
-    - Drop `caffeinate` on Linux; the timer moves to a server the week of 9 Nov.
-    - Stop it with `kill -TERM $(pgrep -f '^/bin/sh scripts/rebalance.sh')`.
-  - Or a launchd agent or systemd unit with the same command and RunAtLoad / `WantedBy=default.target`.
+- **Keeping it up (decided 3 Nov: Cloudflare Containers).** From 6 Nov the timer runs in the always-on container
+  `cmdk-relayer` (`cloud/README.md`), with the relayer. A Cron Trigger (`*/10 * * * *`) runs one round, live then
+  demo, with `--band-usdc 10`, no `sleep` loop. The state files are kept in the Durable Object's storage and restored
+  at every container start; the `RUN` lines go to Workers Logs (`npx wrangler tail cmdk-relayer`, dashboard 7 days)
+  and `GET /runs`. Switch: `POST /pause` (returns once a running round has finished) and `POST /resume`; a new
+  deploy starts paused. A manual round is `POST /rebalance[?market=live|demo][&tolerance=X][&dry=1|&status=1]`
+  (`DEPLOY.md` steps 6, 9). The Mac stays a fallback only, never at the same time: copy the state down from `GET
+  /state`, then `nohup caffeinate -s scripts/rebalance.sh --band-usdc 10 >> ~/.local/state/cmdk/rebalance.log 2>&1 &`
+  on AC power (`-s` prevents system sleep on AC only; the 3 Nov run used `-i` and paused three times when the lid
+  closed; whether `-s` holds through a lid close has not been measured), stopped with
+  `kill -TERM $(pgrep -f '^/bin/sh scripts/rebalance.sh')`.
 - **One sending run at a time:** a lock on the state directory makes a manual run during the timer exit 4 instead
-  of racing the wallet's nonce. `--status` and `--dry-run` take no lock.
+  of racing the wallet's nonce. `--status` and `--dry-run` take no lock. The lock is per machine: the container
+  refuses a second round (409) and takes the lock inside, but a wallet transaction from the Mac needs `POST /pause`
+  first.
 
 What a live run does (the order is from results.md §4.8):
 1. If the gap is above the tolerance (0.25%), compute the repair before sending anything. The cost comes from a
@@ -235,10 +238,10 @@ the floor (`DEPLOY.md`, Budget).
 | 3 Nov (step 2, done) | On test positions: supply and borrow on all three markets, a `migrate` live → backup, a scripted liquidation (`liquidate.py`). Evidence: `evidence/venue/2026-11-03-venue-step2.md` |
 | 3 Nov | The timer started at 06:10 UTC after step 2, to run for 24 h unattended (the venue row's done-criterion). It was stopped at 14:46:44 UTC by founder decision ("close all now") after 8.6 h, so the criterion was not met. Then the close-out: positions closed, lender supply withdrawn, all bands burnt (`evidence/venue/2026-11-03-close-out.md`) |
 | 3–6 Nov | Timer off. Do not start it before the 6 Nov redeploy: both state files are `{}`, so a live run would mint a new band and a demo run a new anchor and bands |
-| 6 Nov | `DEPLOY.md`, in order: (1) faucet check; (2) executor redeploy, written into `deployments/testnet.json`; (3) the old executor's grants revoked and the new ones set; (4) lender supply of 13 USDC each on live and backup and 5,000 dUSDC on demo; (5) live band seeded with `--band-usdc 10 --tolerance 0.0005`, demo anchor and bands; (6) timer started with `caffeinate -s`. Markets and pools are unchanged, and the state files start empty. The supply is done by direct Morpho `supply` calls: `p1_onchain_run.py --venue-open` tops up only live and backup and also opens wallet test positions |
+| 6 Nov | `DEPLOY.md`, in order: (1) faucet check; (2) executor redeploy, written into `deployments/testnet.json`; (3) the old executor's grants revoked and the new ones set; (4) lender supply of 13 USDC each on live and backup and 5,000 dUSDC on demo; (5) live band seeded with `--band-usdc 10 --tolerance 0.0005`, demo anchor and bands; (6) the state files uploaded to the container and its timer resumed (`cloud/README.md`). Markets and pools are unchanged, and the state files start empty. The supply is done by direct Morpho `supply` calls: `p1_onchain_run.py --venue-open` tops up only live and backup and also opens wallet test positions |
 | 6–14 Nov | The timer runs throughout the build and the evidence scenes; demo price moves only through `--set-price` |
-| from the week of 9 Nov | The timer moves from the founder's Mac to a server, with restart (launchd or systemd, above) |
-| 14–25 Nov | Operations: the timer on the server; faucet claim daily; check wallet ETH weekly (at about 0.000005 ETH per repair, 0.2878 ETH lasts far beyond 25 Nov); `--status` on both markets before each clean-machine run on 18 and 25 Nov |
+| before 6 Nov | F deploys the container (`cloud/README.md`: secrets, `wrangler deploy`, `/health`); the timer stays paused. This replaces the move to a server planned for the week of 9 Nov |
+| 14–25 Nov | Operations: the timer in the container (`GET /timer`, `GET /runs`); faucet claim daily; check wallet ETH weekly (at about 0.000005 ETH per repair, 0.2878 ETH lasts far beyond 25 Nov); `POST /rebalance?status=1` (both markets) before each clean-machine run on 18 and 25 Nov |
 
 ## Operations log
 

@@ -526,6 +526,23 @@ class TestPrechecks(unittest.TestCase):
         with self.assertRaises(R.Refused):
             R.Chain(dry_run=True).send_raw(fake_raw(84532, 0))
 
+    def test_near_cmd_access_key_file(self):
+        # the container sets NEAR_ACCESS_KEY_FILE (cloud/README.md); R.SIGN is what the module computed from it
+        sign = ['sign-with-access-key-file', '/home/cmdk/.config/prime/near_relayer_key.json']
+        orig = R.SIGN
+        R.SIGN = sign
+        try:
+            cmd = R.near_cmd(['tokens', 'relayer.testnet', 'send-near', AGENT, '1 yoctonear'])
+            self.assertEqual(cmd[-5:], ['network-config', 'testnet'] + sign + ['send'])
+            with self.assertRaises(R.Refused):
+                R.Chain(dry_run=True).near_send(cmd)
+            with self.assertRaises(R.Refused):                   # keychain form refused while a key file is set
+                R.Chain().near_send(['near', 'tokens', 'x', 'network-config', 'testnet', 'sign-with-keychain', 'send'])
+            with self.assertRaises(R.Refused):
+                R.Chain().near_send(['near', 'tokens', 'x', 'network-config', 'mainnet'] + sign + ['send'])
+        finally:
+            R.SIGN = orig
+
     def test_start_guard(self):
         c = FakeChain()
         R.check_networks(c)

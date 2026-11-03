@@ -52,12 +52,12 @@ NEAR is spent in steps 7 and 8 only: 85 NEAR on the publishing account and 5 NEA
 |---|---|---|
 | Executor freeze read (Wed 4) and vault review | F | findings in the README's Limitations, no open defect |
 | Funds: 40 USDC and 0.2 ETH to `0x0B7E…0d25` (done 3 Nov from F's other wallet) | F | done |
-| Timer stays off; nothing on Base Sepolia is restarted | F, C | `pgrep -fl rebalance.sh` prints nothing; `cat scripts/state/live.json scripts/state/demo.json` prints `{}{}` |
+| Timer stays off; nothing on Base Sepolia is restarted | F, C | `pgrep -fl rebalance.sh` prints nothing; `curl -s -H @$A $U/timer \| jq .paused` prints `true`; `cat scripts/state/live.json scripts/state/demo.json` prints `{}{}` |
 | NEAR on the publishing account | F | at least 85 NEAR. The publish costs about 78.24 NEAR for the 782,389-byte host build; the reproducible wasm's size is read on Friday. Add the factory's 2 NEAR and gas. `prime-measure-1792736012.testnet` held 179.32 NEAR on 3 Nov |
 | NEAR on the relayer account | F | at least 5 NEAR (2 NEAR vault deposit, agent funding 0.16, gas) |
 | Vault build prerequisites | F | `vault/factory/DEPLOY.md` step 1: the commit to publish pushed to `origin/main`, clean tree, Docker running with disk room (the agent build stopped on a full Docker disk on 3 Nov) |
 | Agent image | C (agent work) | `grep 'image:' agent/docker-compose.live.yml` shows `ghcr.io/cmdkfi/agent@sha256:` and 64 hex characters, not `REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS`; the image pulls anonymously |
-| Mac for the timer | F | on AC power from Friday until the timer moves to a server (week of 9 Nov) |
+| Relayer and timer container (decided 3 Nov: Cloudflare Containers, not the Mac) | F | `cloud/README.md` "Commands for F" run: four secrets, `wrangler deploy`, then `/health` prints `"ok":true` with the relayer account and the factory, and `/timer` prints `"paused":true` |
 
 **Shell setup (C, every shell).** C's shell does not keep variables between commands, so the setup goes into one
 file outside the repository; it holds addresses only. Write it once:
@@ -69,6 +69,7 @@ cat > ~/.local/state/cmdk/deploy-2026-11-06.sh <<'EOF'
 set -o pipefail
 cd /Users/vf/cmdk/app
 export PATH="$HOME/.foundry/bin:$PATH" RPC=https://base-sepolia-rpc.publicnode.com
+U=https://relayer.cmdk.fi; A=$HOME/.config/prime/relayer_admin.header   # relayer and timer (cloud/README.md); A holds the admin token
 unset STATE_DIR DEPLOYMENTS
 LOG=/Users/vf/cmdk/app/evidence/deploy/2026-11-06.log
 W=0x0B7Ed66f46fe83252a208563A88201BA60490d25; OLD=0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40
@@ -82,8 +83,8 @@ R='Reduced(address indexed caller, bytes32 indexed market, uint256 repaid, uint2
 EXEC=$(jq -r .base.executor deployments/testnet.json)          # the new executor once step 2 has written it
 V=$(jq -r '.near.vault // empty' deployments/testnet.json); VB=$(jq -r '.near.vault_base_address // empty' deployments/testnet.json)
 FROM=$(cat ~/.local/state/cmdk/scene-from-block 2>/dev/null)   # written in step 9
-tx() {  # tx LABEL TO SIG [ARGS...]: one transaction from the test wallet; Base Sepolia only; under the rebalancer's
-        # lock, so it never races a timer run on the wallet's nonce (exit 4 while a run holds it: run it again)
+tx() {  # tx LABEL TO SIG [ARGS...]: one transaction from the test wallet; Base Sepolia only; under the Mac rebalancer's
+        # lock (exit 4 while a run holds it: run it again). The container's timer (step 6) does not see that lock: pause it around tx
   python3 -I -c '
 import sys; sys.path.insert(0, "scripts"); import rebalance_pool as rp
 assert int(rp.subprocess.run([rp.CAST, "chain-id", "--rpc-url", rp.RPC], capture_output=True, text=True).stdout) == rp.CHAIN_ID, "not Base Sepolia"
@@ -92,7 +93,7 @@ fd = rp.lock(); v = rp.os.environ.get("VALUE"); rp.send(*sys.argv[1:], value=int
 owner() {  # owner METHOD ARGS_JSON NAME: sign as the vault owner (the test wallet), submit through the relayer
   python3 -I scripts/p2_owner.py --vault "$V" --method "$1" --args "$2" --out "$HOME/.local/state/cmdk/$3.signed.json" >> "$LOG" &&
   jq -c --arg v "$V" '{vault: $v, message, signature}' "$HOME/.local/state/cmdk/$3.signed.json" |
-    curl -s localhost:8787/owner-call -H 'Content-Type: application/json' -d @- > "evidence/deploy/2026-11-06-$3.json"
+    curl -s $U/owner-call -H 'Content-Type: application/json' -d @- > "evidence/deploy/2026-11-06-$3.json"
   jq -c '{ok, near_tx, error, receipts: [.receipts[]? | {hash, status}]}' "evidence/deploy/2026-11-06-$3.json" | tee -a "$LOG"
 }
 EOF
@@ -110,11 +111,11 @@ wallet's USDC set to 64.341191 with `anvil_setStorageAt`), and every output matc
 ```sh
 source ~/.local/state/cmdk/deploy-2026-11-06.sh
 python3 -I scripts/rebalance_pool.py --market live --status | grep '^wallet' | tee -a $LOG
-pgrep -fl rebalance.sh
+pgrep -fl rebalance.sh; curl -s -H @$A $U/timer | jq -c '{paused, container: .container.status}'
 ```
 
 Expected: `wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.487648 ETH, 0.057910 WETH, 64.341191 USDC,
-25026.493470 dUSDC` (read on 3 Nov after F's transfer). `pgrep` prints nothing.
+25026.493470 dUSDC` (read on 3 Nov after F's transfer). `pgrep` prints nothing; the timer prints `"paused":true`.
 
 ## 2. Executor redeploy (C; gas only, at most 0.000064 ETH)
 
@@ -280,36 +281,51 @@ Expected:
 - **On the fork on 3 Nov.** Live 10.000000 USDC + 0.004376 WETH after a 0.478578 USDC repair; the burn would return
   9.860010 USDC + 0.004376 WETH. Demo repair 0.101065 dUSDC.
 
-## 6. Timer (C; runs on this Mac with `caffeinate -s` on AC power)
+## 6. Timer (C; on Cloudflare Containers, `cloud/README.md`)
 
-On 3 Nov the timer ran under `caffeinate -i` and paused three times in 8.6 h when the lid closed (`-i` prevents idle
-sleep only). `-s` prevents system sleep while the Mac is on AC power, so keep it plugged in. The timer moves to a
-server the week of 9 Nov.
+The timer runs in the container `cmdk-relayer` that F deployed before Friday (§0). A cron every 10 minutes runs one
+round, live then demo, with `--band-usdc 10`; the container is always on, so the Mac may sleep. It starts paused. C
+uploads the state files step 5 wrote, then resumes it. From here on the Mac runs no rebalancer round: its state
+files are stale after the upload, and every round goes through `POST /rebalance` (steps 9 and 10).
 
 ```sh
-cd /Users/vf/cmdk/app && nohup caffeinate -s scripts/rebalance.sh --band-usdc 10 >> ~/.local/state/cmdk/rebalance.log 2>&1 &
+source ~/.local/state/cmdk/deploy-2026-11-06.sh
+jq -n --slurpfile l scripts/state/live.json --slurpfile d scripts/state/demo.json '{live: $l[0], demo: $d[0]}' |
+  curl -s -X PUT -H @$A $U/state -H 'Content-Type: application/json' --data-binary @- | jq -c .state | tee -a $LOG
+curl -s -X POST -H @$A $U/resume | tee -a $LOG
 ```
 
-About a minute later (read-only):
+Expected: `live` and `demo` equal to `cat scripts/state/live.json scripts/state/demo.json` (step 5's band, anchor,
+sell and buy token ids), `relayer` null or the relayer's counters; then `{"ok":true,"paused":false}`.
+
+After the next cron (at :00, :10, :20, … UTC; read-only):
 
 ```sh
-tail -n 3 ~/.local/state/cmdk/rebalance.log
-pgrep -fl rebalance.sh; pmset -g assertions | grep 'PreventSystemSleep named'; pmset -g batt | head -1
+source ~/.local/state/cmdk/deploy-2026-11-06.sh
+curl -s -H @$A $U/timer | jq -c '{paused, container: .container.status}'
+curl -s -H @$A "$U/runs?n=2"
 ```
 
 Expected:
-- **Log.** `rebalance.sh: every 600 s, live then demo, args: --band-usdc 10; detail log …`, then one
-  `RUN … market=live … exit=0` and one `RUN … market=demo … exit=0`.
-- **Processes.** `pgrep` shows `/bin/sh scripts/rebalance.sh --band-usdc 10` and
-  `caffeinate -s scripts/rebalance.sh --band-usdc 10`.
-- **Assertion.** `pmset` shows `pid N(caffeinate): … PreventSystemSleep named: "caffeinate command-line tool"`.
-- **Power.** `Now drawing from 'AC Power'`.
-- **Not measured.** Whether `-s` holds through a lid close on this Mac has not been measured. The next morning,
-  `pmset -g log | grep -i 'Clamshell Sleep'` must show nothing after the start time, and the `RUN` lines must be
-  10 minutes apart.
+- **Timer.** `{"paused":false,"container":"healthy"}`. This replaces the `pgrep` and `pmset` checks: no process
+  runs on the Mac.
+- **Runs.** One `RUN … market=live … exit=0 source=cron` and one `RUN … market=demo … exit=0 source=cron`.
+- **Log.** `npx wrangler tail cmdk-relayer` from `cloud/` shows every `RUN` line live. The dashboard keeps the
+  Worker's and the container's logs for 7 days; the container's log has each round's full output with every
+  transaction hash. `GET /runs` keeps the last 5,000 `RUN` lines.
+- **Not measured.** The container has not run on Cloudflare before Friday's §0 deploy. The next morning, `GET /runs`
+  must show `source=cron` lines 10 minutes apart.
 
-Stop it (a run in progress finishes first): `kill -TERM $(pgrep -f '^/bin/sh scripts/rebalance.sh')`. From now on
-every wallet transaction goes through `tx`, which takes the timer's lock, so the two never race the wallet's nonce.
+Pause it (a round in progress finishes first): `curl -s -X POST -H @$A $U/pause` prints
+`{"ok":true,"paused":true,"idle":true}`. The `tx` helper's lock is the Mac's, which the container does not see, so
+from now on every wallet transaction from the Mac goes between a pause and a resume (step 7e).
+
+**Fallback: the Mac** (only if the container is down; never both). Pause the container if it answers, copy its
+state down (`curl -s -H @$A $U/state | jq .stored.live > scripts/state/live.json`, the same for `demo`), then run
+the 3 Nov command on AC power: `cd /Users/vf/cmdk/app && nohup caffeinate -s scripts/rebalance.sh --band-usdc 10 >>
+~/.local/state/cmdk/rebalance.log 2>&1 &`. `pgrep -fl rebalance.sh` shows it; whether `-s` holds through a lid
+close has not been measured. Stop it with `kill -TERM $(pgrep -f '^/bin/sh scripts/rebalance.sh')`, and upload
+the state again (above) before resuming the container.
 
 ## 7. Vault, relayer, `setup` and `open`
 
@@ -343,26 +359,38 @@ jq .near deployments/testnet.json
 Expected: `base` is the address in step 6's `creating vault` log line, and `jq` shows all six fields filled (the
 `sed` was tested on a copy on 3 Nov).
 
-**7d. Relayer (F; no funds).** It signs with the relayer's NEAR keychain entry:
+**7d. Relayer (F; no funds).** It runs in the container deployed before Friday (§0, `cloud/README.md`) and
+signs with the relayer's access-key file (`NEAR_RELAYER_KEY_JSON`). Check that it carries 7c's factory:
 
 ```sh
 cd /Users/vf/cmdk/app
-python3 -I scripts/test_relayer.py 2>&1 | tail -1            # OK (53 tests on 3 Nov)
-nohup scripts/relayer.sh serve --port 8787 --sender $RELAYER --factory $FACTORY >> ~/.local/state/cmdk/relayer.log 2>&1 &
+python3 -I scripts/test_relayer.py 2>&1 | tail -1            # OK (54 tests on 3 Nov)
+curl -s https://relayer.cmdk.fi/health | jq -c '{ok, dry_run, sender, factory, chain_id, sender_balance}'
 ```
 
-A few seconds later, `curl -s localhost:8787/health` prints JSON with `"ok": true` and `"dry_run": false`.
+Expected: `{"ok":true,"dry_run":false,"sender":"<RELAYER>","factory":"<FACTORY>","chain_id":84532,"sender_balance":"… NEAR"}`.
+If `factory` is not 7c's `FACTORY`, or the response is `relayer not started: no factory …`: set
+`NEAR_FACTORY_ACCOUNT` in `cloud/wrangler.jsonc` to it, pause the timer, run `npx wrangler deploy` from `cloud/`,
+resume, and read `/health` again.
+
+**Fallback: the Mac** (keychain signing): `nohup scripts/relayer.sh serve --port 8787 --sender $RELAYER --factory
+$FACTORY >> ~/.local/state/cmdk/relayer.log 2>&1 &`; `curl -s localhost:8787/health` prints `"ok": true` and
+`"dry_run": false`. Then set `U=http://localhost:8787` in the shell setup for `owner` and the relayer calls below
+(the Mac relayer ignores the admin header).
 
 **7e. Gas money and collateral for the vault's Base address (C; 0.01 ETH + 0.01 WETH, 2 transactions).**
 
 ```sh
 source ~/.local/state/cmdk/deploy-2026-11-06.sh               # V and VB now come from deployments/testnet.json
+curl -s -X POST -H @$A $U/pause | tee -a $LOG                 # the timer's round finishes first; no race on the wallet's nonce
 VALUE=10000000000000000 tx '0.01 ETH to the vault' $VB 0x
 tx '0.01 WETH to the vault' $WETH 'transfer(address,uint256)' $VB 10000000000000000
+curl -s -X POST -H @$A $U/resume | tee -a $LOG
 cast balance $VB --rpc-url $RPC; cast call $WETH 'balanceOf(address)(uint256)' $VB --rpc-url $RPC
 ```
 
-Expected: two `status 1` lines, then `10000000000000000` and `10000000000000000 [1e16]`.
+Expected: `{"ok":true,"paused":true,"idle":true}`, two `status 1` lines, `{"ok":true,"paused":false}`, then
+`10000000000000000` and `10000000000000000 [1e16]`.
 
 **7f. `setup` on all three markets (C; one owner signature, 7 Base transactions paid by the vault's ETH).**
 - **Live** approves both tokens and authorizes Morpho.
@@ -375,7 +403,7 @@ Corridors are 50/70/30, sell budget 20%, migrate and exit allowed. `scripts/RELA
 source ~/.local/state/cmdk/deploy-2026-11-06.sh
 C='{"target":"500000000000000000","act":"700000000000000000","floor":"300000000000000000","sell_budget":"200000000000000000","migrate_allowed":true,"exit_allowed":true}'
 owner setup '{"markets":[{"market":"'$LIVE'","approve":true,"authorize":true,"corridor":'$C'},{"market":"'$BACKUP'","approve":false,"authorize":false,"corridor":'$C'},{"market":"'$DEMO'","approve":true,"authorize":false,"corridor":'$C'}]}' setup
-curl -s localhost:8787/vault/$V | jq -c '.base.markets[] | {id, executor, morpho_authorized, loan_allowance, collateral_allowance, corridor}'
+curl -s $U/vault/$V | jq -c '.base.markets[] | {id, executor, morpho_authorized, loan_allowance, collateral_allowance, corridor}'
 ```
 
 Expected:
@@ -411,7 +439,7 @@ is `--mode live`, so the agent sends. Phala's pre-launch script is `agent/pre-la
   `source ~/.local/state/cmdk/deploy-2026-11-06.sh; owner approve_measurement '<the JSON>' approve-measurement`.
   The response is `"ok":true` with no receipts.
 - **C funds.** When the log prints `WAITING implicit_account=<64 hex> …`, run
-  `curl -s localhost:8787/fund-agent -d '{"implicit_account":"<64 hex>"}'`. The response is `"status": "funded"`.
+  `curl -s -H @$A $U/fund-agent -d '{"implicit_account":"<64 hex>"}'`. The response is `"status": "funded"`.
 - **Check.** `register_agent` lands (MEASUREMENT.md §7). Read-only:
   `near contract call-function as-read-only $V get_state json-args '{}' network-config testnet now` shows the
   agent key and an `expires_at` 7 days ahead.
@@ -424,7 +452,7 @@ the 10 USDC band absorbs at about 0.36% price move (fork, step 5).
 
 ```sh
 source ~/.local/state/cmdk/deploy-2026-11-06.sh
-python3 -I scripts/rebalance_pool.py --market live --band-usdc 10 --tolerance 0.0005 | grep '^RUN'   # centre the pool; exit 4 = timer mid-run, run again
+curl -s -X POST -H @$A "$U/rebalance?market=live&tolerance=0.0005" | jq -r '.error // .runs[].line' | tee -a $LOG   # centre the pool (--band-usdc 10 is the timer's default); 409 = a timer round is running, run again
 cast block-number --rpc-url $RPC > ~/.local/state/cmdk/scene-from-block; FROM=$(cat ~/.local/state/cmdk/scene-from-block)
 echo "scene from block $FROM; ltvOf $(cast call $EXEC 'ltvOf(address,bytes32)(uint256)' $VB $LIVE --rpc-url $RPC)" | tee -a $LOG
 owner set_corridor '{"market":"'$LIVE'","target":"400000000000000000","act":"450000000000000000","floor":"300000000000000000","sell_budget":"200000000000000000","migrate_allowed":true,"exit_allowed":true}' set-corridor-act45
@@ -446,7 +474,7 @@ Expected:
   - `protective: true`.
 - **Afterwards:**
   - `cast call $EXEC 'ltvOf(address,bytes32)(uint256)' $VB $LIVE --rpc-url $RPC` reads about 4e17.
-  - `python3 -I scripts/rebalance_pool.py --market live --status | grep '^pool tick'` shows a gap of about
+  - `curl -s -X POST -H @$A "$U/rebalance?market=live&status=1" | jq -r '.runs[0].output' | grep '^pool tick'` shows a gap of about
     −0.36%. The timer's next round repairs it (`action=repair+band`).
 - **Restore.** Then set the README's corridor back. The agent does nothing at LTV 0.40 under act 0.70:
 
@@ -466,7 +494,7 @@ source ~/.local/state/cmdk/deploy-2026-11-06.sh
   echo "## LTV now"; cast call $EXEC 'ltvOf(address,bytes32)(uint256)' $VB $LIVE --rpc-url $RPC
   echo "## owner set_corridor restored (50/70/30)"; jq -c '{ok, near_tx, receipts: [.receipts[] | {hash, status, block}]}' evidence/deploy/2026-11-06-set-corridor-restore.json
 } > evidence/protect-live.txt
-cp ~/.local/state/cmdk/rebalance.log evidence/deploy/2026-11-06-timer-rebalance.log
+curl -s -H @$A "$U/runs?n=5000" > evidence/deploy/2026-11-06-timer-rebalance.log
 ls evidence/deploy/; git status --short
 ```
 

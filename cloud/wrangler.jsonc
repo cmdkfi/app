@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // cmdk relayer and rebalancer timer on Cloudflare Containers (testnet only: Base Sepolia, NEAR testnet).
+  // cloud/README.md has the commands. Secrets (wrangler secret put, never in this file): BASE_EOA_KEY_JSON,
+  // NEAR_RELAYER_KEY_JSON, NEAR_RELAYER_ACCOUNT, ADMIN_TOKEN.
+  "name": "cmdk-relayer",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  "workers_dev": true,
+  "routes": [{ "pattern": "relayer.cmdk.fi", "custom_domain": true }],
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["*/10 * * * *"] },
+  "vars": {
+    // the app origins allowed by CORS (comma separated)
+    "ALLOWED_ORIGINS": "https://cmdk.fi,http://localhost:5173",
+    // relayer.py serve --factory; empty = deployments/testnet.json near.factory (null until DEPLOY.md step 7c)
+    "NEAR_FACTORY_ACCOUNT": "",
+    // the timer's arguments to rebalance_pool.py, as DEPLOY.md step 6 gave rebalance.sh
+    "REBALANCE_ARGS": "--band-usdc 10",
+    "BASE_RPC": "https://base-sepolia-rpc.publicnode.com",
+    "NEAR_RPC": "https://rpc.testnet.near.org"
+  },
+  "containers": [
+    {
+      "class_name": "CmdkBackend",
+      "image": "./Dockerfile",
+      "image_build_context": "..",
+      "instance_type": "basic",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "BACKEND", "class_name": "CmdkBackend" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["CmdkBackend"] }]
+}

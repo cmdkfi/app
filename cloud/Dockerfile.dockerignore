@@ -1,0 +1,7 @@
+# Build context is the repository root; only what the Dockerfile copies is sent.
+*
+!scripts/relayer.py
+!scripts/relayer.sh
+!scripts/rebalance_pool.py
+!deployments/testnet.json
+!cloud/front.py

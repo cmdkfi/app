@@ -2,7 +2,8 @@
 
 **What it does.** It carries owner messages to the vault on NEAR and the vault's signed transactions to Base
 Sepolia; it creates vaults through the factory and funds a new agent's implicit account. It pays NEAR gas from
-`--sender` (signed only through near-cli-rs's keychain, `sign-with-keychain`) and broadcasts on Base.
+`--sender` (signed only through near-cli-rs: the keychain, `sign-with-keychain`, or in the container an access-key
+file, `sign-with-access-key-file`) and broadcasts on Base.
 
 **What it does not do.** It holds no authority. It cannot make the vault sign anything: the vault checks the
 owner's signature and its allowlist and builds every Base transaction itself. The relayer never holds an EVM key.
@@ -23,6 +24,13 @@ stops it. To keep it running after logout: `nohup scripts/relayer.sh serve ... >
 launchd agent (macOS) or a systemd unit (Linux) whose command is the same `relayer.sh serve ...` line, with
 `KeepAlive`/`Restart=on-failure` left off since the script restarts itself. The service binds 127.0.0.1 only;
 the app's server-side proxy calls it, and it is never exposed to the internet.
+
+**On Cloudflare (from 6 Nov, `cloud/README.md`).** The container runs the same `relayer.sh serve`, still on
+127.0.0.1; `cloud/front.py` proxies to it, and the Worker at `https://relayer.cmdk.fi` is the proxy, with CORS for
+the app's origins. `GET /health`, `GET /vault/<id>` and `POST /owner-call` are open; `POST /create-vault` and
+`POST /fund-agent` need the admin token, since they spend the relayer's NEAR without an owner signature. When
+`NEAR_ACCESS_KEY_FILE` names a near-cli-rs access-key file, every near command signs with
+`sign-with-access-key-file <path>` instead of `sign-with-keychain`; the Mac leaves it unset.
 
 Tests (no network): `python3 -I -m unittest discover -s scripts -p test_relayer.py` from the repository root,
 or `python3 -I scripts/test_relayer.py`. (`-m unittest scripts/test_relayer.py` fails under `-I`, which keeps
@@ -92,7 +100,8 @@ and no measurement, or with a market listed twice, is refused.
 ## Testnet-only guards
 
 At start-up the service reads `eth_chainId` (must be 84532) and NEAR `status.chain_id` (must be `testnet`) and
-exits with 2 otherwise. Every near command ends `network-config testnet sign-with-keychain send`; account ids
+exits with 2 otherwise. Every near command ends `network-config testnet sign-with-keychain send` (or
+`sign-with-access-key-file <path> send` in the container); account ids
 must end in `.testnet` (an agent's implicit account is 64 hex). Every raw transaction's chain id is decoded and
 must be 84532 before `eth_sendRawTransaction`, in the service and in `relayer.py broadcast`. Bind: 127.0.0.1.
 

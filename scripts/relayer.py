@@ -2,7 +2,8 @@
 """cmdk relayer: carries owner messages to the vault on NEAR and the vault's signed transactions to Base Sepolia.
 It holds no authority: the vault decides what is signed; the relayer pays NEAR gas, broadcasts on Base, and,
 because the vault cannot read Base, reads Base before it composes a call (design §4.1). It signs NEAR
-transactions only through near-cli-rs's keychain (sign-with-keychain) and never handles an EVM key.
+transactions only through near-cli-rs: the keychain (sign-with-keychain) by default, or the access-key file named by
+$NEAR_ACCESS_KEY_FILE (sign-with-access-key-file; the Cloudflare container, cloud/README.md). It never handles an EVM key.
 Testnet only: Base chain id 84532 and NEAR network testnet are checked; anything else is refused.
 
   relayer.py serve --sender ACCOUNT --factory ACCOUNT [--port 8787] [--near-rpc URL] [--base-rpc URL]
@@ -38,6 +39,8 @@ BASE_RPC = 'https://base-sepolia-rpc.publicnode.com'
 SIGNER = 'v1.signer-prod.testnet'
 RELAYER = 'prime-measure-1792736012.testnet'
 HOST = '127.0.0.1'                   # the service binds here only; there is no flag to change it
+KEY_FILE = os.environ.get('NEAR_ACCESS_KEY_FILE')   # set in the container only; the Mac signs with the keychain
+SIGN = ['sign-with-access-key-file', KEY_FILE] if KEY_FILE else ['sign-with-keychain']
 STATE_DEFAULT = os.path.join(HERE, 'state', 'relayer.json')
 CHAIN_ID = 84532                     # Base Sepolia, the vault's CHAIN_ID
 NEAR_NETWORK = 'testnet'
@@ -511,8 +514,8 @@ def check_raw_chain_id(raw):
 
 
 def near_cmd(parts):
-    """A near-cli-rs command that signs with the keychain on testnet; nothing else is ever run."""
-    return ['near'] + parts + ['network-config', NEAR_NETWORK, 'sign-with-keychain', 'send']
+    """A near-cli-rs command that signs (SIGN: keychain or access-key file) on testnet; nothing else is ever run."""
+    return ['near'] + parts + ['network-config', NEAR_NETWORK] + SIGN + ['send']
 
 
 def w(x):
@@ -575,7 +578,7 @@ class Chain:
 
     def near_send(self, cmd):
         """Runs a near-cli-rs command that sends a transaction; returns its transaction id."""
-        if self.dry_run or cmd[-4:] != ['network-config', NEAR_NETWORK, 'sign-with-keychain', 'send']:
+        if self.dry_run or cmd[-3 - len(SIGN):] != ['network-config', NEAR_NETWORK] + SIGN + ['send']:
             raise Refused('refusing to run: %s' % shlex.join(cmd)[:300])
         log('run: ' + shlex.join(cmd)[:2000])
         try:
