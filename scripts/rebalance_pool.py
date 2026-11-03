@@ -6,7 +6,7 @@ Venue row, 3 Nov 2026: budget guard, --status, L1 data fee per run, one RUN line
 Reads the test wallet key from ~/.config/prime/base_sepolia_eoa.json (never printed). RPC from $RPC.
 Addresses from $DEPLOYMENTS: deployments/testnet.json (default) or the old flat executor/deployments.json.
 
-  rebalance_pool.py --market live [--tolerance 0.0025] [--max-cost-usdc 6] [--reserve-usdc 8] [--remint] [--dry-run]
+  rebalance_pool.py --market live [--tolerance 0.0025] [--max-cost-usdc 6] [--reserve-usdc 8] [--band-usdc 10] [--remint] [--dry-run]
   rebalance_pool.py --market demo [--set-price 1600] [--tolerance 0.0025] [--remint] [--dry-run]
   rebalance_pool.py --market live|demo --status        reads only: tick, oracle, gap, our band, wallet, L1 fee, repair cost
   rebalance_pool.py --market live|demo --close-bands [--dry-run]   burn and collect all our positions on the pool, clear state
@@ -21,7 +21,7 @@ live: USDC(token0)/WETH(token1) 0.01% pool 0x5718...156c. When the pool is off t
       pool's initialised ticks with our band taken out (it is burnt first), and cross-checked with QuoterV2 when our
       band is not on the path. The run is refused (exit 3) when the cost is above --max-cost-usdc, or when it would
       leave the wallet (plus what the band burn returns) under --reserve-usdc. A new band keeps reserve + max cost
-      in the wallet, so the next repair can still be paid.
+      in the wallet, so the next repair can still be paid; --band-usdc caps its USDC (and so its WETH) below that.
 demo: WETH(token0)/dUSDC(token1) 0.01% pool from the deployments, MockOracle as reference.
       dUSDC is mintable and test WETH is scarce, so the layout differs from U:
         anchor  a small full-range position, so moving the price to a new mock price costs only dust;
@@ -416,9 +416,10 @@ def run_live(m, me, a):
         ot = m.tick_of(o); lo, hi = ot - LIVE_BAND, ot + LIVE_BAND
         keep = int((a.reserve_usdc + a.max_cost_usdc) * 1e6)          # the next repair must still be payable
         aw = max(bal(WETH, me) - RESERVE_WETH, 0); au = max(bal(USDC, me) - keep, 0)
+        if a.band_usdc is not None: au = min(au, int(a.band_usdc * 1e6))   # cap (6 Nov: 10 USDC + matching WETH)
         v = min(aw / 1e18 * m.usd(o), au / 1e6); aw = int(v / m.usd(o) * 1e18); au = int(v * 1e6)
-        print('mint +-1%% band [%d, %d) with %.6f WETH + %.6f USDC (keeps %.2f USDC, reserve + max cost, in the wallet)' % (
-            lo, hi, aw / 1e18, au / 1e6, keep / 1e6))
+        print('mint +-1%% band [%d, %d) with %.6f WETH + %.6f USDC (keeps at least %.2f USDC, reserve + max cost, in the wallet; '
+              'cap %s)' % (lo, hi, aw / 1e18, au / 1e6, keep / 1e6, 'none' if a.band_usdc is None else '%.2f USDC' % a.band_usdc))
         if aw > 0 and au > 0:
             tid = mint('band', m, lo, hi, au, aw, me, a.dry_run)       # USDC is token0 here
             if tid: m.save({'band': {'token_id': tid, 'lo': lo, 'hi': hi}})
@@ -597,6 +598,8 @@ def main():
     ap.add_argument('--tolerance', type=float, default=0.0025)
     ap.add_argument('--max-cost-usdc', type=float, default=6.0, help='refuse a repair whose swap input is worth more (USD)')
     ap.add_argument('--reserve-usdc', type=float, default=8.0, help='refuse a repair that leaves less USDC in the wallet')
+    ap.add_argument('--band-usdc', type=float, help='live only: at most this much USDC (plus WETH of equal value) in a new band; '
+                    'default: all USDC above --reserve-usdc + --max-cost-usdc')
     ap.add_argument('--remint', action='store_true')
     ap.add_argument('--set-price', type=float, help='demo only: MockOracle price in USD per ETH, set first')
     ap.add_argument('--dry-run', action='store_true')

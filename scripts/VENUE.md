@@ -10,7 +10,7 @@ old flat `executor/deployments.json` through `DEPLOYMENTS=...`. `p1_onchain_run.
 | Market | Oracle | Pool | Kept at the oracle by |
 |---|---|---|---|
 | live | MorphoChainlinkOracleV2 on Chainlink ETH/USD and USDC/USD | public USDC/WETH 0.01% `0x5718…156c` | `rebalance_pool.py --market live`: our ±1% band, burnt before a repair |
-| backup | its own MorphoChainlinkOracleV2 instance on the same two feeds | the same pool as live (prototype executor config) | the live run (same pool, same price to within rounding) |
+| backup | its own MorphoChainlinkOracleV2 instance on the same two feeds | the same pool as live (executor config; the 6 Nov executor keeps it, since migrate uses a flash loan and no swap) | the live run (same pool, same price to within rounding) |
 | demo | MockOracle (the test wallet sets it) | WETH/dUSDC 0.01% `0x722F…21c1` | `rebalance_pool.py --market demo`: anchor, sell band, buy band |
 
 ## Status (reads only)
@@ -43,8 +43,8 @@ or a demo anchor and bands.
 ## Rebalancer on a timer
 
 ```sh
-scripts/rebalance.sh                                  # every 10 min: live, then demo; defaults --max-cost-usdc 6 --reserve-usdc 8
-INTERVAL_MIN=5 scripts/rebalance.sh --max-cost-usdc 4 # extra arguments go to both markets' runs
+scripts/rebalance.sh --band-usdc 10                   # every 10 min: live, then demo; defaults --max-cost-usdc 6 --reserve-usdc 8
+INTERVAL_MIN=5 scripts/rebalance.sh --max-cost-usdc 4 # extra arguments go to both markets' runs (demo ignores --band-usdc)
 ```
 
 - **Output:** one line per run on stdout:
@@ -57,8 +57,14 @@ INTERVAL_MIN=5 scripts/rebalance.sh --max-cost-usdc 4 # extra arguments go to bo
 - **Stopping:** Ctrl-C or SIGTERM lets a run in progress finish, then stops. A burn without its re-mint would leave
   the pool bare.
 - **Keeping it up:**
-  - nohup: `nohup caffeinate -i scripts/rebalance.sh >> ~/.local/state/cmdk/rebalance.log 2>&1 &`.
-    `caffeinate -i` keeps a Mac awake; drop it on Linux. Stop it with `kill <pid>`.
+  - nohup, from 6 Nov:
+    `nohup caffeinate -s scripts/rebalance.sh --band-usdc 10 >> ~/.local/state/cmdk/rebalance.log 2>&1 &`
+    (`DEPLOY.md` step 6).
+    - `caffeinate -s` prevents system sleep, but only while the Mac is on AC power. The 3 Nov run used `-i`, which
+      prevents idle sleep only, and paused three times when the lid closed.
+    - Whether `-s` holds through a lid close has not been measured.
+    - Drop `caffeinate` on Linux; the timer moves to a server the week of 9 Nov.
+    - Stop it with `kill -TERM $(pgrep -f '^/bin/sh scripts/rebalance.sh')`.
   - Or a launchd agent or systemd unit with the same command and RunAtLoad / `WantedBy=default.target`.
 - **One sending run at a time:** a lock on the state directory makes a manual run during the timer exit 4 instead
   of racing the wallet's nonce. `--status` and `--dry-run` take no lock.
@@ -72,7 +78,13 @@ What a live run does (the order is from results.md §4.8):
 3. Burn our band and check the guard again on the exact post-burn pool.
 4. Make a limit-priced swap to the oracle, repeated at most 3 times.
 5. Mint a new ±1% band at the oracle. It uses only the USDC above reserve plus max cost (14 by default), so the next
-   repair can still be paid.
+   repair can still be paid. `--band-usdc N` caps the band at N USDC plus WETH of equal value. From 6 Nov the
+   timer passes `--band-usdc 10`, the founder's band size.
+   - **Hold.** On a fork on 3 Nov, a band of 10 USDC + 0.004376 WETH minted with the pool at the oracle moved the
+     pool 0.358% for a 3.82 USDC sale and 0.469% for 5 USDC.
+   - **Off-centre.** Minted while the pool sat 0.155% off the oracle, the band took only 7.21 USDC, and a 5 USDC
+     sale moved the pool 0.536%.
+   - **Seeding.** So a first band is seeded with `--tolerance 0.0005`, which repairs to the oracle before the mint.
 
 The demo run is the prototype's anchor + 2% sell band + 1% buy band layout (results.md item 41). The guard applies
 only when a demo repair spends WETH; dUSDC is minted.
@@ -186,9 +198,9 @@ What was left open after step 2 (all closed in the 3 Nov close-out, `evidence/ve
 
 The rebalancer always burns first.
 
-**Borrowed USDC and the band (step 2).** The wallet holds 19.18 USDC after step 2, 6.74 of it borrowed on backup.
-The next live re-band mints with the USDC above reserve plus max cost (14), so it would put about 5.2 USDC of that into
-the band, plus matching WETH.
+**Borrowed USDC and the band (step 2, 3 Nov, before `--band-usdc`).** The wallet held 19.18 USDC after step 2, 6.74
+of it borrowed on backup. A live re-band then minted with the USDC above reserve plus max cost (14), so it would have
+put about 5.2 USDC of that into the band, plus matching WETH.
 
 **What the guard allows.**
 - The live pool is thin outside our band. On the fork, a stranger's 0.006 WETH sale (about $13) moved it 12%.
@@ -207,13 +219,14 @@ it is read every run.
 |---|---|
 | Wallet floor (`--reserve-usdc`) | 8 |
 | One maximum repair (`--max-cost-usdc`) | 6 |
-| Live band, the rest | about 4.3 on 3 Nov |
-| Lender supply in live / backup (3.55 / 7.09 after step 2, of which backup lent 6.74 to the wallet's own position; all withdrawn in the 3 Nov close-out, so 0 now) | 3 / 6 |
+| Live band (`--band-usdc 10`, from 6 Nov; about 4.3 on 3 Nov before the close-out) | 10 |
+| Lender supply in live / backup from 6 Nov (`DEPLOY.md` step 4; 3.55 / 7.09 after step 2, all withdrawn in the 3 Nov close-out) | 13 / 13 |
 
-**Faucet.** Circle's faucet (faucet.circle.com, Base Sepolia) gives 20 USDC per claim, once per 2 hours
-(results.md §4.8). It needs a person at the web form. Claim once a day to the test wallet, and at once after any
-`exit=3` line. With the wallet at 14.08 USDC after 3 Nov's repair, one claim takes it to 34: room for 4 maximum
-repairs (6 each) above the 8 USDC floor before the next claim.
+**Faucet.** Circle's faucet (faucet.circle.com, Base Sepolia) gives 10 USDC per claim (founder, 3 Nov; results.md
+§4.8 recorded 20 USDC per claim once per 2 hours in October). It needs a person at the web form. Claim once a day to
+the test wallet, and at once after any `exit=3` line. The wallet held 24.34 USDC after the 3 Nov close-out. The
+6 Nov deployment needs 26 (supply) + 10 (band) + 14 (floor) = 50, so 4 claims (40 USDC) leave about 14 USDC above
+the floor (`DEPLOY.md`, Budget).
 
 ## Operations to 25 Nov (`docs/03-plan.md`, venue and operations rows)
 
@@ -221,10 +234,11 @@ repairs (6 each) above the 8 USDC floor before the next claim.
 |---|---|
 | 3 Nov (step 2, done) | On test positions: supply and borrow on all three markets, a `migrate` live → backup, a scripted liquidation (`liquidate.py`). Evidence: `evidence/venue/2026-11-03-venue-step2.md` |
 | 3 Nov | The timer started at 06:10 UTC after step 2, to run for 24 h unattended (the venue row's done-criterion). It was stopped at 14:46:44 UTC by founder decision ("close all now") after 8.6 h, so the criterion was not met. Then the close-out: positions closed, lender supply withdrawn, all bands burnt (`evidence/venue/2026-11-03-close-out.md`) |
-| 3–6 Nov | Timer off. Do not start it before the 6 Nov update: both state files are `{}`, so a live run would mint a new band and a demo run a new anchor and bands |
-| 6 Nov | The executor is redeployed. Update `deployments/testnet.json` (executor; markets and pools if they change; NEAR `factory`, `vault_code_hash`, `relayer`). The state files start empty; add the new pools to the timer. Lender supply is 0 on all three markets: `p1_onchain_run.py --venue-open` tops up live and backup with USDC, while demo needs a dUSDC supply before anything borrows there |
+| 3–6 Nov | Timer off. Do not start it before the 6 Nov redeploy: both state files are `{}`, so a live run would mint a new band and a demo run a new anchor and bands |
+| 6 Nov | `DEPLOY.md`, in order: (1) faucet check; (2) executor redeploy, written into `deployments/testnet.json`; (3) the old executor's grants revoked and the new ones set; (4) lender supply of 13 USDC each on live and backup and 5,000 dUSDC on demo; (5) live band seeded with `--band-usdc 10 --tolerance 0.0005`, demo anchor and bands; (6) timer started with `caffeinate -s`. Markets and pools are unchanged, and the state files start empty. The supply is done by direct Morpho `supply` calls: `p1_onchain_run.py --venue-open` tops up only live and backup and also opens wallet test positions |
 | 6–14 Nov | The timer runs throughout the build and the evidence scenes; demo price moves only through `--set-price` |
-| 14–25 Nov | Operations: the timer on its host with restart; faucet claim daily; check wallet ETH weekly (at about 0.000005 ETH per repair, 0.2878 ETH lasts far beyond 25 Nov); `--status` on both markets before each clean-machine run on 18 and 25 Nov |
+| from the week of 9 Nov | The timer moves from the founder's Mac to a server, with restart (launchd or systemd, above) |
+| 14–25 Nov | Operations: the timer on the server; faucet claim daily; check wallet ETH weekly (at about 0.000005 ETH per repair, 0.2878 ETH lasts far beyond 25 Nov); `--status` on both markets before each clean-machine run on 18 and 25 Nov |
 
 ## Operations log
 

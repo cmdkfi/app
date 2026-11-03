@@ -73,8 +73,11 @@
   "network": "testnet",
   "factory": null,
   "vault_code_hash": null,
+  "vault_code_hash_hex": null,
+  "vault": null,
+  "vault_base_address": null,
   "relayer": null,
-  "_comment": "filled on 6 Nov at the public testnet deployment (docs/03-plan.md, Fri 6)"
+  "_comment": "filled on 6 Nov at the public testnet deployment (DEPLOY.md step 7; docs/03-plan.md, Fri 6): vault_code_hash is base58, vault_code_hash_hex the same SHA-256 in hex; vault is v1.<factory>; vault_base_address is the vault's derived Base Sepolia address"
  },
  "feeds": {
   "venueStatus": "feeds/venue-status.json",
