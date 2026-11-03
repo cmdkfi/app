@@ -1137,6 +1137,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmdk-agent"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "bs58",
+ "dcap-qvl",
+ "dstack-sdk",
+ "ed25519-dalek",
+ "hex",
+ "k256",
+ "primitive-types",
+ "rand 0.8.8",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sha3 0.10.9",
+ "tokio",
+]
+
+[[package]]
 name = "cmov"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3305,28 +3327,6 @@ checksum = "2bfe0f4c752e450fc2faf62654f1c134747922825d5b04ca717b8874f41a40c0"
 dependencies = [
  "proc-macro2",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "prime-p3-agent"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "bs58",
- "dcap-qvl",
- "dstack-sdk",
- "ed25519-dalek",
- "hex",
- "k256",
- "primitive-types",
- "rand 0.8.8",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sha3 0.10.9",
- "tokio",
 ]
 
 [[package]]

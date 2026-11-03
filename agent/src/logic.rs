@@ -292,6 +292,9 @@ pub fn cited_items(source_ids: &[String], feed: &Value) -> Vec<CitedItem> {
 pub struct Judgment {
     pub action: String,
     pub risk: String,
+    /// the market the answer names (`judge::answer_market`); None ("none") only with hold. The judgment applies to
+    /// this market only (3 Nov); every other market decides on the rules alone.
+    pub market: Option<String>,
     /// the fired screens of the snapshot the judge was given
     pub trigger: BTreeSet<String>,
     pub block: u64,
@@ -437,12 +440,20 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
     let (budget_coll, budget_value) = budget(s, m);
     let confirm: Vec<&Fired> = fired.iter().filter(|f| f.market == m.name).collect();
     let is_protective = protective(s, m);
+    // the judgment applies only to the market it names (3 Nov): here it is set aside, and the rules apply alone
+    let elsewhere = judged.filter(|j| j.market.as_deref() != Some(m.name.as_str()));
+    let judged = judged.filter(|j| j.market.as_deref() == Some(m.name.as_str()));
+    let not_here = elsewhere.map(|j| match &j.market {
+        Some(o) => format!("the judgment ({}) names market {o}, not this one: rules only", j.action),
+        None => format!("the judgment ({}) names no market: rules only", j.action),
+    });
     let action = judged.map(|j| j.action.as_str());
     let detail = json!({"ltv": m.ltv, "target": wad(c.target), "act": wad(c.act), "floor": wad(c.floor), "lltv": wad(m.lltv),
         "debt": m.debt.to_string(), "collateral_value": m.collateral_value.to_string(),
         "amount_to_target": to_target.to_string(), "amount_to_floor": floor_room.to_string(),
         "sell_budget_remaining_collateral": budget_coll.to_string(), "sell_budget_remaining_value": budget_value.to_string(),
         "slice_max": slice.to_string(), "session_start": x.session_start, "judge_action": action,
+        "judge_market": judged.or(elsewhere).map(|j| j.market.as_deref().unwrap_or(crate::judge::NO_MARKET)),
         "onchain_confirmation": confirm.iter().map(|f| f.screen.clone()).collect::<Vec<_>>()});
     let reduce = |amount: u128, basis: &str, prot: bool| {
         let a = amount.min(slice).min(m.debt); // bounded: never more than the slice maximum or the debt
@@ -467,7 +478,11 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
     let mut text: Option<TextCorroboration> = None;
     if confirm.is_empty() {
         let Some(j) = judged.filter(|j| TEXT_PATH_ACTIONS.contains(&j.action.as_str())) else {
-            return none("no fired on-chain screen on this market: no discretionary action", detail);
+            let basis = match &not_here {
+                Some(n) => format!("no fired on-chain screen on this market: no discretionary action; {n}"),
+                None => "no fired on-chain screen on this market: no discretionary action".into(),
+            };
+            return none(&basis, detail);
         };
         let tc = text_corroboration(j, s.timestamp);
         if !tc.ok {
@@ -479,7 +494,7 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
     }
     let path = if text.is_some() { "two independent text sources (text path)" } else { "on-chain screen" };
     let mut d = match action {
-        None => none("no judgment to apply on this tick: rules only", detail),
+        None => none(not_here.as_deref().unwrap_or("no judgment to apply on this tick: rules only"), detail),
         Some("reduce_to_target") => reduce(to_target.min(budget_value).min(floor_room), "judge reduce_to_target + on-chain screen; clamped to budget and floor", false),
         Some("reduce_light") => reduce((budget_value / REDUCE_LIGHT_SHARE).min(floor_room), &format!("judge reduce_light + {path}: 1/4 of the remaining budget, clamped to floor"), false),
         Some("leave_market") => {
@@ -795,7 +810,7 @@ pub fn judge_input(s: &Snapshot, fired: &[Fired], feed: &Value, vault: &Value, n
     for m in s.markets.iter().filter(|m| m.exists) {
         let id = format!("chain:{}:market", m.name);
         ids.push(id.clone());
-        let mut o = json!({"source_id": id, "market": m.name, "utilization": r4(m.utilization),
+        let mut o = json!({"source_id": id, "market": m.name, "market_id": m.id, "utilization": r4(m.utilization),
             "borrow_apr": r4(m.borrow_apr), "oracle_usd_per_weth": (m.oracle_usd * 100.0).round() / 100.0,
             "pool_usd_per_weth": m.pool_usd.map(|p| (p * 100.0).round() / 100.0),
             "pool_vs_oracle_pct": m.pool_gap.map(|g| (g * 1e4).round() / 100.0),
@@ -932,8 +947,8 @@ mod tests {
     use super::fixtures::*;
     use super::*;
 
-    fn judgment(action: &str, trigger: &[&str]) -> Judgment {
-        Judgment { action: action.into(), risk: "high".into(), trigger: trigger.iter().map(|s| s.to_string()).collect(), block: 100, cited: vec![] }
+    fn judgment(action: &str, market: &str, trigger: &[&str]) -> Judgment {
+        Judgment { action: action.into(), risk: "high".into(), market: Some(market.into()), trigger: trigger.iter().map(|s| s.to_string()).collect(), block: 100, cited: vec![] }
     }
 
     // ---- 52: every position
@@ -967,7 +982,7 @@ mod tests {
         let s = snap(vec![a, b]);
         let v = vault(&s);
         let fired = screens(&s);
-        let j = judgment("reduce_to_target", &["a:utilization_above_95pct"]);
+        let j = judgment("reduce_to_target", "a", &["a:utilization_above_95pct"]);
         let ds = decide_all(&s, &fired, Some(&j), &v);
         let da = ds.iter().find(|d| d.market.name == "a").unwrap();
         let db = ds.iter().find(|d| d.market.name == "b").unwrap();
@@ -978,6 +993,46 @@ mod tests {
         let (_, bv) = budget(&s, &s.markets[0]);
         assert_eq!(bv, 792_000_000);
         assert_eq!(da.amount, amount_to(&s.markets[0], s.markets[0].exec.as_ref().unwrap().corridor.target).min(bv));
+    }
+
+    // ---- 3 Nov: a judgment applies only to the market it names
+
+    #[test]
+    fn on_the_screen_path_the_judgment_acts_only_on_the_market_it_names() {
+        let mut a = market("a", 1100, 1000, 2000, 0.50, 0.70, 0.30);
+        a.utilization = 0.97;
+        let mut b = market("b", 1100, 1000, 2000, 0.50, 0.70, 0.30);
+        b.utilization = 0.97; // a screen on both markets
+        let s = snap(vec![a, b]);
+        let v = vault(&s);
+        let fired = screens(&s);
+        let j = judgment("reduce_to_target", "a", &["a:utilization_above_95pct", "b:utilization_above_95pct"]);
+        let ds = decide_all(&s, &fired, Some(&j), &v);
+        let (da, db) = (ds.iter().find(|d| d.market.name == "a").unwrap(), ds.iter().find(|d| d.market.name == "b").unwrap());
+        assert_eq!(da.action, Act::Reduce);
+        assert_eq!(da.detail["judge_market"], "a");
+        assert_eq!(db.action, Act::None, "b's own screen does not carry a judgment about a");
+        assert_eq!(db.basis, "the judgment (reduce_to_target) names market a, not this one: rules only");
+        assert_eq!(db.detail["judge_action"], Value::Null);
+        assert_eq!(db.detail["judge_market"], "a");
+        // screen on a only, the judge names b (no screen there, no text): nothing on either market
+        let mut s1 = s.clone();
+        s1.markets[1].utilization = 0.5;
+        let fired = screens(&s1);
+        let j = judgment("leave_market", "b", &["a:utilization_above_95pct"]);
+        let ds = decide_all(&s1, &fired, Some(&j), &v);
+        assert!(ds.iter().all(|d| d.action == Act::None), "{:?}", ds.iter().map(|d| d.json()).collect::<Vec<_>>());
+        assert!(ds[0].basis.contains("names market b, not this one"), "{}", ds[0].basis);
+        // the protective rule on a market is unchanged by a judgment about another
+        let mut s2 = s.clone();
+        s2.markets[1] = market("b", 1500, 1000, 2000, 0.50, 0.70, 0.30); // LTV 0.75 above act
+        let ds = decide_all(&s2, &screens(&s2), Some(&judgment("hold", "a", &[])), &v);
+        let db = ds.iter().find(|d| d.market.name == "b").unwrap();
+        assert_eq!((db.action, db.protective), (Act::Reduce, true));
+        // a hold that names no market applies nowhere
+        let none = Judgment { market: None, ..judgment("hold", "a", &[]) };
+        let ds = decide_all(&s, &screens(&s), Some(&none), &v);
+        assert!(ds.iter().all(|d| d.action == Act::None && d.basis.contains("names no market")));
     }
 
     // ---- 31 Oct: the pool gap is an execution check, not a screen
@@ -991,7 +1046,7 @@ mod tests {
         let fired = screens(&s);
         assert!(fired.is_empty(), "{fired:?}");
         assert!(!standing(&s, &fired), "a gap alone keeps nothing standing, so it never triggers the judge");
-        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_light", &[])), &vault(&s));
+        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_light", "a", &[])), &vault(&s));
         assert_eq!(d.action, Act::None);
     }
 
@@ -1120,7 +1175,7 @@ mod tests {
         let b = market("b", 0, 0, 2000, 0.50, 0.70, 0.30);
         let s = snap(vec![a.clone(), b]);
         let fired = screens(&s);
-        let j = judgment("leave_market", &["a:utilization_above_95pct"]);
+        let j = judgment("leave_market", "a", &["a:utilization_above_95pct"]);
         let d = decide_market(&s, &s.markets[0], &fired, Some(&j), &vault(&s));
         assert_eq!(d.action, Act::Migrate);
         assert_eq!(d.fraction, WAD);
@@ -1145,7 +1200,7 @@ mod tests {
         let s = snap(vec![a]);
         let fired = screens(&s);
         assert!(fired.iter().any(|f| f.screen == "collateral_value_zero"));
-        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_to_target", &[])), &vault(&s));
+        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_to_target", "a", &[])), &vault(&s));
         assert_eq!(d.action, Act::None);
         let j = serde_json::to_value(&s.markets[0]).unwrap();
         assert_eq!(j["ltv"], json!({"state": "no_collateral_value"}));
@@ -1249,6 +1304,7 @@ mod tests {
         let (user, ids) = judge_input(&s, &screens(&s), &json!({"items": []}), &v, T);
         let j: Value = serde_json::from_str(&user).unwrap();
         let m = &j["markets"][0];
+        assert_eq!((m["market"].as_str(), m["market_id"].as_str()), (Some("a"), Some(s.markets[0].id.as_str())), "label and id, so the judge can name it");
         assert_eq!(m["feeds"][1]["max_age_s"], 86_400);
         assert_eq!(m["feeds"][1]["feed"], "USDC/USD");
         assert_eq!(m["liquidation_ltv"], 0.86);
@@ -1311,8 +1367,9 @@ mod tests {
             body_sha256: "00".repeat(32), published: crate::iso(published_unix), published_unix: Some(published_unix), url: String::new() }
     }
 
+    /// A text-path judgment about the live market (the scene's position).
     fn text_judgment(action: &str, risk: &str, cited: Vec<CitedItem>) -> Judgment {
-        Judgment { action: action.into(), risk: risk.into(), trigger: BTreeSet::new(), block: 100, cited }
+        Judgment { action: action.into(), risk: risk.into(), market: Some("live".into()), trigger: BTreeSet::new(), block: 100, cited }
     }
 
     /// The scene's markets: a calm position on live (LTV 0.55 under act 0.70, utilization 0.5, fresh feeds) and an
@@ -1394,6 +1451,35 @@ mod tests {
     }
 
     #[test]
+    fn on_the_text_path_the_judgment_acts_only_on_the_named_market_with_debt() {
+        // two calm positions (live and demo, no screen anywhere) and an empty backup market
+        let mut s = calm_live_and_backup();
+        let mut demo = market("demo", 1000, 1000, 2000, 0.50, 0.70, 0.30);
+        demo.loan_token = "0xother".into(); // not a destination for live
+        s.markets.push(demo);
+        let v = vault(&s);
+        assert!(screens(&s).is_empty());
+        let items = vec![cited("cmdk-testnet-governance", "g1", SCENE_PUB), cited("cmdk-testnet-venue-status", "s1", SCENE_PUB)];
+        let on = |m: Option<&str>| Judgment { market: m.map(|x| x.to_string()), ..text_judgment("leave_market", "critical", items.clone()) };
+        // names live: live migrates, demo decides on the rules alone
+        let ds = decide_all(&s, &[], Some(&on(Some("live"))), &v);
+        assert_eq!(ds.len(), 2, "the markets with debt");
+        let live = ds.iter().find(|d| d.market.name == "live").unwrap();
+        assert_eq!((live.action, live.to.as_ref().map(|t| t.name.as_str())), (Act::Migrate, Some("backup")));
+        let d = ds.iter().find(|d| d.market.name == "demo").unwrap();
+        assert_eq!(d.action, Act::None);
+        assert!(d.basis.contains("names market live, not this one"), "{}", d.basis);
+        // names demo: only demo is judged (exit: no destination shares its loan token), live does nothing
+        let ds = decide_all(&s, &[], Some(&on(Some("demo"))), &v);
+        assert_eq!(ds.iter().find(|d| d.market.name == "demo").unwrap().action, Act::Exit);
+        assert_eq!(ds.iter().find(|d| d.market.name == "live").unwrap().action, Act::None);
+        // names backup, which has no debt: nothing anywhere
+        let ds = decide_all(&s, &[], Some(&on(Some("backup"))), &v);
+        assert!(ds.iter().all(|d| d.action == Act::None));
+        assert_eq!(pick(&ds), None);
+    }
+
+    #[test]
     fn with_an_onchain_screen_the_onchain_path_applies_as_before() {
         let mut s = calm_live_and_backup();
         s.markets[0].utilization = 0.99;
@@ -1401,14 +1487,14 @@ mod tests {
         let fired = screens(&s);
         assert!(fired.iter().any(|f| f.key() == "live:utilization_above_95pct"));
         // the judge cites no text at all and risk is only high: the on-chain screen carries it, as in step 2
-        let j = judgment("leave_market", &["live:utilization_above_95pct"]);
+        let j = judgment("leave_market", "live", &["live:utilization_above_95pct"]);
         let d = decide_market(&s, &s.markets[0], &fired, Some(&j), &v);
         assert_eq!(d.action, Act::Migrate);
         assert!(d.text.is_none());
         assert_eq!(d.basis, "judge leave_market + on-chain screen: migrate to the approved market that can take it");
-        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_to_target", &[])), &v);
+        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_to_target", "live", &[])), &v);
         assert_eq!(d.basis, "judge reduce_to_target + on-chain screen; clamped to budget and floor");
-        assert_eq!(decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_light", &[])), &v).basis,
+        assert_eq!(decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_light", "live", &[])), &v).basis,
             "judge reduce_light + on-chain screen: 1/4 of the remaining budget, clamped to floor");
     }
 
@@ -1450,7 +1536,7 @@ mod tests {
         assert_eq!(u["agreement_rule"]["text_path_risk"], "critical");
 
         // the judge's answer, through the strict schema
-        let answer = json!({"risk": "critical", "action": "leave_market",
+        let answer = json!({"risk": "critical", "action": "leave_market", "market": "live",
             "reasons": ["governance deprecates the live market's oracle", "a security alert from a second feed reports the same"],
             "source_ids": [gov, sec, "chain:live:market"]});
         assert_eq!(crate::judge::validate(&answer, &ids), Ok(()));
@@ -1460,7 +1546,9 @@ mod tests {
         assert_eq!(cited[0].title, "Live market oracle deprecated");
         assert_eq!(cited[0].body_sha256.len(), 64);
         assert_eq!(cited[0].published_unix, Some(SCENE_PUB));
-        let j = Judgment { action: "leave_market".into(), risk: "critical".into(), trigger: fired_set(&fired), block: s.block, cited };
+        let market = crate::judge::answer_market(&answer);
+        assert_eq!(market.as_deref(), Some("live"));
+        let j = Judgment { action: "leave_market".into(), risk: "critical".into(), market, trigger: fired_set(&fired), block: s.block, cited };
         assert!(relevant(&j.trigger, &fired_set(&fired)));
 
         // the agent: migrate(live -> backup, 1e18), on the text path, with the cited items in its reasons
@@ -1497,9 +1585,9 @@ mod tests {
         // whatever the model was talked into, citing only the injected item (one source) moves nothing
         for action in crate::judge::ACTIONS {
             for risk in crate::judge::RISKS {
-                let a = json!({"risk": risk, "action": action, "reasons": ["the item says so"], "source_ids": [inj]});
+                let a = json!({"risk": risk, "action": action, "market": "live", "reasons": ["the item says so"], "source_ids": [inj]});
                 assert_eq!(crate::judge::validate(&a, &ids), Ok(()));
-                let j = Judgment { action: action.into(), risk: risk.into(), trigger: BTreeSet::new(), block: s.block, cited: cited_items(&[inj.to_string()], &feed) };
+                let j = Judgment { action: action.into(), risk: risk.into(), market: Some("live".into()), trigger: BTreeSet::new(), block: s.block, cited: cited_items(&[inj.to_string()], &feed) };
                 for d in decide_all(&s, &[], Some(&j), &v) {
                     assert_eq!(d.action, Act::None, "{action}/{risk}: {}", d.basis);
                 }
@@ -1512,7 +1600,7 @@ mod tests {
         }
         // and no decision is ever anything but none, reduce, migrate or exit
         let gov = "feed:cmdk-testnet-governance:governance-2026-11-03-001";
-        let j = Judgment { action: "leave_market".into(), risk: "critical".into(), trigger: BTreeSet::new(), block: s.block,
+        let j = Judgment { action: "leave_market".into(), risk: "critical".into(), market: Some("live".into()), trigger: BTreeSet::new(), block: s.block,
             cited: cited_items(&[inj.to_string(), gov.to_string()], &feed) };
         for d in decide_all(&s, &[], Some(&j), &v) {
             let a = d.json()["action"].as_str().unwrap().to_string();

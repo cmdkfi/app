@@ -1,5 +1,5 @@
 [package]
-name = "prime-p3-agent"
+name = "cmdk-agent"
 version = "0.1.0"
 edition = "2021"
 description = "PRIME prototype P3 (throwaway): the agent in a Phala TDX CVM"

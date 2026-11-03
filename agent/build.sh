@@ -16,7 +16,7 @@ for i in 1 2; do
     --output "type=docker,name=$tag:repro-$i,rewrite-timestamp=true" \
     --progress plain . > "build-$i.log" 2>&1 || { echo "build $i failed: see build-$i.log"; exit 1; }
   id="$(docker image inspect -f '{{.Id}}' "$tag:repro-$i")"
-  bin="$(grep -o '[0-9a-f]\{64\}  target/x86_64-unknown-linux-gnu/release/prime-p3-agent' "build-$i.log" | tail -1 | cut -c1-64)"
+  bin="$(grep -o '[0-9a-f]\{64\}  target/x86_64-unknown-linux-gnu/release/cmdk-agent' "build-$i.log" | tail -1 | cut -c1-64)"
   echo "build $i: image $id binary sha256 $bin"
   ids+=("$id")
 done

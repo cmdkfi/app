@@ -27,12 +27,12 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release --locked --target x86_64-unknown-linux-gnu \
- && sha256sum target/x86_64-unknown-linux-gnu/release/prime-p3-agent
+ && sha256sum target/x86_64-unknown-linux-gnu/release/cmdk-agent
 
 FROM --platform=linux/amd64 ${RUNTIME_IMAGE}
 # The TLS roots dcap-qvl's HTTP client reads (rustls-platform-verifier); copied, not installed, so no apt state or
 # package timestamps enter the image. reqwest in the agent itself uses the compiled-in webpki roots.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=build /src/target/x86_64-unknown-linux-gnu/release/prime-p3-agent /usr/local/bin/prime-p3-agent
+COPY --from=build /src/target/x86_64-unknown-linux-gnu/release/cmdk-agent /usr/local/bin/cmdk-agent
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/prime-p3-agent"]
+ENTRYPOINT ["/usr/local/bin/cmdk-agent"]

@@ -658,7 +658,7 @@ impl Base {
         let r: Value = self
             .http
             .post(url)
-            .header("User-Agent", "prime-p3-agent")
+            .header("User-Agent", "cmdk-agent")
             .json(&json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}))
             .send()
             .await?
@@ -704,7 +704,7 @@ impl Base {
                 Req::Code { addr } => json!({"jsonrpc": "2.0", "id": i, "method": "eth_getCode", "params": [addr, blk]}),
             })
             .collect();
-        let r: Value = self.http.post(url).header("User-Agent", "prime-p3-agent").json(&body).send().await?.json().await?;
+        let r: Value = self.http.post(url).header("User-Agent", "cmdk-agent").json(&body).send().await?.json().await?;
         let arr = r.as_array().ok_or_else(|| anyhow!("batch reply is not an array: {}", r.to_string().chars().take(300).collect::<String>()))?;
         let mut out = HashMap::new();
         for item in arr {

@@ -228,7 +228,7 @@ fn lock_feeds(f: &std::sync::Mutex<FeedShared>) -> std::sync::MutexGuard<'_, Fee
 /// What the judge task returns: the full record for the transcript and, if accepted, the answer.
 struct JudgeOutcome {
     record: Value,
-    accepted: Option<(String, String, Vec<CitedItem>)>, // (action, risk, the feed items it cited)
+    accepted: Option<(String, String, Option<String>, Vec<CitedItem>)>, // (action, risk, the market it names, the feed items it cited)
 }
 
 struct InFlight {
@@ -292,13 +292,14 @@ async fn judge_job(judge: Arc<judge::Judge>, feed: Option<Value>, s: Snapshot, f
     let accepted = if outcome == "answer" {
         let p = &call["parsed"];
         let sids: Vec<String> = p["source_ids"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(|x| x.to_string())).collect();
-        Some((p["action"].as_str().unwrap_or("").to_string(), p["risk"].as_str().unwrap_or("").to_string(), logic::cited_items(&sids, &feed)))
+        Some((p["action"].as_str().unwrap_or("").to_string(), p["risk"].as_str().unwrap_or("").to_string(), judge::answer_market(p), logic::cited_items(&sids, &feed)))
     } else {
         None
     };
     let record = json!({"attestation": att, "model_tcb_status": att["tcb_status"], "call": call, "outcome": outcome, "accepted": accepted.is_some(),
-        "applies": if accepted.is_some() { "the judgment, through the agreement rule" } else { "rules only" },
-        "cited_feed_items": accepted.as_ref().map(|a| a.2.clone()),
+        "applies": if accepted.is_some() { "the judgment, on the market it names only, through the agreement rule" } else { "rules only" },
+        "judgment_market": accepted.as_ref().map(|a| a.2.clone().unwrap_or_else(|| judge::NO_MARKET.into())),
+        "cited_feed_items": accepted.as_ref().map(|a| a.3.clone()),
         "input_block": s.block, "feed": feed, "seconds": t.elapsed().as_secs_f64()});
     JudgeOutcome { record, accepted }
 }
@@ -503,7 +504,9 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
                 Ok(o) => o,
                 Err(e) => JudgeOutcome { record: json!({"error": format!("judge task failed: {e}"), "outcome": "error", "applies": "rules only"}), accepted: None },
             };
-            println!("RESULT judge arrived tick={n} block={} outcome={} accepted={} seconds={:.1}", f.block, outcome.record["outcome"], outcome.accepted.is_some(), f.started.elapsed().as_secs_f64());
+            let market = outcome.accepted.as_ref().map(|a| a.2.clone().unwrap_or_else(|| judge::NO_MARKET.into()));
+            let invalid = outcome.record["call"]["invalid_reason"].as_str().map(|r| format!(" invalid_reason={r:?}")).unwrap_or_default();
+            println!("RESULT judge arrived tick={n} block={} outcome={} accepted={} market={market:?} seconds={:.1}{invalid}", f.block, outcome.record["outcome"], outcome.accepted.is_some(), f.started.elapsed().as_secs_f64());
             st.ready = Some(Ready { outcome, trigger: f.trigger, feed_items: f.feed_items, block: f.block, arrived_tick: n });
         }
     }
@@ -590,8 +593,10 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
             if ready_relevant == Some(false) {
                 let gone: Vec<&String> = r.trigger.difference(&fired_set).collect();
                 rec["ignored"] = json!(format!("the screens it was asked about are gone: {gone:?}; rules only"));
-            } else if let Some((action, risk, cited)) = r.outcome.accepted {
-                judgment = Some(Judgment { action, risk, trigger: r.trigger, block: r.block, cited });
+            } else if let Some((action, risk, market, cited)) = r.outcome.accepted {
+                // applied to the market it names only; every other market decides on the rules alone (3 Nov)
+                println!("RESULT judgment applies loop={loops} market={} action={action} risk={risk} (other markets: rules only)", market.as_deref().unwrap_or(judge::NO_MARKET));
+                judgment = Some(Judgment { action, risk, market, trigger: r.trigger, block: r.block, cited });
             }
             judge_record = rec;
         }

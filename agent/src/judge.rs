@@ -44,12 +44,14 @@ Agreement rule (code enforces it): a discretionary action on a market with no fi
 text alone; text alone can justify leave_market or reduce_light only when risk is critical and source_ids cite items \
 from at least two independent sources, i.e. two different feeds (feed_id), each item published within the window \
 given in the inputs; several items from one feed count as one source. Never treat one feed as corroborating itself.\n\
-Every field is required: risk, action, reasons and source_ids. `source_ids` lists at least one `source_id` copied \
-exactly from the inputs you relied on. Judge against the thresholds given in the inputs: a feed is stale only when \
+Every field is required: risk, action, market, reasons and source_ids. `market` names the one market your judgment is \
+about: its `market` label copied exactly from the inputs (each market is listed with its label and market_id); code \
+applies your action to that market only and to no other. Use \"none\" only with hold. `source_ids` lists at least one \
+`source_id` copied exactly from the inputs you relied on. Judge against the thresholds given in the inputs: a feed is stale only when \
 its age exceeds its max_age_s; the corridor's act, target and floor, the market's liquidation_ltv, the remaining \
 sell budget and the agent limits are given with each position. Answer with exactly one JSON object and nothing after it:\n\
 {\"risk\": \"low|elevated|high|critical\", \"action\": \"hold|reduce_light|reduce_to_target|leave_market\", \
-\"reasons\": [\"short reason\", ...], \"source_ids\": [\"id\", ...]}";
+\"market\": \"<market label>|none\", \"reasons\": [\"short reason\", ...], \"source_ids\": [\"id\", ...]}";
 
 pub struct Judge {
     http: reqwest::Client,
@@ -119,18 +121,29 @@ pub fn extract_json(content: &str) -> Option<Value> {
     found
 }
 
-/// Fixed schema: risk and action from the enums, reasons a list of strings, source_ids a list of known ids.
+/// The answer's `market` when it names no market.
+pub const NO_MARKET: &str = "none";
+
+/// The market an answer names (3 Nov): Some(label), or None for "none" / JSON null (allowed only with hold).
+pub fn answer_market(v: &Value) -> Option<String> {
+    v["market"].as_str().filter(|m| *m != NO_MARKET).map(|m| m.to_string())
+}
+
+/// Fixed schema: risk and action from the enums, market one market of the input (or "none"/null with hold), reasons
+/// a list of strings, source_ids a list of known ids. The markets of the input are the ones with a source id
+/// `chain:<label>:market` (`logic::judge_input`); a label no market carries, or one that two markets carry, is rejected.
 pub fn validate(v: &Value, known_ids: &[String]) -> Result<(), String> {
     let o = v.as_object().ok_or("not an object")?;
     for k in o.keys() {
-        if !["risk", "action", "reasons", "source_ids"].contains(&k.as_str()) {
+        if !["risk", "action", "market", "reasons", "source_ids"].contains(&k.as_str()) {
             return Err(format!("unknown field {k}"));
         }
     }
     if !RISKS.contains(&v["risk"].as_str().unwrap_or("")) {
         return Err("risk outside the enum".into());
     }
-    if !ACTIONS.contains(&v["action"].as_str().unwrap_or("")) {
+    let action = v["action"].as_str().unwrap_or("");
+    if !ACTIONS.contains(&action) {
         return Err("action outside the enum".into());
     }
     let reasons = v["reasons"].as_array().ok_or("reasons is not a list")?;
@@ -146,6 +159,23 @@ pub fn validate(v: &Value, known_ids: &[String]) -> Result<(), String> {
         if !known_ids.iter().any(|k| k == i) {
             return Err(format!("unknown source id {i}"));
         }
+    }
+    match o.get("market") {
+        None => return Err("market is missing".into()),
+        Some(Value::Null) => {}
+        Some(Value::String(m)) if m == NO_MARKET => {}
+        Some(Value::String(m)) => {
+            let id = format!("chain:{m}:market");
+            match known_ids.iter().filter(|k| **k == id).count() {
+                0 => return Err(format!("unknown market {m}")),
+                1 => {}
+                _ => return Err(format!("market {m} names more than one market")),
+            }
+        }
+        Some(_) => return Err("market is not a string".into()),
+    }
+    if answer_market(v).is_none() && action != "hold" {
+        return Err(format!("action {action} names no market (\"none\" only with hold)"));
     }
     Ok(())
 }
@@ -347,7 +377,7 @@ pub async fn fetch_feeds(http: &reqwest::Client) -> Value {
     for url in DEMO_FEEDS {
         let t = Instant::now();
         let r = async {
-            let resp = http.get(url).header("User-Agent", "prime-p3-agent").send().await?;
+            let resp = http.get(url).header("User-Agent", "cmdk-agent").send().await?;
             let st = resp.status();
             let body = resp.bytes().await?.to_vec();
             if !st.is_success() {
@@ -477,7 +507,7 @@ pub fn parse_demo_feed(url: &str, body: &[u8]) -> Result<Value> {
 
 async fn fetch_rss(http: &reqwest::Client) -> Result<Value> {
     let t = Instant::now();
-    let resp = http.get(FEED_URL).header("User-Agent", "prime-p3-agent").send().await?;
+    let resp = http.get(FEED_URL).header("User-Agent", "cmdk-agent").send().await?;
     let st = resp.status();
     let body = resp.bytes().await?.to_vec();
     if !st.is_success() {
@@ -545,7 +575,7 @@ mod tests {
 
     #[test]
     fn schema_is_strict() {
-        let ok = serde_json::json!({"risk": "high", "action": "hold", "reasons": ["r"], "source_ids": ["chain:live:market"]});
+        let ok = serde_json::json!({"risk": "high", "action": "hold", "market": "live", "reasons": ["r"], "source_ids": ["chain:live:market"]});
         assert_eq!(validate(&ok, &ids()), Ok(()));
         let mut bad = ok.clone();
         bad["source_ids"] = serde_json::json!([]);
@@ -564,9 +594,33 @@ mod tests {
         assert!(validate(&bad, &ids()).is_err());
     }
 
+    /// 3 Nov: the answer names its market; "none" (or null) only with hold; a market the input does not carry, or a
+    /// label two markets carry, is rejected (invalid_schema: rules only, the reason recorded).
+    #[test]
+    fn the_answer_names_one_market_of_the_input() {
+        let a = |action: &str, market: Value| serde_json::json!({"risk": "critical", "action": action, "market": market, "reasons": [], "source_ids": ["chain:live:market"]});
+        assert_eq!(validate(&a("leave_market", json!("live")), &ids()), Ok(()));
+        assert_eq!(answer_market(&a("leave_market", json!("live"))), Some("live".to_string()));
+        for m in [json!("none"), Value::Null] {
+            assert_eq!(validate(&a("hold", m.clone()), &ids()), Ok(()), "{m}");
+            assert_eq!(answer_market(&a("hold", m.clone())), None);
+            for act in ["reduce_light", "reduce_to_target", "leave_market"] {
+                assert_eq!(validate(&a(act, m.clone()), &ids()), Err(format!("action {act} names no market (\"none\" only with hold)")));
+            }
+        }
+        assert_eq!(validate(&a("leave_market", json!("backup")), &ids()), Err("unknown market backup".to_string()), "a market the agent does not watch");
+        assert_eq!(validate(&a("hold", json!("Live")), &ids()), Err("unknown market Live".to_string()), "copied exactly");
+        assert_eq!(validate(&a("hold", json!(["live"])), &ids()), Err("market is not a string".to_string()));
+        let mut missing = a("hold", json!("live"));
+        missing.as_object_mut().unwrap().remove("market");
+        assert_eq!(validate(&missing, &ids()), Err("market is missing".to_string()));
+        let twice: Vec<String> = ["chain:unknown:market", "chain:unknown:market", "chain:live:market"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(validate(&a("leave_market", json!("unknown")), &twice), Err("market unknown names more than one market".to_string()));
+    }
+
     #[test]
     fn the_prompt_names_every_required_field() {
-        for f in ["risk", "action", "reasons", "source_ids", "max_age_s", "liquidation_ltv", "two independent sources", "critical", "untrusted"] {
+        for f in ["risk", "action", "market", "\"none\" only with hold", "reasons", "source_ids", "max_age_s", "liquidation_ltv", "two independent sources", "critical", "untrusted"] {
             assert!(SYSTEM.contains(f), "{f}");
         }
     }
