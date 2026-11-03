@@ -51,7 +51,7 @@ NEAR is spent in steps 7 and 8 only: 85 NEAR on the publishing account and 5 NEA
 | Item | Owner | Check |
 |---|---|---|
 | Executor freeze read (Wed 4) and vault review | F | findings in the README's Limitations, no open defect |
-| Faucet: 4 claims of 10 USDC to `0x0B7E…0d25` (faucet.circle.com, Base Sepolia) | F | step 1 |
+| Funds: 40 USDC and 0.2 ETH to `0x0B7E…0d25` (done 3 Nov from F's other wallet) | F | done |
 | Timer stays off; nothing on Base Sepolia is restarted | F, C | `pgrep -fl rebalance.sh` prints nothing; `cat scripts/state/live.json scripts/state/demo.json` prints `{}{}` |
 | NEAR on the publishing account | F | at least 85 NEAR. The publish costs about 78.24 NEAR for the 782,389-byte host build; the reproducible wasm's size is read on Friday. Add the factory's 2 NEAR and gas. `prime-measure-1792736012.testnet` held 179.32 NEAR on 3 Nov |
 | NEAR on the relayer account | F | at least 5 NEAR (2 NEAR vault deposit, agent funding 0.16, gas) |
@@ -237,8 +237,7 @@ for M in $LIVE $BACKUP $DEMO; do cast call $MORPHO 'market(bytes32)(uint128,uint
 
 Expected: five `status 1` lines, then `13000001 [1.3e7]`, `13000001 [1.3e7]` and `5000000001 [5e9]`. Each value is
 `totalSupplyAssets`, which includes the one-unit remainder each market kept after the close-out. The wallet already
-holds 25,026 dUSDC, so nothing is minted here. With 2 faucet claims or fewer, leave out the backup line and approve
-13 USDC instead of 26.
+holds 25,026 dUSDC, so nothing is minted here.
 
 ## 5. Live band and demo layout (C; 10 USDC + about 0.0044 WETH on live, 0.010 WETH on demo)
 
