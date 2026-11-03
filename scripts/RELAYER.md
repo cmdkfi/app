@@ -45,7 +45,8 @@ header from behind). `GET /health`, `GET /vault/<id>`, `GET /job/<id>` and `POST
 `POST /create-vault` is open with limits: 2 per client IP per hour and 20 per 24 hours in all, 429 with
 `Retry-After` beyond, counted only for an accepted creation; it answers 503 until the factory account exists, and
 `front.py` adds `factory_exists` to `/health`. `POST /fund-agent` needs the admin token, since it spends the
-relayer's NEAR without any signature. When
+relayer's NEAR without any signature; the Worker's cron makes the call itself for the agent's pending registrations
+once `AGENT_EVIDENCE_URL` is set (`cloud/README.md`, "Agent funding"). When
 `NEAR_ACCESS_KEY_FILE` names a near-cli-rs access-key file, every near command signs with
 `sign-with-access-key-file <path>` instead of `sign-with-keychain`; the Mac leaves it unset.
 
@@ -223,6 +224,12 @@ Example: `curl -s localhost:8787/fund-agent -d '{"implicit_account":"'$IMPLICIT'
 balance is under 0.15, at most 0.5 NEAR per account per 24 hours. The agent registers on each vault that approved
 its measurement and each registration burns 0.0116 NEAR, so it is one call per vault (each new `WAITING` line):
 0.16 + (N − 1) × 0.0116 NEAR per boot for N vaults; the 24-hour cap covers 30 vaults in one boot.
+On Cloudflare (from 6 Nov) nobody needs to watch for `WAITING`: every 10 minutes the Worker's cron reads the agent's
+evidence endpoint and, while a watched vault is `registering`, makes this call for the agent's implicit account
+(taken from the quote's report_data), within the Worker's own `FUND_NEAR_PER_DAY` (2 NEAR per 24 hours in all);
+this service's 0.5 NEAR per account per 24 hours stays the inner bound, and its balance check decides whether
+anything is sent (`already funded` otherwise). The call by hand, `curl -s -H @$A $U/fund-agent -d
+'{"implicit_account":"<64 hex>"}'` (DEPLOY.md step 8), is the fallback; it is not counted in the Worker's cap.
 
 **Owner call.** The relayer reads `get_state`, counts the Base transactions the method produces (setup: see
 below; set_corridor, open, open_from_stables, repay, close, withdraw, cancel, sweep_eth 1; set_executor 0 while another

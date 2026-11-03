@@ -440,6 +440,14 @@ Operator `cmdk`; the image is `ghcr.io/cmdkfi/agent`, pinned by digest in `agent
 is `--mode live`, so the agent sends. Phala's pre-launch script is `agent/pre-launch.sh` as built.
 - **F deploys.** Run the deploy command of `agent/MEASUREMENT.md` §2 from `agent/`: `npx phala@1.1.22 deploy -n
   cmdk-agent -c docker-compose.live.yml …`.
+- **F connects the evidence endpoint.** Take the gateway URL of the CVM's port 8080 from the Phala dashboard (form
+  `https://<app-id>-8080.<gateway domain>`, `agent/MEASUREMENT.md` §4) and check it:
+  `curl -s <URL>/vaults | jq -c '{boot, vaults: [.vaults[] | {tag, registration}]}'` prints the agent's boot. Set
+  `"AGENT_EVIDENCE_URL": "<URL>"` (no trailing slash) in `cloud/wrangler.jsonc`, then from `cloud/`:
+  `curl -s -X POST -H @$A $U/pause; npx wrangler deploy; curl -s -X POST -H @$A $U/resume`. Check:
+  `curl -s $U/agent/vaults | jq -c .boot` prints the same boot (before this it answered 503 `agent evidence url not
+  set`), and `curl -s -H @$A $U/funding | jq -c '{evidence_url_set, cap_near_per_day}'` prints
+  `{"evidence_url_set":true,"cap_near_per_day":"2"}`. From here the app reads the agent through `$U/agent/vaults`.
 - **C approves.** Take the `RESULT measurement={…}` line from the CVM's log. Check MRTD, RTMR0–2 and the OS image
   hash against §1's table, and recompute the compose hash (§3). Then approve that exact JSON:
   `source ~/.local/state/cmdk/deploy-2026-11-06.sh; owner approve_measurement '<the JSON>' approve-measurement`.
@@ -448,11 +456,20 @@ is `--mode live`, so the agent sends. Phala's pre-launch script is `agent/pre-la
   replaces it with the real factory account (7c's `FACTORY`, `factory.prime-measure-1792736012.testnet`) before the
   image is measured, since the compose hash is part of the measurement. `grep -- --factory
   agent/docker-compose.live.yml` must show the account, not the placeholder.
-- **C funds.** The agent registers on every vault that approved its measurement, one registration per vault. When
-  the log prints `WAITING implicit_account=<64 hex> … pending_vaults=<k> [tags] need <…> NEAR in all …`, run
-  `curl -s -H @$A $U/fund-agent -d '{"implicit_account":"<64 hex>"}'`. The response is `"status": "funded"`.
-  `/fund-agent` tops up to 0.16 NEAR only when the balance is under 0.15, so it is one call per vault: each new
-  `WAITING` line gets the same call. Per boot, N vaults take 0.16 + (N − 1) × 0.0116 NEAR (one vault: 0.16).
+- **Funding (automatic).** The agent registers on every vault that approved its measurement, one registration per
+  vault, and prints `WAITING implicit_account=<64 hex> … pending_vaults=<k> [tags] need <…> NEAR in all …` while
+  its implicit account is short. Once `AGENT_EVIDENCE_URL` is set, the Worker's cron (every 10 minutes) sees a
+  vault whose `registration` is `"registering"` and makes the `/fund-agent` call itself, for the account in the
+  agent's quote (`cloud/README.md`, "Agent funding"). `curl -s -H @$A $U/funding | jq -c '.events[-1]'` shows the
+  last decision: `"decision":"sent"`, the `account` (the `WAITING` line's), `amount_yocto` and `near_tx`; the
+  Worker log has `fund: pending=<k> sent=<NEAR> account=<64 hex> near_tx=<hash>`. `/fund-agent` tops up to 0.16
+  NEAR only when the balance is under 0.15, so it is one call per vault, one cron after another. Per boot, N
+  vaults take 0.16 + (N − 1) × 0.0116 NEAR (one vault: 0.16). Caps: `FUND_NEAR_PER_DAY` (2 NEAR per 24 h in all,
+  `cloud/wrangler.jsonc`) and the relayer's 0.5 NEAR per account per 24 h.
+  **Fallback (by hand), C:** when `/funding` shows `"decision":"skipped"` with a reason other than `already funded`,
+  or to skip the wait for the next cron, run `curl -s -H @$A $U/fund-agent -d '{"implicit_account":"<64 hex>"}'`
+  with the `WAITING` line's account. The response is `"status": "funded"` (or `"already funded"`, when the cron
+  was first).
 - **Check.** `register_agent` lands (MEASUREMENT.md §7). Read-only:
   `near contract call-function as-read-only $V get_state json-args '{}' network-config testnet now` shows the
   agent key and an `expires_at` 7 days ahead.

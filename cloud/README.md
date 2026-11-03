@@ -9,7 +9,7 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
 |---|---|
 | `Dockerfile` | python 3.14 slim (pinned by digest), `cast` (Foundry v1.8.6) and `near` (near-cli-rs v0.30.1), both checked by SHA-256, `jq`; copies `scripts/relayer.py`, `scripts/relayer.sh`, `scripts/rebalance_pool.py`, `deployments/testnet.json`, `cloud/front.py`. No key. Build context: the repository root (`Dockerfile.dockerignore` lets only those files in) |
 | `front.py` | The container's entrypoint and only listener (`0.0.0.0:8080`). Writes the keys and the state, starts the relayer on `127.0.0.1:8787`, proxies to it, adds `factory_exists` to `/health` and answers `/create-vault` with 503 while the factory account does not exist, runs rebalancer rounds |
-| `src/index.ts` | The Worker: routes, CORS (here only), the admin token, the `/create-vault` limits, the Durable Object `CmdkBackend` that owns the container and keeps the state and the creation counts, the cron |
+| `src/index.ts` | The Worker: routes, CORS (here only), the admin token, the `/create-vault` limits, the read-only proxy of the agent's evidence endpoint (`/agent/...`), the Durable Object `CmdkBackend` that owns the container and keeps the state, the creation counts and the funding ledger, the cron (rebalancer round, then the agent's funding) |
 | `wrangler.jsonc` | Container `basic` (1/4 vCPU, 1 GiB, 4 GB), `max_instances` 1, cron `*/10 * * * *`, custom domain `relayer.cmdk.fi`, observability on |
 
 ## How it works
@@ -41,6 +41,32 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
   is minted until `POST /resume` (DEPLOY.md step 6), so deploying before Friday is safe.
 - **One round at a time.** `front.py` refuses a second round while one runs (409), and `rebalance_pool.py` still
   takes its own lock. `POST /pause` returns only after a running round has finished.
+- **Agent evidence for the browser.** `GET /agent/vaults` and `GET /agent/` forward to the agent's evidence
+  endpoint (`agent/src/serve.rs`, port 8080 of the CVM) at `AGENT_EVIDENCE_URL`, GET only, and answer the agent's
+  JSON as it is, with this Worker's CORS (the agent's own headers are not passed on). The Durable Object reads the
+  enclave at most once per path per 10 s and answers from memory meanwhile (`Cache-Control: public, max-age=10`,
+  `Age`), so a busy dashboard does not reach the enclave more often than that. While `AGENT_EVIDENCE_URL` is empty
+  (until Friday's Phala launch, DEPLOY.md step 8) both answer 503 `{"ok": false, "error": "agent evidence url not
+  set"}`.
+- **Agent funding (cron).** After the rebalancer round, paused or not (the pause is the rebalancer's switch), the
+  cron reads the agent's `GET /` once. When a watched vault's `registration` is `"registering"` (the agent's
+  `Phase::Pending`: joined, `register_agent` not accepted yet), it calls the container's `POST /fund-agent` for the
+  agent's implicit account, the call DEPLOY.md step 8 made by hand. The evidence endpoint does not serve the account
+  or the `WAITING` line (that is in the CVM's log only), so the Worker takes the account from the quote the index
+  lists: `tdx_quote.hex` (checked against the index's SHA-256), whose report_data is the agent's ed25519 key and 32
+  zero bytes (`agent/src/tee.rs`); the account is that key in hex (`agent/src/near.rs`) and must match the boot id's
+  8-hex suffix. Read once per boot. The relayer decides whether to send: it tops the account up to 0.16 NEAR only
+  when it holds under 0.15 (the agent waits for 0.14992 before each registration), else answers `already funded`,
+  so a vault that is registering for another reason costs one read. One registration per refill: N vaults take
+  0.16 + (N − 1) × 0.0116 NEAR, one cron (10 min) per vault after the first.
+  **Caps.** `FUND_NEAR_PER_DAY` (default 2 NEAR) bounds the sum of what the relayer reports it sent
+  (`amount_yocto` of a `funded` answer, and of a dry-run answer, so the cap is testable locally) over a rolling
+  24 hours, kept in the Durable Object's storage; before each call 0.16 NEAR (the most one call sends) is reserved,
+  so a call is skipped when the sum plus 0.16 would exceed the cap. `"0"` turns the funding off. The relayer's own
+  0.5 NEAR per implicit account per 24 hours stays the inner bound. One log line per decision: `fund: pending=<n>
+  sent=<NEAR> account=<64 hex> near_tx=<hash> [<tags>]` or `fund: skipped <reason>`. `GET /funding` keeps the last
+  50 decisions except the routine ones (`no evidence url`, `funding off`, `no pending registration`, only logged).
+  A `/fund-agent` call by hand (the fallback) is not counted in `FUND_NEAR_PER_DAY`; the relayer's cap counts it.
 - **SIGTERM** (a stop or a rollout): a running round finishes first, then the container exits (tested locally:
   SIGTERM at 18:44:50, the round's response at 18:45:11, exit at 18:45:11). Cloudflare waits up to 15 minutes
   before SIGKILL.
@@ -58,7 +84,9 @@ browser never sees two `Access-Control-Allow-Origin` values. It also exposes `Re
 |---|---|---|
 | `GET /health`, `GET /vault/<id>`, `GET /job/<id>`, `POST /owner-call` | open | relayer.py (`scripts/RELAYER.md`): `/owner-call` answers 202 with a job id, `GET /job/<id>` its stages, `"wait": true` the synchronous answer. An owner call needs the owner's signature. `/health` also carries `jobs`, `wallet` (the float wallet) and, from `front.py`, `factory_exists` |
 | `POST /create-vault` | open, with limits | relayer.py (202 and a job; 0.005 ETH float). At most `CREATE_PER_IP_PER_HOUR` (2) per client IP (`CF-Connecting-IP`) per rolling hour and `CREATE_PER_DAY` (20) in all per rolling 24 hours (founder, 3 Nov); beyond, 429 `{"ok": false, "error": "at most … ; retry in N s"}` with `Retry-After: N`. Counted in the Durable Object's storage (timestamps and a hash of the IP, entries older than 24 h pruned), only when the relayer accepted the creation: 202, or 200 for `"wait": true`; a 400, 503 or other refusal does not count. 503 while the factory does not exist |
-| `POST /fund-agent` | admin token | relayer.py. It spends the relayer's NEAR without any signature (up to 0.16 NEAR per call; one call per vault an agent registers on), so it is not open |
+| `POST /fund-agent` | admin token | relayer.py. It spends the relayer's NEAR without any signature (up to 0.16 NEAR per call; one call per vault an agent registers on), so it is not open. The cron makes this call by itself once `AGENT_EVIDENCE_URL` is set (above); by hand it is the fallback |
+| `GET /agent/vaults`, `GET /agent/` (also `/agent`) | open, GET only | the agent's `GET /vaults` and `GET /` (index) at `AGENT_EVIDENCE_URL`, as the agent answers them (`agent/MEASUREMENT.md` §4), CORS as above, read at most once per 10 s per path; 503 `{"ok": false, "error": "agent evidence url not set"}` while the URL is empty, 502 `{"ok": false, "error": "agent evidence unreachable: …"}` when the read fails, 405 `GET only` for another method |
+| `GET /funding` | admin token | the auto-funding: `{ok, evidence_url_set, cap_near_per_day, sent_last_24h, sent_last_24h_yocto, max_per_call, events: [{time, decision: "sent"\|"skipped", reason, pending, account, boot, amount_yocto, near_tx, dry_run, line}]}`, the last 50 events, oldest first |
 | `POST /rebalance[?market=live\|demo\|both][&dry=1\|&status=1][&tolerance=X]` | admin token | one round now, paused or not; returns each run's `RUN` line, exit code and output |
 | `POST /pause`, `POST /resume`, `GET /timer` | admin token | the cron's switch; `/timer` shows `paused`, the container status and the last `RUN` lines |
 | `GET /runs[?n=N]` | admin token | the stored `RUN` lines (last 5,000 kept), oldest first, as text |
@@ -86,7 +114,9 @@ Plain variables in `wrangler.jsonc`: `NEAR_FACTORY_ACCOUNT` (`relayer.py serve -
 `factory.prime-measure-1792736012.testnet`, `vault/factory/DEPLOY.md`'s `factory.$ACCOUNT`. The account is created
 on Friday (DEPLOY.md 7a, recorded in 7c); until then the relayer runs and `/health` says `"factory_exists": false`.
 `CREATE_PER_IP_PER_HOUR` (2) and `CREATE_PER_DAY` (20), `ALLOWED_ORIGINS`, `REBALANCE_ARGS`, `BASE_RPC`,
-`NEAR_RPC`. `RELAYER_DRY_RUN` is for local tests only (an `--env-file` line; `1` adds `--dry-run --allow-reads`);
+`NEAR_RPC`. `AGENT_EVIDENCE_URL`: the agent's evidence endpoint, the Phala gateway URL of the CVM's port 8080
+(`agent/MEASUREMENT.md` §4), no trailing slash; empty until DEPLOY.md step 8 sets it and redeploys.
+`FUND_NEAR_PER_DAY` (2): the cron's funding cap in NEAR per rolling 24 hours, `"0"` off. `RELAYER_DRY_RUN` is for local tests only (an `--env-file` line; `1` adds `--dry-run --allow-reads`);
 it is never set on Cloudflare.
 
 ### The relayer's NEAR key
@@ -147,6 +177,8 @@ curl -s -w ' %{http_code}\n' $U/job/0123456789abcdef
 curl -s -w ' %{http_code}\n' -X POST $U/create-vault -H 'Content-Type: application/json' -d '{"owner":"bad"}'
 curl -s -w ' %{http_code}\n' -X POST $U/fund-agent -d '{}'
 curl -s -i -X OPTIONS $U/create-vault -H 'Origin: https://cmdk.fi' | grep -ic '^access-control-allow-origin'
+curl -s -w ' %{http_code}\n' $U/agent/vaults
+curl -s -H @$A $U/funding | jq -c '{evidence_url_set, cap_near_per_day, sent_last_24h, events: (.events | length)}'
 ```
 
 Expected:
@@ -157,7 +189,9 @@ Expected:
 - before Friday `{"ok": false, "error": "factory factory.prime-measure-1792736012.testnet does not exist yet on NEAR testnet (created on Friday, DEPLOY.md 7a); /create-vault opens once it does"} 503`;
   after 7a `{"ok": false, "error": "request: missing ['deposit_near', 'policy'], unknown []"} 400`. Neither sends
   anything nor counts toward the limits;
-- `{"ok":false,"error":"admin token required"} 401`; then `1` (one `Access-Control-Allow-Origin` line).
+- `{"ok":false,"error":"admin token required"} 401`; then `1` (one `Access-Control-Allow-Origin` line);
+- before step 8 `{"ok":false,"error":"agent evidence url not set"} 503`, then
+  `{"evidence_url_set":false,"cap_near_per_day":"2","sent_last_24h":"0","events":0}`.
 
 Leave the timer paused; DEPLOY.md step 6 uploads the state and resumes it.
 
@@ -251,7 +285,30 @@ From the first run, unchanged since: `POST /rebalance?dry=1` (36.7 s) gave `RUN 
 kill`, and the next request restored `/app/scripts/state/live.json`; both key files mode 600, owner `cmdk`; the
 relayer and `relayer.sh` processes carry none of the secret variables.
 
+**Agent evidence proxy and funding** (fourth run, 3 Nov 17:46 UTC, `--test-scheduled`, `--persist-to` a directory
+outside the repository; a stub of the agent's evidence endpoint on `127.0.0.1:8798` with serve.rs's JSON shapes,
+vault `v1` `registered` and `v2` `registering`, a fresh random key in a synthetic v4 TDX quote; the relayer in
+`RELAYER_DRY_RUN=1`):
+
+- `AGENT_EVIDENCE_URL` empty: `GET /agent/vaults` from `https://cmdk.fi`: 503 `{"ok":false,"error":"agent evidence
+  url not set"}` with one `Access-Control-Allow-Origin: https://cmdk.fi`; `GET /agent/` the same; `POST
+  /agent/vaults`: 405 `GET only`; the cron: `cron: timer paused; no round started`, `fund: skipped no evidence
+  url`; `GET /funding` without the token: 401; with it: `{"ok":true,"evidence_url_set":false,"cap_near_per_day":"2",
+  "sent_last_24h":"0",…,"events":[]}`.
+- `AGENT_EVIDENCE_URL=http://127.0.0.1:8798`, `FUND_NEAR_PER_DAY=0.2`: `GET /agent/vaults` from `https://cmdk.fi`:
+  200, the stub's JSON, exactly one `Access-Control-Allow-Origin: https://cmdk.fi` (the stub sends its own `*`,
+  which is not passed on), `Cache-Control: public, max-age=10`, `Age: 0`, then `Age: 2` two seconds later; the stub
+  counted one `/vaults` read for both, a second after 11 s. From another origin: `Vary: Origin` only. Cron 1:
+  `relayer POST /fund-agent -> 200`, `fund: pending=1 sent=0.16 account=<the stub's key> near_tx=none dry_run=true
+  (relayer in dry run: nothing sent) [v2]`; the container log: `dry run, would run: near tokens
+  relayer.prime-measure-1792736012.testnet send-near <account> '160000000000000000000000 yoctonear' …`. Cron 2:
+  `fund: skipped cap: 0.16 NEAR sent in the last 24 h, a call may send up to 0.16, FUND_NEAR_PER_DAY=0.2 pending=1
+  account=…`, no call (the container logged one `/fund-agent` in all). The quote was read once. After a Worker
+  reload the cap still held (storage). The stub restarted with every vault registered: `fund: skipped no pending
+  registration (pending=0 vaults=2)`.
+
 Not tested locally: anything on Cloudflare (provisioning, the custom domain, real secrets, the real
 `CF-Connecting-IP`, the cron on schedule, container logs in the dashboard, a rollout's SIGTERM, the 64-character
 hostname, for which `front.py` skips `getfqdn`), and every sending path (a real create-vault and its float,
-owner-call, fund-agent, a real round).
+owner-call, fund-agent, a real round). Not tested: the real agent's evidence endpoint behind Phala's gateway, a
+relayer answer `funded` or `already funded` (the dry run answers neither), the relayer's 0.5 NEAR cap refusal.
