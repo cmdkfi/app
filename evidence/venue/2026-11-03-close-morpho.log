@@ -1,0 +1,11 @@
+executor close(backup): eth_call ok, returns 0x 
+executor close(backup): tx 0x1b5d773229b01f8f8183f76c9a112945c1b664293ea7ff8c026cfe6144c7e01a block 53978202 status 0x1 gasUsed 169492 fee 1016952000165 wei (L2 1016952000000 + L1 165)
+executor close(demo): eth_call ok, returns 0x 
+executor close(demo): tx 0xc88def8bbdb98473c6e5ffc5c6110d2844b44eff8d59f1157baa9bd4e0514de0 block 53978281 status 0x1 gasUsed 113743 fee 682458000165 wei (L2 682458000000 + L1 165)
+Morpho withdraw live supply (all 3549999450000 shares): eth_call ok, returns 3550002 [3.55e6] 3549999450000 [3.549e12] 
+Morpho withdraw live supply (all 3549999450000 shares): tx 0x0cf8ca9f7ed30e5570cb61143b5482b807dbce262a3a0bd6a1ef919925a619f8 block 53978454 status 0x1 gasUsed 88407 fee 530442000292 wei (L2 530442000000 + L1 292)
+Morpho withdraw backup supply (all 7089983105264 shares): eth_call ok, returns 7090378 [7.09e6] 7089983105264 [7.089e12] 
+Morpho withdraw backup supply (all 7089983105264 shares): tx 0xcaab4f1fa96fb421fdee819f9375e0f36b84bd244dcc4267eda75b83d28802c1 block 53978461 status 0x1 gasUsed 88407 fee 442035088694 wei (L2 442035088407 + L1 287)
+Morpho withdraw demo supply (all 5000000000000000 shares): eth_call ok, returns 5000000155 [5e9] 5000000000000000 [5e15] 
+jq: parse error: Invalid numeric literal at line 2, column 2
+Morpho withdraw demo supply (all 5000000000000000 shares): tx 0xa77fddb0eb6cd211389f203eab28a245ac3c0af7a924055e01a85b47a0734a60 block 53978469 status 0x1 gasUsed 77910 fee 389550078202 wei (L2 389550077910 + L1 292) [hash recovered from block scan: the helper's jq parse of cast's output failed after the send]

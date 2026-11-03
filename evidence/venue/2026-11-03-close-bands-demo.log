@@ -1,0 +1,16 @@
+rpc https://base-sepolia-rpc.publicnode.com, deployments /Users/vf/cmdk/app/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287652 ETH, 0.047839 WETH, 24.341191 USDC
+L1 data fee (GasPriceOracle): l1BaseFee 18 wei, blobBaseFee 2 wei, scalars 1101/659851, upper bound for a 400-byte tx 594 wei; L2 base fee 5000000 wei
+demo: pool 0x722F350ec250c1697063A080B0196506D7Fe21c1 tick -199157 ($2244.68), oracle $2244.68, in-range L 2.402e+11
+wallet holds 17 positions on this pool, 3 with liquidity or owed tokens
+close anchor 83459 [-887272, 887272) L 240216318054: a burn returns about 0.005070 WETH + 11.380981 dUSDC (plus fees since the last poke)
+  decreaseLiquidity anchor 83459: tx 0x50cf1041d0a38053c65276f5dc9f158f717989c13a878aeb540edfe65c349a73 status 1 gas 222549, fee 1335294000097 wei (L2 1335294000000 + L1 97)
+  collect anchor 83459: tx 0x3bd27d2dad4ab2b4c921cf5441487cf5e63c4f99282b7dea0badf793cfba3c2e status 1 gas 84269, fee 505614000100 wei (L2 505614000000 + L1 100)
+close sell 83639 [-199357, -199157) L 42427198216461805: a burn returns about 0.000000 WETH + 20000.000000 dUSDC (plus fees since the last poke)
+  decreaseLiquidity sell 83639: tx 0xf4c4610114e9ad70770aa2f50f4769138a7cdc5c4e1e3bcc6b091a3677301ad3 status 1 gas 148714, fee 892284000097 wei (L2 892284000000 + L1 97)
+  collect sell 83639: tx 0xf52a7d723ee261efea68c7c76b60dc73b3ead4cb2d24a97b2c7525166a4dcc2e status 1 gas 67882, fee 407292000168 wei (L2 407292000000 + L1 168)
+close buy 83640 [-199156, -199056) L 47501307935082: a burn returns about 0.005000 WETH + 0.000000 dUSDC (plus fees since the last poke)
+  decreaseLiquidity buy 83640: tx 0x4fe17e5306e0a00b8216456136479f5d62f68d3ed4fc66dc98600d975ea39ecb status 1 gas 138293, fee 829758000163 wei (L2 829758000000 + L1 163)
+  collect buy 83640: tx 0x0345163a76bd093c5eddce64269f17347858b596da4f376a17399d33397c7c13 status 1 gas 67501, fee 337505067665 wei (L2 337505067501 + L1 164)
+after: positions with liquidity or owed tokens on this pool: none
+wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287648 ETH, 0.057910 WETH, 24.341191 USDC, 25026.493470 dUSDC
+RUN 2026-11-03T14:55:49Z market=demo tick=-199157 oracle=2244.68 pool=2244.68 gap=+0.000% action=close-bands repair_quote=0 swap_in=0 txs=6 fee_eth=0.000004308 l1_fee_wei=789 l1_bound_wei=594

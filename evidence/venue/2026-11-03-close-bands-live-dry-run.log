@@ -1,0 +1,10 @@
+rpc https://base-sepolia-rpc.publicnode.com, deployments /Users/vf/cmdk/app/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287657 ETH, 0.038749 WETH, 14.022989 USDC
+L1 data fee (GasPriceOracle): l1BaseFee 19 wei, blobBaseFee 2 wei, scalars 1101/659851, upper bound for a 400-byte tx 600 wei; L2 base fee 5000000 wei
+live: pool 0x57183717A087d2fe3Ad890873877244c3B96156c tick 198993 ($2281.75), oracle $2288.19, in-range L 2.991e+13
+wallet holds 13 positions on this pool, 1 with liquidity or owed tokens
+close band 83679 [198893, 199093) L 27009568262468: a burn returns about 6.423004 USDC + 0.002825 WETH (plus fees since the last poke)
+  dry-run: decreaseLiquidity band 83679
+  dry-run: collect band 83679
+  dry-run: state not saved
+RUN 2026-11-03T14:50:30Z market=live tick=198993 oracle=2288.19 pool=2281.75 gap=-0.281% action=dry-run:close-bands repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=600
+dry-run: /Users/vf/cmdk/app/scripts/state/live.json unchanged

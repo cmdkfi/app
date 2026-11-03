@@ -9,6 +9,7 @@ Addresses from $DEPLOYMENTS: deployments/testnet.json (default) or the old flat 
   rebalance_pool.py --market live [--tolerance 0.0025] [--max-cost-usdc 6] [--reserve-usdc 8] [--remint] [--dry-run]
   rebalance_pool.py --market demo [--set-price 1600] [--tolerance 0.0025] [--remint] [--dry-run]
   rebalance_pool.py --market live|demo --status        reads only: tick, oracle, gap, our band, wallet, L1 fee, repair cost
+  rebalance_pool.py --market live|demo --close-bands [--dry-run]   burn and collect all our positions on the pool, clear state
 
 Reference price: the market's Morpho oracle, which is what the executor's minimum output is computed from
 (measurement U used the Chainlink ETH/USD answer; the live Morpho oracle also divides by USDC/USD).
@@ -509,6 +510,42 @@ def run_demo(m, me, a):
     SUMMARY.setdefault('action', 'repair+bands')
 
 
+def owned(m, me):
+    """Every NonfungiblePositionManager position the wallet holds on this market's pool (its token pair and fee),
+    from the wallet's NFTs rather than the state file: [(token id, position)]."""
+    out = []
+    for i in range(int(call(NPM, 'balanceOf(address)(uint256)', me)[0])):
+        tid = int(call(NPM, 'tokenOfOwnerByIndex(address,uint256)(uint256)', me, i)[0])
+        p = call(NPM, 'positions(uint256)(uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128)', tid)
+        if p[2].lower() == m.t0 and p[3].lower() == m.t1 and int(p[4]) == FEE:
+            out.append((tid, {'lo': int(p[5]), 'hi': int(p[6]), 'L': int(p[7]), 'owed0': int(p[10]), 'owed1': int(p[11])}))
+    return out
+
+
+def close_bands(m, me, a):
+    """--close-bands (3 Nov close-out): burn and collect every position of the wallet on this market's pool that holds
+    liquidity or owed tokens, the state file's and any other, then clear the state file. No swap, no re-mint, no guard."""
+    o, po, sq, tick, liq = m.read()
+    print('%s: pool %s tick %d ($%.2f), oracle $%.2f, in-range L %.3e' % (m.name, m.pool, tick, m.usd(po), m.usd(o), liq))
+    named = {tid: label for label, tid, _ in ours(m, m.load())}
+    mine = owned(m, me)
+    full = [(tid, p) for tid, p in mine if p['L'] or p['owed0'] or p['owed1']]
+    print('wallet holds %d positions on this pool, %d with liquidity or owed tokens' % (len(mine), len(full)))
+    for tid in named:
+        if tid not in dict(mine): print('  state file names %s %d, which the wallet does not hold on this pool' % (named[tid], tid))
+    for tid, p in full:
+        a0, a1 = position_amounts(p, sq)
+        print('close %s %d [%d, %d) L %d: a burn returns about %s + %s (plus fees since the last poke)' % (
+            named.get(tid, 'position'), tid, p['lo'], p['hi'], p['L'], m.human(m.t0, a0), m.human(m.t1, a1)))
+        burn('%s %d' % (named.get(tid, 'position'), tid), tid, me, a.dry_run)
+    m.save({})
+    if not a.dry_run:
+        left = [tid for tid, p in owned(m, me) if p['L'] or p['owed0'] or p['owed1']]
+        print('after: positions with liquidity or owed tokens on this pool: %s' % (left or 'none'))
+        print('wallet %s: %.6f ETH, %.6f WETH, %.6f USDC, %.6f dUSDC' % (me, eth_bal(me) / 1e18, bal(WETH, me) / 1e18, bal(USDC, me) / 1e6, bal(DUSDC, me) / 1e6))
+    SUMMARY['action'] = 'close-bands'
+
+
 def status(m, me, a):
     """Reads only: nothing is sent and no state is written."""
     o, po, sq, tick, liq = m.read()
@@ -564,6 +601,7 @@ def main():
     ap.add_argument('--set-price', type=float, help='demo only: MockOracle price in USD per ETH, set first')
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--status', action='store_true', help='read only: print the state and the repair cost, send nothing')
+    ap.add_argument('--close-bands', action='store_true', help='burn and collect all our positions on the pool, clear the state file')
     a = ap.parse_args(); _, me = key()
     if a.status: a.dry_run = True
     chain = int(subprocess.run([CAST, 'chain-id', '--rpc-url', RPC], capture_output=True, text=True, check=True).stdout.strip())
@@ -575,7 +613,7 @@ def main():
     fd = None if a.dry_run else lock()
     before = m.snapshot()
     try:
-        (status if a.status else run_live if a.market == 'live' else run_demo)(m, me, a)
+        (status if a.status else close_bands if a.close_bands else run_live if a.market == 'live' else run_demo)(m, me, a)
         if a.dry_run and not a.status: SUMMARY['action'] = 'dry-run:' + SUMMARY.get('action', '?')
     except SystemExit as e:
         if not isinstance(e, Refused): SUMMARY['action'] = 'error'; SUMMARY['why'] = str(e.code).strip()[:160]

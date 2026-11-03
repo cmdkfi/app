@@ -27,6 +27,19 @@ burn would return, the wallet's ETH, WETH, USDC and dUSDC, and the L1 data fee f
 the gap is above the tolerance it also prints the repair cost and what the guard would do. Nothing is sent, and the
 state files are checked to be byte-identical afterwards. The last line is the same `RUN` line the timer logs.
 
+## Closing our positions on a pool
+
+```sh
+python3 -I scripts/rebalance_pool.py --market live --close-bands --dry-run   # lists what it would burn and what that returns
+python3 -I scripts/rebalance_pool.py --market live --close-bands
+```
+
+It finds every position the wallet holds on the market's pool by enumerating its NonfungiblePositionManager tokens,
+not only those in the state file. It `decreaseLiquidity` + `collect`s each one with liquidity or owed tokens, then
+writes `{}` to the state file. There is no swap, no re-mint and no guard. Used on 3 Nov for the close-out
+(`evidence/venue/2026-11-03-close-out.md`). With an empty state file, the next normal run mints afresh: a live band,
+or a demo anchor and bands.
+
 ## Rebalancer on a timer
 
 ```sh
@@ -154,7 +167,7 @@ Both write `evidence/venue/2026-11-03-venue-step2.json` (or `$OUT`). On 3 Nov:
 - **Opens.** Each landed at `ltvOf` 0.49999. Gas: 270,499 on live and backup, 203,378 on demo (no Chainlink feed checks).
 - **Migrate.** 352,310 gas; 0.003 WETH and 3.372448 USDC moved exactly.
 
-What is left open:
+What was left open after step 2 (all closed in the 3 Nov close-out, `evidence/venue/2026-11-03-close-out.md`):
 - Backup: 0.006 WETH collateral and 6.744896 USDC debt. The backup market is 95% utilised, so its adaptive IRM rate
   rises while it stays above the 90% target (4.11% a year right after the move).
 - Demo: the 0.000265 WETH remainder, with no debt.
@@ -195,7 +208,7 @@ it is read every run.
 | Wallet floor (`--reserve-usdc`) | 8 |
 | One maximum repair (`--max-cost-usdc`) | 6 |
 | Live band, the rest | about 4.3 on 3 Nov |
-| Lender supply in live / backup (not touched; 3.55 / 7.09 after step 2, of which backup lends 6.74 to the wallet's own position) | 3 / 6 |
+| Lender supply in live / backup (3.55 / 7.09 after step 2, of which backup lent 6.74 to the wallet's own position; all withdrawn in the 3 Nov close-out, so 0 now) | 3 / 6 |
 
 **Faucet.** Circle's faucet (faucet.circle.com, Base Sepolia) gives 20 USDC per claim, once per 2 hours
 (results.md §4.8). It needs a person at the web form. Claim once a day to the test wallet, and at once after any
@@ -207,8 +220,9 @@ repairs (6 each) above the 8 USDC floor before the next claim.
 | When | What |
 |---|---|
 | 3 Nov (step 2, done) | On test positions: supply and borrow on all three markets, a `migrate` live → backup, a scripted liquidation (`liquidate.py`). Evidence: `evidence/venue/2026-11-03-venue-step2.md` |
-| 3–4 Nov | The timer started at 06:10 UTC on 3 Nov after step 2 and left to run for 24 h unattended (the venue row's done-criterion). Daily: read the RUN lines (`grep -c 'exit=3'`, `grep -v 'exit=0'`), claim the faucet |
-| 6 Nov | The executor is redeployed. Update `deployments/testnet.json` (executor; markets and pools if they change; NEAR `factory`, `vault_code_hash`, `relayer`). If a market gets a new pool, start its state file afresh and add it to the timer |
+| 3 Nov | The timer started at 06:10 UTC after step 2, to run for 24 h unattended (the venue row's done-criterion). It was stopped at 14:46:44 UTC by founder decision ("close all now") after 8.6 h, so the criterion was not met. Then the close-out: positions closed, lender supply withdrawn, all bands burnt (`evidence/venue/2026-11-03-close-out.md`) |
+| 3–6 Nov | Timer off. Do not start it before the 6 Nov update: both state files are `{}`, so a live run would mint a new band and a demo run a new anchor and bands |
+| 6 Nov | The executor is redeployed. Update `deployments/testnet.json` (executor; markets and pools if they change; NEAR `factory`, `vault_code_hash`, `relayer`). The state files start empty; add the new pools to the timer. Lender supply is 0 on all three markets: `p1_onchain_run.py --venue-open` tops up live and backup with USDC, while demo needs a dUSDC supply before anything borrows there |
 | 6–14 Nov | The timer runs throughout the build and the evidence scenes; demo price moves only through `--set-price` |
 | 14–25 Nov | Operations: the timer on its host with restart; faucet claim daily; check wallet ETH weekly (at about 0.000005 ETH per repair, 0.2878 ETH lasts far beyond 25 Nov); `--status` on both markets before each clean-machine run on 18 and 25 Nov |
 
@@ -218,3 +232,5 @@ repairs (6 each) above the 8 USDC floor before the next claim.
 |---|---|
 | 2026-11-03 05:54–06:07 | Step 2 transactions (204, all status 1; `evidence/venue/2026-11-03-venue-step2.md`). Demo restored to the live oracle price, $2,244.68, once, and re-banded (sell 83639, buy 83640) |
 | 2026-11-03 06:10:03 | Timer started: `cd /Users/vf/cmdk/app && nohup caffeinate -i scripts/rebalance.sh >> ~/.local/state/cmdk/rebalance.log 2>&1 &`. PID 55442 (`/bin/sh scripts/rebalance.sh`, parent 1), with `caffeinate -i` as its child, PID 55444. Stop with `kill 55442`: the trap lets a run in progress finish. First round: live `action=kept` gap +0.188% `exit=0`; demo `action=kept` gap +0.000% `exit=0` |
+| 2026-11-03 14:46:44 | Timer stopped (`kill -TERM 55442` while only its `sleep 600` ran). 72 RUN lines: live 26 `kept`, 9 `repair+band`, 1 crash; demo 35 `kept`, 1 crash. The two crashes were at 11:02:10, RPC not reached during host sleep. 63 transactions, 0.000057577 ETH. Gaps of 34 min, 50 min and 1 h 39 min were clamshell sleep (`pmset -g log`): `caffeinate -i` does not prevent it |
+| 2026-11-03 14:51–14:55 | Close-out, 13 transactions, all status 1, 0.000008694 ETH. Executor `close` on backup (repaid 6.745182 USDC, 0.006 WETH back) and demo (0.000265 WETH back). Morpho supply withdrawn on live (3.550002 USDC), backup (7.090378 USDC) and demo (5,000.000155 dUSDC). `--close-bands` on the live band 83679 and the demo anchor 83459, sell 83639 and buy 83640. Wallet after: 0.287648 ETH, 0.057910 WETH, 24.341191 USDC, 25,026.49 dUSDC (`evidence/venue/2026-11-03-close-out.md`) |
