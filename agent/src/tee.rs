@@ -1,7 +1,8 @@
 //! Key, quote and evidence (§4.4). The ed25519 key is made inside the enclave and never leaves it; the quote's
 //! report_data is its public key followed by 32 zero bytes. At startup the agent writes into the evidence volume
 //! what a third party needs to rebuild the measurement (measurement H): the guest agent's `app_compose` and
-//! `vm_config`, the quote and the event log; and prints each file with its SHA-256 to the (public) log.
+//! `vm_config`, the quote and the event log; and prints each file with its SHA-256 to the (public) log. Measurement
+//! evidence is public (printed and served by `serve.rs`); transcripts are private (`save_private`, item 38).
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use dstack_sdk::dstack_client::DstackClient;
@@ -39,6 +40,17 @@ pub fn save_evidence(dir: &Path, name: &str, bytes: &[u8]) -> Result<String> {
     }
     println!("RESULT evidence {name} bytes={} sha256={h}", bytes.len());
     Ok(h)
+}
+
+/// Writes `name` into `dir` without printing its content (build item 38): transcripts are private to the vault's
+/// owner, so the public log gets only one line per file, with its SHA-256 and byte count (printed by the caller).
+pub fn save_private(dir: &Path, name: &str, bytes: &[u8]) -> Result<(String, usize)> {
+    let path = dir.join(name);
+    if let Some(p) = path.parent() {
+        std::fs::create_dir_all(p)?;
+    }
+    std::fs::write(&path, bytes)?;
+    Ok((sha256_hex(bytes), bytes.len()))
 }
 
 /// dstack cc-eventlog replay of the imr-3 events (as the vault's attest.rs and measurement H do).
@@ -104,16 +116,15 @@ pub async fn boot(sk: &SigningKey, dir: &Path, boot_id: &str) -> Result<Boot> {
     Ok(Boot { quote, event_log, measurement, rtmr3_replayed_matches: replay_ok, debug })
 }
 
-/// Fresh Intel collateral for our own quote (P2 finding: the vault checks its validity window against block time),
-/// verified locally first so a bad status is reported before 120 Tgas are spent.
+/// Fresh Intel collateral for our own quote from Phala's PCCS (P2 finding: the vault checks its validity window
+/// against block time, so it is fetched at every registration and re-registration), verified locally with the same
+/// dcap-qvl call the vault makes. The caller sends `register_agent` only when `local_verify` is `UpToDate`, so a
+/// collateral the vault would refuse costs no gas.
 pub async fn collateral(quote: &[u8]) -> Result<(String, Value)> {
     let coll = dcap_qvl::collateral::CollateralClient::with_default_http(crate::judge::PCCS)?.fetch(quote).await?;
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
     let tcb: Value = serde_json::from_str(&coll.tcb_info).unwrap_or_default();
-    let local = match dcap_qvl::verify::verify(quote, &coll, now) {
-        Ok(v) => json!({"verified": true, "status": v.status, "advisory_ids": v.advisory_ids}),
-        Err(e) => json!({"verified": false, "error": format!("{e:?}")}),
-    };
+    let local = crate::judge::dcap_verify(quote, &coll, now);
     let s = serde_json::to_string(&coll)?;
     Ok((s.clone(), json!({"bytes": s.len(), "sha256": sha256_hex(s.as_bytes()), "tcb_issue": tcb["issueDate"],
         "tcb_next_update": tcb["nextUpdate"], "fmspc": tcb["fmspc"], "local_verify": local})))

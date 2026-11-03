@@ -1,12 +1,18 @@
+# Measured: dstack hashes Phala's app-compose.json, which embeds this file byte for byte, the pre-launch script
+# (pre-launch.sh, passed with --pre-launch-script) and allowed_envs (NEARAI_API_KEY only). Every behaviour flag is
+# here, on the command line; the encrypted environment carries only the NEAR AI key. Deploy and verify:
+# MEASUREMENT.md. The image digest is the OCI manifest digest ./build.sh prints for the committed source.
 services:
   agent:
-    image: ghcr.io/fffilimonov/prime-e-test@sha256:98da97a02ba997b9587278a0d77f6978731cb57f8fbb514fd76427aa2a34351a
-    command: ["--mode", "dry"]
+    image: ghcr.io/cmdkfi/agent@sha256:REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS
+    command: ["--mode", "dry", "--operator", "cmdk"]
     environment:
       - NEARAI_API_KEY=${NEARAI_API_KEY}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - evidence:/evidence
-    restart: "no"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
 volumes:
   evidence:

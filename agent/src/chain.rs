@@ -670,6 +670,18 @@ impl Base {
         Ok(r["result"].clone())
     }
 
+    /// Fork detection (build item 43): true only when every provider answers `anvil_nodeInfo`, which an anvil fork
+    /// does and a real Base Sepolia endpoint refuses (method not found). Read-only.
+    pub async fn all_providers_are_anvil(&self) -> bool {
+        for u in &self.urls {
+            match self.rpc(u, "anvil_nodeInfo", json!([])).await {
+                Ok(v) if v.is_object() => {}
+                _ => return false,
+            }
+        }
+        !self.urls.is_empty()
+    }
+
     /// Batched reads at `block`, in chunks of BATCH_MAX paced per provider; results by key (Err = the call's error).
     async fn batch(&self, url: &str, block: u64, calls: &[Call]) -> Result<Results> {
         let mut out = HashMap::new();

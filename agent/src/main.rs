@@ -3,10 +3,18 @@
 //! Deviations (brief): one vault, the positions of its Base address; on-chain reads plus one allowlisted text feed;
 //! no scores and no similar-case retrieval.
 //!
-//! Behaviour is fixed in the binary; the compose file (measured) passes only `--mode`. `--mode dry` builds every
-//! proposal exactly as the vault would and runs the vault's `check_transaction` view on it, but sends nothing to
-//! the vault's agent methods and nothing to Base. `--mode live` calls the vault through the agent key and
-//! broadcasts the transaction the vault signs. `--no-tee` (local runs only) skips the quote and registration.
+//! Behaviour is fixed in the binary; the compose file (measured) passes only `--mode`, `--operator` and the evidence
+//! port. Modes (one flag, four values; `MEASUREMENT.md` has the table):
+//! - `dry`: builds every proposal exactly as the vault would and runs the vault's `check_transaction` view on it,
+//!   but sends nothing to the vault's agent methods and nothing to Base;
+//! - `live`: calls the vault through the agent key and broadcasts the transaction the vault signs;
+//! - `twin`: the deterministic twin (decided 25 Oct): the same ticks, screens and protective rule, no judge call
+//!   and no text feed ever, so it never proposes a discretionary action; read-only like `dry`;
+//! - `twin-live`: the twin, sending like `live` (only protective slices can go out).
+//!
+//! `--operator <name>` names who runs this agent; it sits in the measured compose's command line, so the owner's
+//! `approve_measurement` binds "this code, run by this operator" (31 Oct). `--no-tee` (local runs only) skips the
+//! quote and registration. `--fork` (or every provider answering `anvil_nodeInfo`) marks an anvil-fork rehearsal.
 //!
 //! Tick loop (build items 44–54): each tick runs in its own task, so a panic is logged and the next tick runs. The
 //! judge runs in a separate task, at most one call in flight; its result is taken on the first tick after it
@@ -16,6 +24,7 @@ mod chain;
 mod judge;
 mod logic;
 mod near;
+mod serve;
 mod tee;
 
 use anyhow::{anyhow, Result};
@@ -35,17 +44,61 @@ const NEAR_RPC: &str = "https://rpc.testnet.near.org";
 const BASE_RPCS: [&str; 2] = ["https://base-sepolia-rpc.publicnode.com", "https://sepolia.base.org"];
 const DIGEST_SECS: u64 = 6 * 3600;
 const FEED_SECS: u64 = 600;
-// NEAR checks prepaid gas x the pessimistic gas price against the balance at submission: 300 Tgas needed 0.3012 NEAR
-// (run 2, 27 Oct: NotEnoughBalance with 0.1). 130 Tgas covers the measured registration (vault receipt 113.7 Tgas).
-const MIN_REGISTRATION_BALANCE: u128 = 150_000_000_000_000_000_000_000; // 0.15 NEAR: about 0.1305 for 130 Tgas + margin
-const REGISTER_GAS: u64 = 130_000_000_000_000;
-const REGISTER_ATTEMPTS: u32 = 4; // then exit non-zero: never tick unregistered
+const REGISTER_ATTEMPTS: u32 = 4; // then exit non-zero (the restart policy restarts it): never tick unregistered
+/// How often the re-registration task reads the vault's expiry; a failed re-registration is retried on the next poll.
+const REREGISTER_POLL_SECS: u64 = 600;
 const AGENT_CALL_GAS: u64 = 150_000_000_000_000;
+const EVIDENCE_HTTP: &str = "0.0.0.0:8080";
+const FUNDER: &str = "funded by the relayer's fund-agent endpoint (POST /fund-agent {\"implicit_account\": \"<this account>\"}, scripts/RELAYER.md)";
 /// one status line every this many ticks while nothing is on
 const STATUS_EVERY: u64 = 30;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Mode {
+    Dry,
+    Live,
+    Twin,
+    TwinLive,
+}
+
+impl Mode {
+    fn parse(s: &str) -> Result<Mode> {
+        Ok(match s {
+            "dry" => Mode::Dry,
+            "live" => Mode::Live,
+            "twin" => Mode::Twin,
+            "twin-live" => Mode::TwinLive,
+            _ => return Err(anyhow!("--mode is dry, live, twin or twin-live")),
+        })
+    }
+    fn label(&self) -> &'static str {
+        match self {
+            Mode::Dry => "dry",
+            Mode::Live => "live",
+            Mode::Twin => "twin",
+            Mode::TwinLive => "twin-live",
+        }
+    }
+    /// Sends to the vault's agent methods and broadcasts to Base.
+    fn sends(&self) -> bool {
+        matches!(self, Mode::Live | Mode::TwinLive)
+    }
+    /// The deterministic twin: no judge, no text feeds.
+    fn twin(&self) -> bool {
+        matches!(self, Mode::Twin | Mode::TwinLive)
+    }
+}
+
+/// An operator name: 1–32 of a-z, 0-9 and '-', starting with a letter or digit.
+fn valid_operator(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 32 && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') && !s.starts_with('-')
+}
+
 struct Args {
-    mode: String,
+    mode: Mode,
+    operator: String,
+    fork: bool,
+    evidence_http: Option<String>,
     vault: String,
     tee: bool,
     base_rpcs: Vec<String>,
@@ -59,7 +112,10 @@ struct Args {
 
 fn args() -> Result<Args> {
     let mut a = Args {
-        mode: "dry".into(),
+        mode: Mode::Dry,
+        operator: String::new(),
+        fork: false,
+        evidence_http: Some(EVIDENCE_HTTP.into()),
         vault: VAULT.into(),
         tee: true,
         base_rpcs: vec![],
@@ -73,30 +129,36 @@ fn args() -> Result<Args> {
     let v: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
     while i < v.len() {
-        let val = || v.get(i + 1).cloned().ok_or_else(|| anyhow!("{} needs a value", v[i]));
+        // flags without a value
         match v[i].as_str() {
-            "--mode" => a.mode = val()?,
-            "--vault" => a.vault = val()?,
-            "--no-tee" => {
-                a.tee = false;
-                i -= 1
+            "--no-tee" => a.tee = false,
+            "--no-digest" => a.digest_at_start = false,
+            "--fork" => a.fork = true,
+            flag => {
+                let val = v.get(i + 1).cloned().ok_or_else(|| anyhow!("{flag} needs a value"))?;
+                match flag {
+                    "--mode" => a.mode = Mode::parse(&val)?,
+                    "--operator" => a.operator = val,
+                    "--evidence-http" => a.evidence_http = Some(val).filter(|v| v != "off"),
+                    "--vault" => a.vault = val,
+                    "--base-rpc" => a.base_rpcs.push(val),
+                    "--near-rpc" => a.near_rpc = val,
+                    "--tick-secs" => a.tick_secs = val.parse()?,
+                    "--max-ticks" => a.max_ticks = val.parse()?,
+                    "--evidence" => a.evidence = PathBuf::from(val),
+                    "--nearai-key-file" => a.nearai_key_file = Some(val),
+                    x => return Err(anyhow!("unknown argument {x}")),
+                }
+                i += 1;
             }
-            "--no-digest" => {
-                a.digest_at_start = false;
-                i -= 1
-            }
-            "--base-rpc" => a.base_rpcs.push(val()?),
-            "--near-rpc" => a.near_rpc = val()?,
-            "--tick-secs" => a.tick_secs = val()?.parse()?,
-            "--max-ticks" => a.max_ticks = val()?.parse()?,
-            "--evidence" => a.evidence = PathBuf::from(val()?),
-            "--nearai-key-file" => a.nearai_key_file = Some(val()?),
-            x => return Err(anyhow!("unknown argument {x}")),
         }
-        i += 2;
+        i += 1;
     }
-    if a.mode != "dry" && a.mode != "live" {
-        return Err(anyhow!("--mode is dry or live"));
+    if a.operator.is_empty() && !a.tee {
+        a.operator = "local".into(); // a --no-tee run never registers, so no approval names it
+    }
+    if !valid_operator(&a.operator) {
+        return Err(anyhow!("--operator <name> is required (1-32 of a-z, 0-9, '-'); it is part of the measured compose"));
     }
     if a.base_rpcs.is_empty() {
         a.base_rpcs = BASE_RPCS.iter().map(|s| s.to_string()).collect();
@@ -131,8 +193,11 @@ struct Ctx {
     nearc: near::Near,
     sk: SigningKey,
     our_pk: String,
-    judge: Arc<judge::Judge>,
+    /// None in the twin modes (never called) and when no NEAR AI key is set (skipped, logged)
+    judge: Option<Arc<judge::Judge>>,
     agent_record: Value,
+    /// an anvil-fork rehearsal: `feed_stale` is labelled "frozen on fork" instead of firing (build item 43)
+    fork: bool,
     boot_id: String,
     base_address: String,
     executor: String,
@@ -171,6 +236,8 @@ struct State {
     ready: Option<Ready>,
     /// a judge call is wanted (Some(digest)) but one is in flight; started on the first tick the slot is free
     judge_wanted: Option<bool>,
+    /// a judgment that was wanted but skipped (no key), recorded in the next transcript
+    judge_skipped: Option<Value>,
     status: AgentStatus,
 }
 
@@ -179,14 +246,16 @@ struct State {
 async fn judge_job(judge: Arc<judge::Judge>, mut feed: (Value, u64), s: Snapshot, fired: Vec<Fired>, vault: Value) -> JudgeOutcome {
     let t = Instant::now();
     if now() >= feed.1 + FEED_SECS {
-        feed = (judge::fetch_feed(&reqwest::Client::new()).await.unwrap_or_else(|e| json!({"error": e.to_string(), "items": []})), now());
+        let http = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap_or_default();
+        feed = (judge::fetch_feeds(&http).await, now());
     }
     let (user, ids) = logic::judge_input(&s, &fired, &feed.0, &vault, now());
     let att = judge.attest().await.unwrap_or_else(|e| json!({"ok": false, "error": e.to_string()}));
     let call = if att["ok"] == true {
         judge.ask(&user, &ids, att["signing_address"].as_str().unwrap_or("")).await.unwrap_or_else(|e| json!({"error": e.to_string()}))
     } else {
-        json!({"skipped": "model attestation did not verify"})
+        // TCB status not UpToDate, nonce not bound, debug, or the quote did not verify: the judge is not called
+        json!({"skipped": format!("model attestation did not verify: {}", att["failed_because"].as_str().or(att["error"].as_str()).unwrap_or("unknown"))})
     };
     let outcome = judge::classify(&call);
     let accepted = if outcome == "answer" {
@@ -194,7 +263,7 @@ async fn judge_job(judge: Arc<judge::Judge>, mut feed: (Value, u64), s: Snapshot
     } else {
         None
     };
-    let record = json!({"attestation": att, "call": call, "outcome": outcome, "accepted": accepted.is_some(),
+    let record = json!({"attestation": att, "model_tcb_status": att["tcb_status"], "call": call, "outcome": outcome, "accepted": accepted.is_some(),
         "applies": if accepted.is_some() { "the judgment, through the agreement rule" } else { "rules only" },
         "input_block": s.block, "feed": feed.0, "seconds": t.elapsed().as_secs_f64()});
     JudgeOutcome { record, feed, accepted }
@@ -202,8 +271,14 @@ async fn judge_job(judge: Arc<judge::Judge>, mut feed: (Value, u64), s: Snapshot
 
 fn spawn_judge(ctx: &Ctx, st: &mut State, s: &Snapshot, fired: &[Fired], tick: u64) {
     let trigger = logic::fired_set(fired);
+    let Some(judge) = ctx.judge.clone() else {
+        // twin modes never reach here; without a NEAR AI key the judgment is skipped and the rules apply alone
+        println!("RESULT judge skipped tick={tick} block={} trigger={trigger:?}: no NEARAI_API_KEY set, rules only", s.block);
+        st.judge_skipped = Some(json!({"outcome": "skipped_no_api_key", "applies": "rules only", "trigger": trigger, "tick": tick}));
+        return;
+    };
     println!("RESULT judge started tick={tick} block={} trigger={trigger:?}", s.block);
-    let handle = tokio::spawn(judge_job(ctx.judge.clone(), st.feed.clone(), s.clone(), fired.to_vec(), st.vault.clone()));
+    let handle = tokio::spawn(judge_job(judge, st.feed.clone(), s.clone(), fired.to_vec(), st.vault.clone()));
     st.inflight = Some(InFlight { handle, trigger, block: s.block, started: Instant::now() });
 }
 
@@ -255,8 +330,8 @@ async fn propose(ctx: &Ctx, s: &Snapshot, d: &Decision, vault: &mut Value, statu
     let check_ok = check == "\"ok\"";
     let mut out = json!({"proposed": true, "method": method, "args": args, "tx": params, "estimate": estimate.as_ref().map_err(|e| e.clone()),
         "l1_fee_wei": l1_fee, "calldata": format!("0x{data}"), "deadline_in_check": deadline, "unsigned_1559": format!("0x{}", hex::encode(&unsigned)),
-        "vault_check_transaction": check, "prechecks": checks, "refusals": refused, "agent_status": status.label(), "mode": a.mode});
-    if a.mode != "live" {
+        "vault_check_transaction": check, "prechecks": checks, "refusals": refused, "agent_status": status.label(), "mode": a.mode.label()});
+    if !a.mode.sends() {
         out["sent"] = json!(false);
         return out;
     }
@@ -353,7 +428,7 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         println!("TICK {n} block={} failed: {why}", s.block);
         return;
     }
-    let fired = logic::screens(&s);
+    let (fired, frozen) = logic::split_frozen_on_fork(logic::screens(&s), ctx.fork);
     let fired_set = logic::fired_set(&fired);
     let new: Vec<String> = fired_set.difference(&st.fired_prev).cloned().collect();
     let t_now = now();
@@ -363,7 +438,7 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
     if digest {
         st.next_digest = t_now + DIGEST_SECS;
     }
-    if !new.is_empty() || digest {
+    if (!new.is_empty() || digest) && !ctx.a.mode.twin() {
         st.judge_wanted = Some(st.judge_wanted.unwrap_or(false) || digest);
     }
     if let Some(want_digest) = st.judge_wanted {
@@ -393,7 +468,8 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
                 s.block, st.status.label(), st.next_recheck.saturating_sub(t_now),
                 if ready_relevant == Some(true) { format!(" judgment ready, applied in {} s", free_at.saturating_sub(t_now)) } else { String::new() });
         } else if n % STATUS_EVERY == 1 || fired_set != st.fired_prev {
-            println!("TICK {n} block={} read_ms={read_ms} status={} l1_base_fee={:?} screens={fired_set:?}{judge_note} | {}", s.block, st.status.label(), s.l1_base_fee, status_line(&s));
+            let fz = if frozen.is_empty() { String::new() } else { format!(" frozen_on_fork={:?}", logic::fired_set(&frozen)) };
+            println!("TICK {n} block={} read_ms={read_ms} status={} l1_base_fee={:?} screens={fired_set:?}{fz}{judge_note} | {}", s.block, st.status.label(), s.l1_base_fee, status_line(&s));
         }
         st.fired_prev = fired_set;
         return;
@@ -403,7 +479,11 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
     st.loops += 1;
     let loops = st.loops;
     let tl = Instant::now();
-    let mut judge_record = Value::Null;
+    let mut judge_record = if ctx.a.mode.twin() {
+        json!({"outcome": "not called: deterministic twin (no model, no text feeds; rules only)"})
+    } else {
+        st.judge_skipped.take().unwrap_or(Value::Null)
+    };
     let mut judgment: Option<Judgment> = None;
     if judge_ready {
         if let Some(r) = st.ready.take() {
@@ -426,19 +506,33 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         Due::JudgeResult => "judge_result",
         _ => "recheck_on_cooldown",
     };
-    let mut tr = json!({"agent": ctx.agent_record, "loop": loops, "tick": n, "time_utc": iso(t_now), "agent_status": st.status.label(),
+    let mut tr = json!({"agent": ctx.agent_record, "mode": ctx.a.mode.label(), "twin": ctx.a.mode.twin(),
+        "label": if ctx.a.mode.twin() { "deterministic twin: same ticks, screens and protective rule; no judge, no text feeds" } else { "agent" },
+        "network": if ctx.fork { "anvil fork (rehearsal)" } else { "Base Sepolia" },
+        "loop": loops, "tick": n, "time_utc": iso(t_now), "agent_status": st.status.label(),
         "trigger": {"kind": trigger, "new_screens": new, "judge_in_flight": st.inflight.is_some()},
         "inputs": {"snapshot": serde_json::to_value(&s).unwrap_or_else(|e| json!({"serialize_error": e.to_string()}))},
-        "screens": fired, "judge": judge_record, "judgment_applied": judgment,
+        "screens": fired,
+        "frozen_on_fork": frozen.iter().map(|f| json!({"market": f.market, "screen": f.screen, "detail": f.detail,
+            "label": "frozen on fork: anvil freezes Chainlink while block time advances; not fired"})).collect::<Vec<_>>(),
+        "judge": judge_record, "judgment_applied": judgment,
         "decisions": decisions.iter().map(|d| d.json()).collect::<Vec<_>>(), "chosen": chosen.map(|i| decisions[i].market.name.clone())});
     for d in &decisions {
         println!("RESULT decision loop={loops} market={} action={:?} protective={} amount={} fraction={} basis={}", d.market.name, d.action, d.protective, d.amount, d.fraction, d.basis);
     }
     if let Some(i) = chosen {
         let d = &decisions[i];
-        let mut status = st.status;
-        let p = propose(&ctx, &s, d, &mut st.vault, &mut status).await;
-        st.status = status;
+        // execution check before any sale (31 Oct): a pool more than 1% below the oracle would make it revert Slippage
+        let p = if let Some(why) = logic::sale_blocked_by_pool(d) {
+            println!("RESULT sale skipped loop={loops} market={} action={:?}: {why}", d.market.name, d.action);
+            json!({"proposed": false, "why_not_proposed": why, "execution_check": "pool_vs_oracle", "pool_gap": d.market.pool_gap,
+                "pool_usd": d.market.pool_usd, "oracle_usd": d.market.oracle_usd})
+        } else {
+            let mut status = st.status;
+            let p = propose(&ctx, &s, d, &mut st.vault, &mut status).await;
+            st.status = status;
+            p
+        };
         println!("RESULT proposal loop={loops} {}", json!({"market": d.market.name, "method": p["method"], "args": p["args"], "tx": p["tx"],
             "estimate": p["estimate"], "l1_fee_wei": p["l1_fee_wei"], "vault_check_transaction": p["vault_check_transaction"], "refusals": p["refusals"],
             "sent": p["sent"], "why_not_sent": p["why_not_sent"], "why_not_proposed": p["why_not_proposed"], "near_tx": p["near_tx"],
@@ -448,13 +542,118 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
     st.next_recheck = logic::next_recheck(now(), logic::exec_cooldown(&s), logic::cooldown_free_at(&st.vault, &s));
     tr["next_recheck_utc"] = json!(iso(st.next_recheck));
     tr["seconds"] = json!(tl.elapsed().as_secs_f64());
-    let name = format!("transcripts/{}-{loops:04}.json", ctx.boot_id);
-    // a transcript that cannot be written is reported, never fatal (build item 49)
-    match serde_json::to_string_pretty(&tr).map_err(anyhow::Error::from).and_then(|t| tee::save_evidence(&ctx.a.evidence, &name, t.as_bytes())) {
-        Ok(h) => println!("RESULT transcript loop={loops} {name} sha256={h} seconds={:.1}", tl.elapsed().as_secs_f64()),
+    let name = format!("transcripts/{}{}-{loops:04}.json", ctx.boot_id, if ctx.a.mode.twin() { "-twin" } else { "" });
+    // private (build item 38): written to the evidence volume only; the public log gets its hash and size.
+    // A transcript that cannot be written is reported, never fatal (build item 49).
+    match serde_json::to_string_pretty(&tr).map_err(anyhow::Error::from).and_then(|t| tee::save_private(&ctx.a.evidence, &name, t.as_bytes())) {
+        Ok((h, len)) => println!("RESULT transcript loop={loops} {name} sha256={h} bytes={len} seconds={:.1}", tl.elapsed().as_secs_f64()),
         Err(e) => println!("RESULT transcript loop={loops} {name} write failed: {e}"),
     }
     st.fired_prev = fired_set;
+}
+
+// ------------------------------------------------------------------ registration (§4.4; item 32; re-registration 31 Oct)
+
+/// What a registration needs: the quote and its imr-3 events (kept from boot; a reboot keeps them byte-identical).
+struct Attest {
+    quote: Vec<u8>,
+    imr3: Vec<Value>,
+}
+
+/// One `register_agent` call with fresh collateral: refused here, before any gas is spent, when the collateral does
+/// not verify locally as `UpToDate` or the balance cannot pass NEAR's submission check. Returns the record.
+async fn register_once(nearc: &near::Near, sk: &SigningKey, implicit: &str, vault: &str, at: &Attest, attempt: u32) -> Result<Value> {
+    let (coll, cinfo) = tee::collateral(&at.quote).await.map_err(|e| anyhow!("collateral from Phala's PCCS: {e}"))?;
+    println!("RESULT collateral={cinfo}");
+    if !judge::tcb_up_to_date(&cinfo["local_verify"]) {
+        return Err(anyhow!("collateral does not verify locally as UpToDate ({}); not sent", cinfo["local_verify"]));
+    }
+    let f = logic::registration_funding(logic::REGISTER_GAS);
+    let bal_before = nearc.balance(implicit).await?.unwrap_or(0);
+    if bal_before < f.at_submission_yocto {
+        return Err(anyhow!("balance {} NEAR is below the {} NEAR NEAR checks at submission; {FUNDER}", logic::near_str(bal_before), logic::near_str(f.at_submission_yocto)));
+    }
+    let reg_args = json!({"quote_hex": hex::encode(&at.quote), "collateral": coll, "event_log": at.imr3});
+    let bytes = reg_args.to_string().into_bytes();
+    let t = Instant::now();
+    let res = nearc.function_call(sk, implicit, vault, "register_agent", &bytes, logic::REGISTER_GAS, 0).await;
+    let secs = t.elapsed().as_secs_f64();
+    let bal_after = nearc.balance(implicit).await.ok().flatten().unwrap_or(0);
+    let (h, r) = res?;
+    let failed = r["status"].get("Failure").cloned();
+    let rec = json!({"near_tx": h, "args_bytes": bytes.len(), "seconds": secs, "gas": near::gas_summary(&r), "attempt": attempt,
+        "prepaid_tgas": logic::REGISTER_GAS / 1_000_000_000_000,
+        "balance_before_yocto": bal_before.to_string(), "balance_after_yocto": bal_after.to_string(), "collateral": cinfo});
+    if let Some(f) = failed {
+        return Err(anyhow!("register_agent {h} failed: {f}"));
+    }
+    Ok(rec)
+}
+
+/// Re-attestation (31 Oct): every REREGISTER_POLL_SECS, read the vault; when our registration has under 24 h left,
+/// fetch fresh collateral, verify it locally and call `register_agent` again with the same key (the vault's
+/// same-key branch extends the expiry). Failures are logged and retried on the next poll; the tick loop never waits.
+async fn reregister_task(nearc: Arc<near::Near>, sk: SigningKey, implicit: String, vault: String, at: Arc<Attest>, evidence: PathBuf, boot_id: String) {
+    let pk = near::pk_string(&sk);
+    let mut n = 0u32;
+    loop {
+        tokio::time::sleep(Duration::from_secs(REREGISTER_POLL_SECS)).await;
+        let st = match nearc.view(&vault, "get_state", &json!({})).await {
+            Ok(v) => v,
+            Err(e) => {
+                println!("RESULT reregister check failed: vault state not readable: {e}");
+                continue;
+            }
+        };
+        if !logic::reregistration_due(&st, &pk, now()) {
+            continue;
+        }
+        n += 1;
+        let old = st["agent"]["expires_at"].as_u64().unwrap_or(0);
+        println!("RESULT reregister due attempt={n} expires_at={old} ({}) remaining_s={}", iso(old), old.saturating_sub(now()));
+        let rec = match register_once(&nearc, &sk, &implicit, &vault, &at, n).await {
+            Ok(r) => r,
+            Err(e) => {
+                println!("RESULT reregister attempt={n} failed, retry in {REREGISTER_POLL_SECS} s: {e}");
+                continue;
+            }
+        };
+        let st = nearc.view(&vault, "get_state", &json!({})).await.unwrap_or_default();
+        let new = st["agent"]["expires_at"].as_u64().unwrap_or(0);
+        let same_key = st["agent"]["public_key"].as_str() == Some(&pk);
+        println!("RESULT reregistered attempt={n} near_tx={} tgas={} same_key={same_key} expires_at {old} -> {new} ({})", rec["near_tx"], rec["gas"]["tgas_total"], iso(new));
+        let mut full = rec;
+        full["expires_at_before"] = json!(old);
+        full["expires_at_after"] = json!(new);
+        if let Err(e) = serde_json::to_string_pretty(&full).map_err(anyhow::Error::from).and_then(|t| tee::save_evidence(&evidence, &format!("{boot_id}/reregistration-{n}.json"), t.as_bytes())) {
+            println!("RESULT reregistration record write failed: {e}");
+        }
+    }
+}
+
+// ------------------------------------------------------------------ the tick loop driver (build item 49)
+
+/// Runs `tick(n)` for n = 1..=max_ticks, one every `every`. Each tick runs in its own task, so a panic or an error
+/// inside one (a provider outage, a failed read, a failed write) is logged and the next tick runs: the loop itself
+/// never stops on a tick's failure.
+async fn run_loop<F, Fut>(max_ticks: u64, every: Duration, mut tick: F) -> u64
+where
+    F: FnMut(u64) -> Fut,
+    Fut: std::future::Future<Output = ()> + Send + 'static,
+{
+    let mut n = 0u64;
+    while n < max_ticks {
+        n += 1;
+        let t0 = Instant::now();
+        if let Err(e) = tokio::spawn(tick(n)).await {
+            println!("TICK {n} aborted: {e}");
+        }
+        let el = t0.elapsed();
+        if el < every {
+            tokio::time::sleep(every - el).await;
+        }
+    }
+    n
 }
 
 // ------------------------------------------------------------------ main
@@ -465,34 +664,59 @@ async fn main() -> Result<()> {
     let sk = SigningKey::generate(&mut rand::rngs::OsRng);
     let implicit = near::implicit_account(&sk);
     let boot_id = format!("boot-{}-{}", now(), &implicit[..8]);
-    println!("RESULT start mode={} vault={} tee={} boot={boot_id}", a.mode, a.vault, a.tee);
+    println!("RESULT start mode={} operator={} vault={} tee={} boot={boot_id}", a.mode.label(), a.operator, a.vault, a.tee);
     println!("RESULT agent_public_key={} implicit_account={implicit}", near::pk_string(&sk));
     std::fs::create_dir_all(&a.evidence)?;
     let nearc = near::Near::new(&a.near_rpc);
     let base = Base::new(a.base_rpcs.clone());
     let key = match &a.nearai_key_file {
-        Some(f) => std::fs::read_to_string(f)?.trim().to_string(),
-        None => std::env::var("NEARAI_API_KEY").map_err(|_| anyhow!("NEARAI_API_KEY not set"))?,
+        Some(f) => Some(std::fs::read_to_string(f)?.trim().to_string()),
+        None => std::env::var("NEARAI_API_KEY").ok().map(|k| k.trim().to_string()),
+    }
+    .filter(|k| !k.is_empty());
+    let judge = if a.mode.twin() {
+        println!("RESULT judge never called: mode {} is the deterministic twin (no model, no text feeds)", a.mode.label());
+        None
+    } else if let Some(k) = key {
+        Some(Arc::new(judge::Judge::new(k)))
+    } else {
+        println!("RESULT judge disabled: NEARAI_API_KEY not set; every judgment is skipped and logged, the rules apply alone");
+        None
     };
-    let judge = Arc::new(judge::Judge::new(key));
-    let mut agent_record = json!({"public_key": near::pk_string(&sk), "implicit_account": implicit, "boot": boot_id, "mode": a.mode});
+    let fork = a.fork || base.all_providers_are_anvil().await;
+    println!("RESULT network base={} fork={fork}{}", if fork { "anvil fork" } else { "Base Sepolia" },
+        if fork { " (feed_stale is labelled frozen on fork, not fired)" } else { "" });
+    let mut agent_record = json!({"public_key": near::pk_string(&sk), "implicit_account": implicit, "boot": boot_id, "mode": a.mode.label(), "operator": a.operator});
 
     // ---- 1. quote, evidence, registration (§4.4)
+    let mut attest: Option<Arc<Attest>> = None;
     if a.tee {
         let b = tee::boot(&sk, &a.evidence, &boot_id).await?;
         println!("RESULT measurement={} rtmr3_replay_matches_quote={} debug={}", b.measurement, b.rtmr3_replayed_matches, b.debug);
         agent_record["measurement"] = b.measurement.clone();
-        let imr3: Vec<Value> = b.event_log.iter().filter(|e| e["imr"] == 3).cloned().collect();
+        let at = Attest { quote: b.quote.clone(), imr3: b.event_log.iter().filter(|e| e["imr"] == 3).cloned().collect() };
+        if let Some(addr) = &a.evidence_http {
+            match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone()) {
+                Ok(l) => println!("RESULT evidence_http listening={l} (GET /, GET /evidence/<file>; measurement evidence only, transcripts are not served)"),
+                Err(e) => println!("RESULT evidence_http not started on {addr}: {e}"),
+            }
+        }
+        // item 32: the amount, computed from the gas the registration attaches, printed once
+        let f = logic::registration_funding(logic::REGISTER_GAS);
+        println!("FUNDING implicit_account={implicit} needs={} NEAR = prepaid {} Tgas x pessimistic gas price {} yoctoNEAR/gas ({}) + storage {} + margin {} (1.5 registrations' burn); {FUNDER}",
+            logic::near_str(f.total_yocto), f.prepaid_gas / 1_000_000_000_000, logic::PESSIMISTIC_YOCTO_PER_GAS, logic::near_str(f.gas_yocto),
+            logic::near_str(f.storage_yocto), logic::near_str(f.margin_yocto));
         let mut last_wait = Instant::now() - Duration::from_secs(120);
         loop {
             let bal = nearc.balance(&implicit).await.unwrap_or(None);
             let st = nearc.view(&a.vault, "get_state", &json!({})).await.unwrap_or_default();
             let approved = st["approved"] == b.measurement;
-            if bal.unwrap_or(0) >= MIN_REGISTRATION_BALANCE && approved {
+            if bal.unwrap_or(0) >= f.total_yocto && approved {
                 break;
             }
             if last_wait.elapsed() > Duration::from_secs(60) {
-                println!("WAITING implicit_account={implicit} balance_yocto={:?} vault_approves_this_measurement={approved}", bal);
+                println!("WAITING implicit_account={implicit} balance={} NEAR needs={} NEAR vault_approves_this_measurement={approved}",
+                    bal.map(logic::near_str).unwrap_or("none (account does not exist yet)".into()), logic::near_str(f.total_yocto));
                 last_wait = Instant::now();
             }
             tokio::time::sleep(Duration::from_secs(15)).await;
@@ -500,20 +724,7 @@ async fn main() -> Result<()> {
         let mut attempt = 0;
         let (rec, registered, st) = loop {
             attempt += 1;
-            let (coll, cinfo) = tee::collateral(&b.quote).await?;
-            println!("RESULT collateral={cinfo}");
-            let reg_args = json!({"quote_hex": hex::encode(&b.quote), "collateral": coll, "event_log": imr3});
-            let bytes = reg_args.to_string().into_bytes();
-            let bal_before = nearc.balance(&implicit).await?.unwrap_or(0);
-            let t = Instant::now();
-            let res = nearc.function_call(&sk, &implicit, &a.vault, "register_agent", &bytes, REGISTER_GAS, 0).await;
-            let secs = t.elapsed().as_secs_f64();
-            let bal_after = nearc.balance(&implicit).await?.unwrap_or(0);
-            let rec = match res {
-                Ok((h, r)) => json!({"near_tx": h, "args_bytes": bytes.len(), "seconds": secs, "gas": near::gas_summary(&r), "attempt": attempt,
-                    "balance_before_yocto": bal_before.to_string(), "balance_after_yocto": bal_after.to_string(), "collateral": cinfo}),
-                Err(e) => json!({"error": e.to_string(), "args_bytes": bytes.len(), "seconds": secs, "attempt": attempt, "collateral": cinfo}),
-            };
+            let rec = register_once(&nearc, &sk, &implicit, &a.vault, &at, attempt).await.unwrap_or_else(|e| json!({"error": e.to_string(), "attempt": attempt}));
             let st = nearc.view(&a.vault, "get_state", &json!({})).await.unwrap_or_default();
             let registered = st["agent"]["public_key"].as_str() == Some(&near::pk_string(&sk));
             if registered || attempt >= REGISTER_ATTEMPTS {
@@ -530,12 +741,28 @@ async fn main() -> Result<()> {
         tee::save_evidence(&a.evidence, &format!("{boot_id}/registration.json"), serde_json::to_string_pretty(&full)?.as_bytes())?;
         agent_record["registration"] = json!({"near_tx": rec["near_tx"], "registered": registered});
         if !registered {
+            // non-zero exit: the compose's restart policy starts a fresh agent (new key, new registration)
             return Err(anyhow!("register_agent failed after {attempt} attempts: not ticking unregistered"));
+        }
+        attest = Some(Arc::new(at));
+    } else if let Some(addr) = &a.evidence_http {
+        match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone()) {
+            Ok(l) => println!("RESULT evidence_http listening={l} (no TEE: no measurement files; transcripts are not served)"),
+            Err(e) => println!("RESULT evidence_http not started on {addr}: {e}"),
         }
     }
 
     // ---- 2. the tick loop (§4.9)
-    let vault = nearc.view(&a.vault, "get_state", &json!({})).await?;
+    // the vault's state is retried, not fatal: an exit here would throw away a registered key
+    let vault = loop {
+        match nearc.view(&a.vault, "get_state", &json!({})).await {
+            Ok(v) => break v,
+            Err(e) => {
+                println!("RESULT vault state not readable, retry in 15 s: {e}");
+                tokio::time::sleep(Duration::from_secs(15)).await;
+            }
+        }
+    };
     let base_address = vault["base_address"].as_str().unwrap_or("").to_string();
     let markets = vault["markets"].as_array().ok_or_else(|| anyhow!("vault state has no markets: {vault}"))?;
     let market_ids: Vec<String> = markets.iter().filter_map(|m| m["id"].as_str().map(|s| s.to_string())).collect();
@@ -547,9 +774,14 @@ async fn main() -> Result<()> {
     let our_pk = near::pk_string(&sk);
     let status = logic::agent_status(&vault, &our_pk, now());
     println!("RESULT status agent={}", status.label());
+    if let Some(at) = attest {
+        let n2 = Arc::new(near::Near::new(&a.near_rpc));
+        tokio::spawn(reregister_task(n2, sk.clone(), implicit.clone(), a.vault.clone(), at, a.evidence.clone(), boot_id.clone()));
+        println!("RESULT reregister task started: polls every {REREGISTER_POLL_SECS} s, re-registers under {} s left", logic::REREGISTER_BEFORE_SECS);
+    }
     let next_digest = if a.digest_at_start { now() } else { now() + DIGEST_SECS };
     let (tick_secs, max_ticks) = (a.tick_secs, a.max_ticks);
-    let ctx = Arc::new(Ctx { a, base, nearc, sk, our_pk, judge, agent_record, boot_id, base_address, executor, market_ids });
+    let ctx = Arc::new(Ctx { a, base, nearc, sk, our_pk, judge, agent_record, fork, boot_id, base_address, executor, market_ids });
     let st = Arc::new(Mutex::new(State {
         vault,
         fired_prev: BTreeSet::new(),
@@ -560,25 +792,57 @@ async fn main() -> Result<()> {
         inflight: None,
         ready: None,
         judge_wanted: None,
+        judge_skipped: None,
         status,
     }));
-    let mut n = 0u64;
-    while n < max_ticks {
-        n += 1;
-        let t0 = Instant::now();
-        // each tick in its own task: a panic anywhere in it is logged and the loop goes on (build item 49)
-        if let Err(e) = tokio::spawn(tick(ctx.clone(), st.clone(), n)).await {
-            println!("TICK {n} aborted: {e}");
-        }
-        let el = t0.elapsed();
-        if el < Duration::from_secs(tick_secs) {
-            tokio::time::sleep(Duration::from_secs(tick_secs) - el).await;
-        }
-    }
+    let n = run_loop(max_ticks, Duration::from_secs(tick_secs), |n| tick(ctx.clone(), st.clone(), n)).await;
     let st = st.lock().await;
     if let Some(f) = &st.inflight {
         f.handle.abort();
     }
     println!("RESULT done ticks={n} loops={}", st.loops);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[tokio::test]
+    async fn a_failing_or_panicking_tick_does_not_stop_the_loop() {
+        let ran = Arc::new(AtomicU64::new(0));
+        let r = ran.clone();
+        let n = run_loop(6, Duration::from_millis(0), move |n| {
+            let r = r.clone();
+            async move {
+                r.fetch_add(1, Ordering::SeqCst);
+                if n == 2 {
+                    panic!("provider outage surfaced as a panic in tick {n}");
+                }
+                if n == 3 {
+                    // a failed read ends the tick early, as `tick` does on a snapshot error
+                    let read: Result<()> = Err(anyhow!("both providers down"));
+                    assert!(read.is_err());
+                }
+            }
+        })
+        .await;
+        assert_eq!(n, 6);
+        assert_eq!(ran.load(Ordering::SeqCst), 6, "every tick ran after the panic and the error");
+    }
+
+    #[test]
+    fn modes_and_operator_names() {
+        assert_eq!(Mode::parse("twin").unwrap(), Mode::Twin);
+        assert!(Mode::Twin.twin() && !Mode::Twin.sends());
+        assert!(Mode::TwinLive.twin() && Mode::TwinLive.sends());
+        assert!(!Mode::Dry.sends() && !Mode::Dry.twin());
+        assert!(Mode::Live.sends() && !Mode::Live.twin());
+        assert!(Mode::parse("judge").is_err());
+        assert!(valid_operator("cmdk") && valid_operator("alice-2"));
+        for bad in ["", "-x", "Cmdk", "a b", "a_b", &"x".repeat(33)] {
+            assert!(!valid_operator(bad), "{bad}");
+        }
+    }
 }

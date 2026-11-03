@@ -1,2 +1,4 @@
 target
 evidence*
+build-*.log
+testdata

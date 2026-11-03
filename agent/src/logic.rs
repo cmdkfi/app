@@ -8,7 +8,10 @@ use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
 pub const UTILIZATION_SCREEN: f64 = 0.95;
-pub const POOL_GAP_SCREEN: f64 = 0.02;
+/// Execution check before any sale (31 Oct, §4.9 step 3): the executor fills a sale no worse than oracle − 1%
+/// (CorridorMath.SLIPPAGE_BPS), so with the pool already more than 1% below the oracle the sale reverts `Slippage`.
+/// The pool is ours on testnet, so its gap is never a screen and never confirms anything.
+pub const SALE_POOL_GAP_MAX: f64 = 0.01;
 /// reduce_light = 1/4 of the remaining sell budget (§4.9 step 6)
 pub const REDUCE_LIGHT_SHARE: u128 = 4;
 /// CorridorMath.TARGET_TOLERANCE: a protective session ends within 0.1 pp of target
@@ -61,12 +64,6 @@ impl Fired {
     }
 }
 
-/// Screens that count as the fired on-chain screen of the agreement rule (§4.9 steps 3 and 6, 31 Oct): the
-/// pool-gap screen does not, because on testnet the pool is ours.
-pub fn confirms(screen: &str) -> bool {
-    screen != "oracle_pool_gap_above_2pct"
-}
-
 fn feed_name(f: &str) -> &str {
     if f == ETH_USD {
         "ETH/USD"
@@ -95,11 +92,6 @@ pub fn screens(s: &Snapshot) -> Vec<Fired> {
         if m.utilization > UTILIZATION_SCREEN {
             fire(&mut out, m, "utilization_above_95pct", format!("utilization {:.4}", m.utilization));
         }
-        if let Some(g) = m.pool_gap {
-            if g.abs() > POOL_GAP_SCREEN {
-                fire(&mut out, m, "oracle_pool_gap_above_2pct", format!("pool {:.2} vs oracle {:.2} USD ({:+.2}%)", m.pool_usd.unwrap_or(0.0), m.oracle_usd, g * 100.0));
-            }
-        }
         for f in &m.feeds {
             if !f.fresh() {
                 let why = if f.answer_positive { format!("age {} s > {} s", f.age_s, f.max_age_s) } else { "answer not positive".into() };
@@ -108,6 +100,16 @@ pub fn screens(s: &Snapshot) -> Vec<Fired> {
         }
     }
     out
+}
+
+/// Fork rehearsals (build item 43): an anvil fork freezes the Chainlink feeds while block time advances, so
+/// `feed_stale` would fire on every fork tick. On a fork it is taken out of the fired screens and returned
+/// separately, for the transcript's "frozen on fork" label; on the real network nothing changes.
+pub fn split_frozen_on_fork(fired: Vec<Fired>, fork: bool) -> (Vec<Fired>, Vec<Fired>) {
+    if !fork {
+        return (fired, vec![]);
+    }
+    fired.into_iter().partition(|f| f.screen != "feed_stale")
 }
 
 pub fn fired_set(f: &[Fired]) -> BTreeSet<String> {
@@ -283,7 +285,7 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
     let to_target = amount_to(m, c.target);
     let floor_room = amount_to(m, c.floor);
     let (budget_coll, budget_value) = budget(s, m);
-    let confirm: Vec<&Fired> = fired.iter().filter(|f| f.market == m.name && confirms(&f.screen)).collect();
+    let confirm: Vec<&Fired> = fired.iter().filter(|f| f.market == m.name).collect();
     let is_protective = protective(s, m);
     let action = judged.map(|j| j.action.as_str());
     let detail = json!({"ltv": m.ltv, "target": wad(c.target), "act": wad(c.act), "floor": wad(c.floor), "lltv": wad(m.lltv),
@@ -310,7 +312,7 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
         return reduce(to_target, "rule: LTV above the act line (or a protective session still above target), protective reduce to target", true);
     }
     if confirm.is_empty() {
-        return none("no fired on-chain screen on this market (the pool-gap screen does not count): no discretionary action", detail);
+        return none("no fired on-chain screen on this market: no discretionary action", detail);
     }
     match action {
         None => none("no judgment to apply on this tick: rules only", detail),
@@ -376,6 +378,22 @@ pub fn pick(ds: &[Decision]) -> Option<usize> {
         U256::from(d.market.ltv.order_key()) * U256::from(WAD) / U256::from(lltv)
     };
     ds.iter().enumerate().filter(|(_, d)| d.action != Act::None).max_by(|(_, a), (_, b)| (a.protective, closeness(a)).cmp(&(b.protective, closeness(b)))).map(|(i, _)| i)
+}
+
+/// The pool-versus-oracle execution check before a sale (`reduce`, `exit`; 31 Oct): Some(reason) when the pool's
+/// price is more than SALE_POOL_GAP_MAX below the oracle, so the executor would revert the sale with `Slippage`. The
+/// proposal is then skipped and the decision re-runs on the cooldown boundary. A pool above the oracle fills better
+/// than the bound and is not a reason to skip; an unknown pool price is recorded and not a reason either (the
+/// executor still checks the fill). `migrate` sells nothing and is never skipped here.
+pub fn sale_blocked_by_pool(d: &Decision) -> Option<String> {
+    if !matches!(d.action, Act::Reduce | Act::Exit) {
+        return None;
+    }
+    let g = d.market.pool_gap?;
+    (g < -SALE_POOL_GAP_MAX).then(|| {
+        format!("pool {:.2} is {:.2}% below the oracle {:.2} USD, beyond the executor's 1% fill bound: the sale would revert Slippage; skipped, re-checked on the cooldown boundary",
+            d.market.pool_usd.unwrap_or(0.0), -g * 100.0, d.market.oracle_usd)
+    })
 }
 
 /// Markets where a condition stays on: a fired screen or a protective state. While any is on, `decide` re-runs on
@@ -536,6 +554,65 @@ pub fn refusals(checks: &[Check]) -> Vec<String> {
     checks.iter().filter(|c| !c.ok).map(|c| if c.detail.is_empty() { c.name.to_string() } else { format!("{}: {}", c.name, c.detail) }).collect()
 }
 
+// ------------------------------------------------------------------ registration: funding (item 32), re-registration
+
+/// Gas prepaid on `register_agent`: the vault's receipt is 113.7 Tgas and the transaction 131 Tgas with its refund
+/// receipts (P3), so 130 Tgas, not 300.
+pub const REGISTER_GAS: u64 = 130_000_000_000_000;
+/// yoctoNEAR per gas that NEAR charges against the signer's balance for prepaid gas when it accepts a transaction
+/// (the pessimistic gas price). Run 2, 27 Oct: `NotEnoughBalance { cost: 0.30118166 NEAR }` for 300 Tgas, i.e.
+/// 1.00394e9 per gas; rounded up.
+pub const PESSIMISTIC_YOCTO_PER_GAS: u128 = 1_004_000_000;
+/// The implicit account's own storage (one full-access key, about 182 bytes at 1e19 yoctoNEAR per byte), rounded up.
+pub const ACCOUNT_STORAGE_YOCTO: u128 = 2_000_000_000_000_000_000_000; // 0.002 NEAR
+/// One registration burns 0.0116 NEAR (P3, 131 Tgas); the margin is 1.5 of those, so what is left after the first
+/// registration still passes the submission check of the next re-registration.
+pub const REGISTRATION_MARGIN_YOCTO: u128 = 17_400_000_000_000_000_000_000; // 0.0174 NEAR
+
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Funding {
+    pub prepaid_gas: u64,
+    /// prepaid gas x the pessimistic gas price
+    pub gas_yocto: u128,
+    pub storage_yocto: u128,
+    pub margin_yocto: u128,
+    /// what NEAR checks at submission: gas + storage
+    pub at_submission_yocto: u128,
+    /// what the agent waits for before its first registration: gas + storage + margin
+    pub total_yocto: u128,
+}
+
+pub fn registration_funding(prepaid_gas: u64) -> Funding {
+    let gas_yocto = prepaid_gas as u128 * PESSIMISTIC_YOCTO_PER_GAS;
+    let at_submission_yocto = gas_yocto + ACCOUNT_STORAGE_YOCTO;
+    Funding { prepaid_gas, gas_yocto, storage_yocto: ACCOUNT_STORAGE_YOCTO, margin_yocto: REGISTRATION_MARGIN_YOCTO,
+        at_submission_yocto, total_yocto: at_submission_yocto + REGISTRATION_MARGIN_YOCTO }
+}
+
+/// yoctoNEAR as "0.14992" NEAR (five decimals, rounded up so a printed amount is never short).
+pub fn near_str(yocto: u128) -> String {
+    let unit = 10u128.pow(19); // 1e-5 NEAR
+    let n = yocto.div_ceil(unit);
+    format!("{}.{:05}", n / 100_000, n % 100_000)
+}
+
+/// Re-attest when under this much of the 7-day registration remains (31 Oct).
+pub const REREGISTER_BEFORE_SECS: u64 = 86_400;
+
+/// Whether this agent should call `register_agent` again now: the vault lists our key and its registration has
+/// under 24 h left (or has lapsed). Never when the vault lists another key or none: re-registering then would
+/// displace another agent or undo the owner's revoke.
+pub fn reregistration_due(vault: &Value, our_pk: &str, now: u64) -> bool {
+    let a = &vault["agent"];
+    if a["public_key"].as_str() != Some(our_pk) {
+        return false;
+    }
+    match a["expires_at"].as_u64() {
+        Some(exp) => exp.saturating_sub(now) < REREGISTER_BEFORE_SECS,
+        None => false,
+    }
+}
+
 // ------------------------------------------------------------------ judge input (build item 46)
 
 /// The judge's user message and the source ids it may cite. Every threshold the model is asked to judge against is
@@ -581,25 +658,37 @@ pub fn judge_input(s: &Snapshot, fired: &[Fired], feed: &Value, vault: &Value, n
         .map(|f| {
             let id = format!("screen:{}:{}", f.market, f.screen);
             ids.push(id.clone());
-            json!({"source_id": id, "detail": f.detail, "counts_as_onchain_confirmation": confirms(&f.screen)})
+            json!({"source_id": id, "detail": f.detail})
         })
         .collect();
-    let items: Vec<Value> = feed["items"]
+    // every feed that was read, with its kind and its publisher's notice; a feed that failed is left out
+    let text_feeds: Vec<Value> = feed["feeds"]
         .as_array()
         .cloned()
         .unwrap_or_default()
         .into_iter()
-        .map(|i| {
-            ids.push(i["id"].as_str().unwrap_or("").to_string());
-            json!({"source_id": i["id"], "published": i["published"], "text": i["text"]})
+        .filter(|f| f["ok"] == true)
+        .map(|f| {
+            let items: Vec<Value> = f["items"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|i| {
+                    ids.push(i["id"].as_str().unwrap_or("").to_string());
+                    json!({"source_id": i["id"], "published": i["published"], "text": i["text"]})
+                })
+                .collect();
+            json!({"source": f["url"], "kind": f["kind"], "notice": f["notice"], "untrusted": true, "items": items})
         })
         .collect();
     let user = json!({"now_utc": crate::iso(s.timestamp), "base_block": s.block, "markets": markets, "screens_fired": sc,
-        "screen_thresholds": {"utilization_above": UTILIZATION_SCREEN, "pool_vs_oracle_abs_pct_above": POOL_GAP_SCREEN * 100.0,
-            "feed_stale_when_age_s_above": "max_age_s of each feed"},
+        "screen_thresholds": {"utilization_above": UTILIZATION_SCREEN, "feed_stale_when_age_s_above": "max_age_s of each feed"},
+        "execution_checks": {"sale_skipped_when_pool_below_oracle_pct": SALE_POOL_GAP_MAX * 100.0,
+            "pool_note": "the pool price is not a screen: on testnet the team sets the pool"},
         "agent_limits": {"executor_cooldown_s": exec_cooldown(s), "vault_cooldown_s": vault["cooldown_secs"],
             "agent_may_act_in_s": free_at.saturating_sub(now)},
-        "text_feed": {"source": crate::judge::FEED_URL, "untrusted": true, "items": items}});
+        "text_feeds": text_feeds});
     (serde_json::to_string_pretty(&user).unwrap_or_default(), ids)
 }
 
@@ -715,16 +804,111 @@ mod tests {
         assert_eq!(da.amount, amount_to(&s.markets[0], s.markets[0].exec.as_ref().unwrap().corridor.target).min(bv));
     }
 
+    // ---- 31 Oct: the pool gap is an execution check, not a screen
+
     #[test]
-    fn pool_gap_alone_is_no_onchain_confirmation() {
+    fn pool_gap_is_no_screen_and_confirms_nothing() {
         let mut a = market("a", 1100, 1000, 2000, 0.50, 0.70, 0.30);
         a.pool_gap = Some(-0.05);
         a.pool_usd = Some(1900.0);
         let s = snap(vec![a]);
         let fired = screens(&s);
-        assert_eq!(fired.len(), 1);
-        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_light", &["a:oracle_pool_gap_above_2pct"])), &vault(&s));
+        assert!(fired.is_empty(), "{fired:?}");
+        assert!(!standing(&s, &fired), "a gap alone keeps nothing standing, so it never triggers the judge");
+        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_light", &[])), &vault(&s));
         assert_eq!(d.action, Act::None);
+    }
+
+    #[test]
+    fn a_sale_into_a_pool_more_than_1pct_below_the_oracle_is_skipped() {
+        let mut a = market("a", 1500, 1000, 2000, 0.50, 0.70, 0.30); // LTV 0.75: protective reduce
+        let check = |a: &MarketSnap| {
+            let s = snap(vec![a.clone()]);
+            let d = decide_market(&s, &s.markets[0], &screens(&s), None, &vault(&s));
+            assert_eq!(d.action, Act::Reduce);
+            sale_blocked_by_pool(&d)
+        };
+        a.pool_gap = Some(-0.0101);
+        a.pool_usd = Some(1979.8);
+        let why = check(&a).expect("skipped");
+        assert!(why.contains("Slippage") && why.contains("1.01% below"), "{why}");
+        a.pool_gap = Some(-0.0099);
+        assert_eq!(check(&a), None, "within the 1% fill bound");
+        a.pool_gap = Some(0.05);
+        assert_eq!(check(&a), None, "a pool above the oracle fills better than the bound");
+        a.pool_gap = None;
+        assert_eq!(check(&a), None, "no pool price: the executor still checks the fill");
+        // exit is a sale; migrate is not
+        a.pool_gap = Some(-0.03);
+        let s = snap(vec![a.clone()]);
+        let mut d = decide_market(&s, &s.markets[0], &screens(&s), None, &vault(&s));
+        d.action = Act::Exit;
+        assert!(sale_blocked_by_pool(&d).is_some());
+        d.action = Act::Migrate;
+        assert_eq!(sale_blocked_by_pool(&d), None);
+    }
+
+    // ---- 43: fork rehearsals
+
+    #[test]
+    fn feed_stale_is_labelled_frozen_on_a_fork_only() {
+        let mut a = market("a", 1500, 1000, 2000, 0.50, 0.70, 0.30);
+        a.feeds[0].age_s = 5000; // over the 1,200 s heartbeat
+        let s = snap(vec![a]);
+        let all = screens(&s);
+        assert!(all.iter().any(|f| f.screen == "feed_stale"));
+        let (fired, frozen) = split_frozen_on_fork(all.clone(), false);
+        assert_eq!(fired, all, "the real network: identical");
+        assert!(frozen.is_empty());
+        let (fired, frozen) = split_frozen_on_fork(all, true);
+        assert!(fired.iter().all(|f| f.screen != "feed_stale"));
+        assert!(fired.iter().any(|f| f.screen == "ltv_above_act"), "other screens still fire on a fork");
+        assert_eq!(frozen.len(), 1);
+        assert_eq!(frozen[0].screen, "feed_stale");
+    }
+
+    // ---- 10: the deterministic twin decides with no judgment, so it never proposes a discretionary action
+
+    #[test]
+    fn without_a_judgment_only_the_protective_rule_acts() {
+        let mut a = market("a", 1100, 1000, 2000, 0.50, 0.70, 0.30); // LTV 0.55: not protective
+        a.utilization = 0.99; // a confirming screen that would let a judgment act
+        let b = market("b", 1500, 1000, 2000, 0.50, 0.70, 0.30); // LTV 0.75: protective
+        let s = snap(vec![a, b]);
+        let fired = screens(&s);
+        let ds = decide_all(&s, &fired, None, &vault(&s));
+        for d in &ds {
+            assert!(d.action == Act::None || d.protective, "{:?}", d.json());
+        }
+        assert_eq!(ds.iter().find(|d| d.market.name == "b").unwrap().action, Act::Reduce);
+    }
+
+    // ---- 32: funding; 31 Oct: re-registration
+
+    #[test]
+    fn registration_funding_is_computed_from_the_gas_attached() {
+        let f = registration_funding(REGISTER_GAS);
+        assert_eq!(f.gas_yocto, 130_520_000_000_000_000_000_000); // 130 Tgas x 1.004e9 = 0.13052 NEAR
+        assert_eq!(near_str(f.total_yocto), "0.14992");
+        assert_eq!(near_str(f.at_submission_yocto), "0.13252");
+        assert!(f.total_yocto <= 150_000_000_000_000_000_000_000, "within the relayer's 0.15 NEAR top-up");
+        // what failed in run 2: 0.1 NEAR against 300 Tgas prepaid
+        assert!(registration_funding(300_000_000_000_000).at_submission_yocto > 301_181_659_988_054_500_000_000);
+        // after one registration (0.0116 NEAR burnt) the re-registration still passes the submission check
+        assert!(f.total_yocto - 11_600_000_000_000_000_000_000 >= f.at_submission_yocto);
+        assert_eq!(near_str(1), "0.00001", "rounded up");
+    }
+
+    #[test]
+    fn reregistration_is_due_under_24_hours_and_only_for_our_key() {
+        let v = |pk: &str, exp: u64| json!({"agent": {"public_key": pk, "expires_at": exp}});
+        assert!(!reregistration_due(&v(PK, T + 7 * 86_400), PK, T), "fresh registration");
+        assert!(!reregistration_due(&v(PK, T + 86_400), PK, T), "exactly 24 h left: not yet");
+        assert!(reregistration_due(&v(PK, T + 86_399), PK, T));
+        assert!(reregistration_due(&v(PK, T - 10), PK, T), "lapsed: still ours, re-register");
+        assert!(!reregistration_due(&v("ed25519:other", T + 10), PK, T), "never displace another agent");
+        assert!(!reregistration_due(&json!({"agent": null}), PK, T), "never undo a revoke");
+        assert!(!reregistration_due(&json!({"agent": {"public_key": PK}}), PK, T));
     }
 
     #[test]
@@ -905,9 +1089,26 @@ mod tests {
         assert_eq!(j["agent_limits"]["executor_cooldown_s"], 60);
         assert_eq!(j["agent_limits"]["vault_cooldown_s"], 120);
         assert_eq!(j["screen_thresholds"]["utilization_above"], 0.95);
-        assert_eq!(j["screen_thresholds"]["pool_vs_oracle_abs_pct_above"], 2.0);
+        assert_eq!(j["execution_checks"]["sale_skipped_when_pool_below_oracle_pct"], 1.0);
+        assert!(j["screen_thresholds"].get("pool_vs_oracle_abs_pct_above").is_none());
         assert!(ids.contains(&"screen:a:ltv_above_act".to_string()));
         assert!(ids.contains(&"chain:a:position".to_string()));
+    }
+
+    #[test]
+    fn judge_input_carries_each_feed_with_its_notice_and_kind() {
+        let s = snap(vec![market("a", 1100, 1000, 2000, 0.50, 0.70, 0.30)]);
+        let body = std::fs::read("testdata/feeds/governance.json").unwrap();
+        let demo = crate::judge::parse_demo_feed(crate::judge::DEMO_FEEDS[1], &body).unwrap();
+        let feeds = json!({"feeds": [demo, {"url": crate::judge::DEMO_FEEDS[0], "ok": false, "error": "HTTP 404 Not Found", "items": []}]});
+        let (user, ids) = judge_input(&s, &[], &feeds, &vault(&s), T);
+        let j: Value = serde_json::from_str(&user).unwrap();
+        let tf = j["text_feeds"].as_array().unwrap();
+        assert_eq!(tf.len(), 1, "the missing feed is left out");
+        assert_eq!(tf[0]["kind"], "protocol announcements (demo)");
+        assert!(tf[0]["notice"].as_str().unwrap().starts_with("Published by the cmdk team for the testnet demo"));
+        assert_eq!(tf[0]["untrusted"], true);
+        assert!(ids.contains(&"feed:cmdk-testnet-governance:governance-2026-11-03-001".to_string()));
     }
 
     #[test]
