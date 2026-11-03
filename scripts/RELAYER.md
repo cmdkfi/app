@@ -6,8 +6,9 @@ Sepolia; it creates vaults through the factory and funds a new agent's implicit 
 file, `sign-with-access-key-file`) and broadcasts on Base.
 
 **What it does not do.** It holds no authority. It cannot make the vault sign anything: the vault checks the
-owner's signature and its allowlist and builds every Base transaction itself. The relayer never holds an EVM key.
-Because the vault cannot read Base, the relayer reads Base before it composes a call (design §4.1). These
+owner's signature and its allowlist and builds every Base transaction itself. The relayer holds one EVM key,
+the service wallet's, and uses it for one thing: the ETH float it sends to a new vault (below); that key has no
+role in the vault. Because the vault cannot read Base, the relayer reads Base before it composes a call (design §4.1). These
 checks only stop a call that would fail; they grant nothing.
 
 ## Run it
@@ -19,11 +20,23 @@ python3 -I scripts/relayer.py serve ... --dry-run                 # sends nothin
 python3 -I scripts/relayer.py serve ... --dry-run --allow-reads   # reads Base and NEAR, sends nothing
 ```
 
+| Flag | Default | Meaning |
+|---|---|---|
+| `--eth-float ETH` | `0.005` | ETH sent from the service wallet to each new vault's Base address at `/create-vault`; `0` disables it |
+| `--eth-key-file FILE` | `~/.config/prime/base_sepolia_eoa.json` | the service wallet's key file, `{"data": {"private_key", "address"}}` (or a one-element list); read only when the float is on |
+| `--cors-origin ORIGIN` | none | an allowed browser origin, `scheme://host[:port]`; repeatable; none means no CORS headers |
+
+With the float on, `serve` refuses to start (exit 2, so `relayer.sh` does not restart it) when the key file
+cannot be read, when its `address` is not the address of its key, or when the wallet holds less than 20 floats
+(0.1 ETH at the default). A dry run without `--allow-reads` reads the key file but not the balance.
+
 `relayer.sh` restarts the service 5 s after a crash, with a log line; exit 0 (Ctrl-C) or 2 (refused to start)
 stops it. To keep it running after logout: `nohup scripts/relayer.sh serve ... >> relayer.log 2>&1 &`; or a
 launchd agent (macOS) or a systemd unit (Linux) whose command is the same `relayer.sh serve ...` line, with
 `KeepAlive`/`Restart=on-failure` left off since the script restarts itself. The service binds 127.0.0.1 only;
-the app's server-side proxy calls it, and it is never exposed to the internet.
+a reverse proxy in front of it serves HTTPS. The proxy exposes `GET /health`, `GET /vault/<id>`,
+`GET /job/<id>`, `POST /create-vault` and `POST /owner-call`; `POST /fund-agent` is operator plumbing and stays
+private.
 
 **On Cloudflare (from 6 Nov, `cloud/README.md`).** The container runs the same `relayer.sh serve`, still on
 127.0.0.1; `cloud/front.py` proxies to it, and the Worker at `https://relayer.cmdk.fi` is the proxy, with CORS for
@@ -38,15 +51,168 @@ the working directory off `sys.path`.)
 
 ## Endpoints
 
-Every response is `{"ok": true, ...}` or `{"ok": false, "error": "..."}` (400 refused, 502 chain error).
+Every response is JSON with a boolean `ok`: `{"ok": true, ...}` or `{"ok": false, "error": "..."}`.
+
+| HTTP | Body | Meaning |
+|---|---|---|
+| 200 | `{"ok": true, ...}` | success (a synchronous call, a found job in any stage, a read) |
+| 200 | `{"ok": false, "error": "...", "near_tx": "...", ...}` | a synchronous call sent a NEAR transaction that failed, a Base transaction reverted, or the float failed; also a job in stage `failed`. Check `ok`, never only the status |
+| 202 | `{"ok": true, "job": "<16 hex>"}` | an asynchronous call was accepted; poll `GET /job/<id>` |
+| 400 | `{"ok": false, "error": "<refusal>"}` | refused before anything was sent |
+| 404 | `{"ok": false, "error": "no such endpoint"}` or `"no such job"` | wrong path, or a job id that is unknown or already dropped |
+| 502 | `{"ok": false, "error": "chain: <detail>"}` | an RPC or CLI call failed, possibly after the NEAR transaction was sent |
+| 500 | `{"ok": false, "error": "<ExceptionName>: <detail>"}` | a bug |
 
 | Request | Response |
 |---|---|
-| `POST /create-vault {"owner":"0x..","policy":{"cooldown_secs":120,"markets":[{"id","loan_token","collateral_token","executor","slice_max":"1000000000"}]},"deposit_near":"2"}` | `{ok, near_tx, vault:"v1.FACTORY", base_address:"0x.."}` from the factory's `creating vault:` log |
+| `POST /create-vault {"owner":"0x..","policy":{"cooldown_secs":120,"markets":[{"id","loan_token","collateral_token","executor","slice_max":"1000000000"}]},"deposit_near":"2"}` | 202 `{ok, job}`; with `"wait": true`, `{ok, near_tx, vault:"v1.FACTORY", base_address:"0x..", float}` from the factory's `creating vault:` log (`float` only with the float on) |
 | `GET /vault/v1.FACTORY` | `{ok, vault, state: get_state, base: {address, eth_wei, pending_nonce, tokens: {token: balance}, markets: [{id, executor, morpho_authorized, loan_allowance, collateral_allowance, corridor: {..., set}, position: {collateral, borrow_shares, debt}}]}, notes}` |
-| `POST /owner-call {"vault":"v1.FACTORY","message":"{\"protocol\":\"cmdk-vault/1\",...}","signature":"0x.."}` | `{ok, near_tx, signed: [{raw, hash, from, to, nonce, value}], receipts: [{hash, status, block, gasUsed, effectiveGasPrice, l1Fee}]}`; on a revert `ok: false`, the receipts so far, `held` (not broadcast) |
-| `POST /fund-agent {"implicit_account":"<64 hex>"}` | `{ok, status:"funded", near_tx, amount_yocto}` or `{ok, status:"already funded", balance_yocto}` |
-| `GET /health` | `{ok, dry_run, sender_balance, base_block, counters, agents_funded, uptime_s}` |
+| `POST /owner-call {"vault":"v1.FACTORY","message":"{\"protocol\":\"cmdk-vault/1\",...}","signature":"0x.."}` | 202 `{ok, job}`; with `"wait": true`, `{ok, near_tx, signed: [{raw, hash, from, to, nonce, value}], receipts: [{hash, status, block, gasUsed, effectiveGasPrice, l1Fee}]}`; on a revert `ok: false`, the receipts so far, `held` (not broadcast) |
+| `GET /job/<id>` | the job (below); 404 for an unknown id |
+| `POST /fund-agent {"implicit_account":"<64 hex>"}` | synchronous only: `{ok, status:"funded", near_tx, amount_yocto}` or `{ok, status:"already funded", balance_yocto}` |
+| `GET /health` | `{ok, dry_run, sender_balance, base_block, counters, agents_funded, uptime_s, jobs: {kept, max, running, stages: {stage: count}}, eth_float_wei, wallet: {address, balance_wei, balance, floats_left} or null}` |
+
+Paths are exact: no query string, no trailing slash.
+
+## Asynchronous calls (jobs)
+
+`POST /create-vault` and `POST /owner-call` answer at once with HTTP 202 and run in a thread. The request
+fields are as above; an optional `"wait": true` (a JSON boolean) runs the call synchronously instead and
+answers as on 3 Nov: one response when the NEAR transaction is final and every Base receipt is in, failures
+after sending as HTTP 200 with `ok: false`. `"wait": false` or no `wait` is asynchronous. The CLI subcommands
+(`submit`, `broadcast`) do not use the service.
+
+What is checked before the 202: the request's own fields (missing or unknown keys, the vault id, the
+create-vault policy and deposit). A refusal there is HTTP 400 at once and starts no job. Everything that needs
+a read (the message against `get_state`, the flags against Base, the gas money) runs in the job, so a refusal
+found there ends the job in `failed` with `http_status` 400 and nothing sent. One sending job runs at a time
+(`send_lock`); a job waiting for it stays in `accepted`, and the message's expiry is checked when it starts.
+
+`GET /job/<id>` answers 200 for a known job in any stage and 404 `{"ok": false, "error": "no such job"}`
+otherwise. A job is `{ok, job, kind, stage, times, ...}`: `kind` is `owner_call` or `create_vault`; `times`
+holds the unix time (seconds, 3 decimals) at which each stage was first reached, in order; the other fields
+are added as they become known and stay.
+
+| Kind | Stages, in order | Added at the stage |
+|---|---|---|
+| `owner_call` | `accepted` | `vault` |
+| | `vault_checked` | the NEAR call succeeded and returned the signed Base transactions: `method`, `near_tx`, `signed` |
+| | `base_sent` | `base_sent`: the hashes broadcast so far, in nonce order; `receipts` grows as each arrives (the relayer broadcasts one, waits for its receipt, then the next) |
+| | `done` | every receipt, each `status` 1; the fields of the synchronous answer |
+| `create_vault` | `accepted` | `owner` |
+| | `vault_created` | `near_tx`, `vault`, `base_address` (from the factory's log) |
+| | `float_sent` | `float: {from, to, value_wei, tx}` (only with the float on) |
+| | `done` | `float.nonce`, `float.receipt` with `status` 1 |
+| either | `failed` | `ok: false`, `error`, and the other fields of the synchronous answer (`near_tx`, `signed`, `receipts`, `held`, `note`; for create, `vault` and `base_address` when the vault exists), plus `http_status`: the status the synchronous call would have answered (200, 400, 502 or 500) |
+
+`approve_measurement` and `revoke_agent` produce no Base transaction: `accepted`, `vault_checked`, `done`, with
+`signed` and `receipts` empty. `near_tx` is added as soon as the near CLI returns it, before
+`vault_checked`, so a job that fails on a later RPC read (`http_status` 502) still names it. A dry run ends in
+`done` with the dry-run fields (`dry_run`, `near_command`, or `reads_skipped`).
+
+Jobs are kept in memory only, at most 1,000; beyond that the oldest is dropped. A restart of the service
+(`relayer.sh` after a crash, a new container) forgets every job, including one in flight; the chains keep the
+truth (the NEAR transaction, the vault's `owner_nonce`, the Base nonce and receipts), and the app reconciles
+from them as for a lost response.
+
+Examples: the shapes the service returns (taken from a run against the unit tests' fakes); hashes, times and
+receipt numbers are placeholders. Request:
+
+```sh
+curl -s localhost:8787/owner-call -H 'content-type: application/json' \
+  -d '{"vault":"v1.FACTORY","message":"{\"protocol\":\"cmdk-vault/1\",...,\"method\":\"set_corridor\",...}","signature":"0x.."}'
+```
+
+```json
+{"ok": true, "job": "e39f0bf6e83ef872"}
+```
+
+`GET /job/e39f0bf6e83ef872`, at each stage:
+
+```json
+{"ok": true, "job": "e39f0bf6e83ef872", "kind": "owner_call", "stage": "accepted",
+ "times": {"accepted": 1793725271.392}, "vault": "v1.FACTORY"}
+
+{"ok": true, "job": "e39f0bf6e83ef872", "kind": "owner_call", "stage": "vault_checked",
+ "times": {"accepted": 1793725271.392, "vault_checked": 1793725280.101}, "vault": "v1.FACTORY",
+ "near_tx": "<base58>", "method": "set_corridor",
+ "signed": [{"raw": "0x02…", "hash": "0x…07", "from": "0x<vault Base address>", "to": "0x<executor>", "value": "0", "nonce": 7}]}
+
+{"ok": true, "job": "e39f0bf6e83ef872", "kind": "owner_call", "stage": "base_sent",
+ "times": {"accepted": 1793725271.392, "vault_checked": 1793725280.101, "base_sent": 1793725280.402}, "vault": "v1.FACTORY",
+ "near_tx": "<base58>", "method": "set_corridor", "signed": [...], "base_sent": ["0x…07"]}
+
+{"ok": true, "job": "e39f0bf6e83ef872", "kind": "owner_call", "stage": "done",
+ "times": {"accepted": 1793725271.392, "vault_checked": 1793725280.101, "base_sent": 1793725280.402, "done": 1793725282.010},
+ "vault": "v1.FACTORY", "near_tx": "<base58>", "method": "set_corridor", "signed": [...], "base_sent": ["0x…07"],
+ "receipts": [{"hash": "0x…07", "status": 1, "block": 100, "gasUsed": 50000, "effectiveGasPrice": 1000000, "l1Fee": 5,
+               "from": "0x<vault Base address>", "to": "0x<executor>"}]}
+
+{"ok": false, "job": "da4b4ffd1e720a43", "kind": "owner_call", "stage": "failed",
+ "times": {"accepted": 1793725271.422, "vault_checked": 1793725280.1, "base_sent": 1793725280.4, "failed": 1793725282.0},
+ "vault": "v1.FACTORY", "near_tx": "<base58>", "method": "set_corridor", "signed": [...], "base_sent": ["0x…07"],
+ "receipts": [{"hash": "0x…07", "status": 0, ...}],
+ "error": "Base transaction 0x…07 (nonce 7) reverted; the rest were not broadcast", "held": [],
+ "note": "held transactions stay valid until their nonce passes; broadcast them with relayer.py broadcast, or ask the owner to sign cancel",
+ "http_status": 200}
+
+{"ok": false, "job": "…", "kind": "owner_call", "stage": "failed", "times": {"accepted": …, "failed": …}, "vault": "v1.FACTORY",
+ "error": "setup: authorize is true for executor 0x… but Morpho already has isAuthorized(vault, executor) = true, …",
+ "http_status": 400}
+```
+
+`POST /create-vault` (same 202), then:
+
+```json
+{"ok": true, "job": "ce929e78d9b2988a", "kind": "create_vault", "stage": "vault_created",
+ "times": {"accepted": 1793725271.422, "vault_created": 1793725283.0}, "owner": "0x…",
+ "near_tx": "<base58>", "vault": "v2.FACTORY", "base_address": "0x<vault Base address>"}
+
+{"ok": true, "job": "ce929e78d9b2988a", "kind": "create_vault", "stage": "float_sent",
+ "times": {"accepted": …, "vault_created": …, "float_sent": …}, "owner": "0x…", "near_tx": "<base58>", "vault": "v2.FACTORY",
+ "base_address": "0x<vault Base address>",
+ "float": {"from": "0x<service wallet>", "to": "0x<vault Base address>", "value_wei": "5000000000000000", "tx": "0x…03"}}
+
+{"ok": true, "job": "ce929e78d9b2988a", "kind": "create_vault", "stage": "done",
+ "times": {"accepted": …, "vault_created": …, "float_sent": …, "done": …}, "owner": "0x…", "near_tx": "<base58>",
+ "vault": "v2.FACTORY", "base_address": "0x<vault Base address>",
+ "float": {"from": "0x<service wallet>", "to": "0x<vault Base address>", "value_wei": "5000000000000000", "tx": "0x…03",
+           "nonce": 3, "receipt": {"hash": "0x…03", "status": 1, "block": 100, "gasUsed": 21000, ...}}}
+
+{"ok": false, "job": "481060256446daa6", "kind": "create_vault", "stage": "failed",
+ "times": {"accepted": …, "vault_created": …, "failed": …}, "owner": "0x…", "near_tx": "<base58>", "vault": "v2.FACTORY",
+ "base_address": "0x<vault Base address>",
+ "float": {"from": "0x<service wallet>", "to": "0x<vault Base address>", "value_wei": "5000000000000000"},
+ "error": "ETH float of 0.005 ETH to 0x… failed: eth_sendRawTransaction …: {\"code\": -32000, \"message\": \"insufficient funds\"}; the vault exists",
+ "http_status": 200}
+```
+
+## ETH float at vault creation
+
+With `--eth-float` above 0, `/create-vault` sends that much ETH from the service wallet to the new vault's
+Base address once the factory's log names it, so the vault can pay Base gas for its first `setup`. The wallet
+reads its pending nonce and the fees (`min(2 x base fee + priority, 2 gwei)`, as for the vault), `cast mktx`
+signs a 21,000-gas transfer offline with every field given (chain id 84532, no RPC), the relayer checks the
+chain id of the raw transaction and that the RPC's hash equals the signed hash, broadcasts it and waits for
+the receipt. The key goes only to the `cast` subprocess; it is never printed, logged or returned, and a `cast`
+error has the key removed. One float is sent at a time, under the same `flock` on `scripts/state` (or
+`$STATE_DIR`) that `rebalance_pool.py` and DEPLOY.md's `tx` helper take, because they use the same wallet and
+nonce; the service waits up to 120 s for it. A failed or reverted float ends the call with `ok: false`, the
+`error`, and the vault's `vault`, `base_address` and `near_tx`: the vault exists; send the ETH by hand. `/health` shows the wallet's address, balance and `floats_left` (balance over the float).
+
+## CORS
+
+By default the service sends no CORS headers. With `--cors-origin https://app.example.com` (repeatable), a
+request whose `Origin` header is one of them gets `Access-Control-Allow-Origin: <that origin>` on every
+response, error answers included, and `OPTIONS` on any path answers 204 with `Access-Control-Allow-Methods:
+GET, POST, OPTIONS`, `Access-Control-Allow-Headers: content-type`, `Access-Control-Max-Age: 600`. Every response
+then carries `Vary: Origin`. Another origin gets the same answers without the `Access-Control-*` headers, so the
+browser blocks it. `OPTIONS` always answers 204 with `Allow: GET, POST, OPTIONS` (before this change it was 501).
+
+Either the service or the reverse proxy does CORS. If the proxy answers `OPTIONS` itself, the service never
+sees the preflight. A proxy that adds `Access-Control-Allow-Origin` while the service is started with
+`--cors-origin` sends the header twice, and browsers refuse a response with two values: then the proxy must
+set (replace) the header rather than add it, or the service runs without `--cors-origin`.
 
 Example: `curl -s localhost:8787/fund-agent -d '{"implicit_account":"'$IMPLICIT'"}'` after the agent prints
 `WAITING implicit_account=...`. It tops the account up to 0.15 NEAR plus 0.01, at most 0.5 NEAR per account

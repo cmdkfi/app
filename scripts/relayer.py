@@ -3,13 +3,23 @@
 It holds no authority: the vault decides what is signed; the relayer pays NEAR gas, broadcasts on Base, and,
 because the vault cannot read Base, reads Base before it composes a call (design §4.1). It signs NEAR
 transactions only through near-cli-rs: the keychain (sign-with-keychain) by default, or the access-key file named by
-$NEAR_ACCESS_KEY_FILE (sign-with-access-key-file; the Cloudflare container, cloud/README.md). It never handles an EVM key.
+$NEAR_ACCESS_KEY_FILE (sign-with-access-key-file; the Cloudflare container, cloud/README.md). It handles one EVM key, the service wallet's, for the ETH float only.
 Testnet only: Base chain id 84532 and NEAR network testnet are checked; anything else is refused.
 
   relayer.py serve --sender ACCOUNT --factory ACCOUNT [--port 8787] [--near-rpc URL] [--base-rpc URL]
-                   [--state FILE] [--dry-run [--allow-reads]]
-      JSON service on 127.0.0.1 only (the app's server-side proxy calls it; it is never exposed directly):
-      POST /create-vault, GET /vault/<id>, POST /owner-call, POST /fund-agent, GET /health. See RELAYER.md.
+                   [--state FILE] [--dry-run [--allow-reads]] [--eth-float ETH] [--eth-key-file FILE]
+                   [--cors-origin ORIGIN ...]
+      JSON service on 127.0.0.1 only (a reverse proxy exposes it; it never binds another address):
+      POST /create-vault, GET /vault/<id>, POST /owner-call, GET /job/<id>, POST /fund-agent, GET /health.
+      /create-vault and /owner-call answer 202 {"ok": true, "job": ID} at once and run in a thread; GET /job/ID
+      reports the stages. A body field "wait": true runs them synchronously instead (the 3 Nov contract). Jobs
+      are kept in memory only (the last 1,000). See RELAYER.md.
+      --eth-float (default 0.005 ETH, 0 disables): /create-vault also sends this much ETH to the new vault's Base
+      address from the service's Base wallet, the test EOA in --eth-key-file. This is the only EVM key the
+      relayer handles; it is handed only to `cast mktx` and never printed. serve refuses to start while that
+      wallet holds less than 20 floats.
+      --cors-origin (repeatable; default none, no CORS headers): answer OPTIONS and send
+      Access-Control-Allow-Origin for these origins only.
       --dry-run sends nothing: it prints the exact near command and the Base RPC calls that would run. Without
       --allow-reads it also makes no read-only call and stops at the first one, naming it.
   relayer.py derive --account ACCOUNT [--path PATH]
@@ -27,7 +37,9 @@ Testnet only: Base chain id 84532 and NEAR network testnet are checked; anything
       eth_sendRawTransaction; checks the chain id, then that the returned hash equals the vault's hash-to-be;
       waits for the receipt; appends {hash, status, block, gasUsed, effectiveGasPrice, l1Fee, from, to} to the log.
 """
-import argparse, base64, json, os, re, shlex, subprocess, sys, tempfile, threading, time, urllib.parse, urllib.request
+import argparse, base64, fcntl, json, os, re, secrets, shlex, subprocess, sys, tempfile, threading, time, urllib.parse, urllib.request
+from collections import OrderedDict
+from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -59,7 +71,15 @@ EXPIRY_MARGIN = 30                   # seconds a message must still be valid for
 EXPIRY_MAX_AHEAD = 3600              # the vault refuses an expiry more than this after its block time (owner.rs)
 REPAY_HEADROOM = 100                 # require allowance and balance of debt + 1/100 (interest accrues before repay)
 RECEIPT_TIMEOUT = 120
-B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+JOBS_MAX = 1000                      # jobs kept in memory; the oldest is dropped beyond this (not persisted)
+JOB_ID = re.compile(r'[0-9a-f]{16}')
+ETH_FLOAT_DEFAULT = '0.005'          # ETH sent to a new vault's Base address at /create-vault (founder, 3 Nov)
+FLOAT_RESERVE = 20                   # serve refuses to start while the wallet holds less than 20 floats
+TRANSFER_GAS = 21_000                # a plain ETH transfer to an address without code
+EOA_KEY_DEFAULT = os.path.join(HOME, '.config', 'prime', 'base_sepolia_eoa.json')
+WALLET_LOCK_DIR = os.environ.get('STATE_DIR', os.path.join(HERE, 'state'))   # the directory rebalance_pool.lock() flocks
+WALLET_LOCK_WAIT = 120               # seconds to wait for that lock (a timer run holds it while it sends)
+B58 ='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 TX_ID = re.compile(r'Transaction ID:\s*([1-9A-HJ-NP-Za-km-z]{43,44})')
 
 # Gas limit per Base transaction kind. eth_estimateGas on the owner's calldata is not possible before the vault
@@ -247,6 +267,30 @@ def parse_near(v):
 def fmt_near(yocto):
     s = format(Decimal(yocto) / YOCTO, 'f')
     return (s.rstrip('0').rstrip('.') if '.' in s else s) + ' NEAR'
+
+
+def parse_eth(v):
+    """An ETH amount ("0.005", "0") in wei, exactly; for --eth-float."""
+    try:
+        d = Decimal(str(v)) * 10 ** 18
+    except InvalidOperation:
+        raise argparse.ArgumentTypeError('not a number: %r' % v)
+    if d < 0 or d != d.to_integral_value():
+        raise argparse.ArgumentTypeError('give ETH as a decimal with at most 18 decimals, 0 or more')
+    return int(d)
+
+
+def parse_origin(v):
+    """An origin as a browser sends it: scheme://host[:port], no path; for --cors-origin."""
+    v = v.rstrip('/')
+    if not re.fullmatch(r'https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?', v):
+        raise argparse.ArgumentTypeError('expected scheme://host[:port], e.g. https://app.example.com: %r' % v)
+    return v
+
+
+def fmt_eth(wei):
+    s = format(Decimal(wei) / 10 ** 18, 'f')
+    return (s.rstrip('0').rstrip('.') if '.' in s else s) + ' ETH'
 
 
 def check_arg(name, v):
@@ -607,6 +651,69 @@ class Chain:
         raise ChainError('no receipt for %s after %d s' % (h, timeout))
 
 
+class Wallet:
+    """The service's Base wallet (the team's test EOA), used for one thing: the ETH float to a new vault. The key
+    is read from the key file ({"data": {"private_key", "address"}}, as rebalance_pool.py reads it), handed only to
+    cast, which signs offline (`cast mktx` with every field given, no RPC); it is never printed, logged or returned."""
+
+    def __init__(self, path):
+        with open(path) as f:
+            d = json.load(f)['data']
+        d = d[0] if isinstance(d, list) else d
+        self._key = d['private_key']
+        self.address = self._cast(['wallet', 'address']).lower()
+        if d.get('address') and d['address'].lower() != self.address:
+            raise Refused('the key file address %s is not the address of its key' % d['address'])
+
+    def __repr__(self):
+        return 'Wallet(%s)' % self.address
+
+    def _cast(self, args):
+        # no check=True: CalledProcessError would print the command line, key included
+        p = subprocess.run([CAST] + args + ['--private-key', self._key], capture_output=True, text=True, timeout=60)
+        if p.returncode != 0:
+            raise ChainError('cast %s failed: %s' % (args[0], p.stderr.replace(self._key, '<key>').strip()[-300:]))
+        return p.stdout.strip()
+
+    def sign_transfer(self, to, value, nonce, max_fee, priority):
+        """{raw, hash} of a signed type-2 ETH transfer on Base Sepolia."""
+        raw = self._cast(['mktx', to, '--value', str(value), '--nonce', str(nonce), '--gas-limit', str(TRANSFER_GAS),
+                          '--gas-price', str(max_fee), '--priority-gas-price', str(priority), '--chain', str(CHAIN_ID)])
+        check_raw_chain_id(raw)
+        return {'raw': raw, 'hash': keccak(raw)}
+
+
+@contextmanager
+def wallet_lock(lock_dir, wait=WALLET_LOCK_WAIT):
+    """The flock rebalance_pool.lock() takes on its state directory: the timer, DEPLOY.md's `tx` helper and this
+    service share the wallet's nonce. Waits up to `wait` seconds for a run that holds it."""
+    os.makedirs(lock_dir, exist_ok=True)
+    fd = os.open(lock_dir, os.O_RDONLY)
+    try:
+        t0 = time.time()
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.time() - t0 >= wait:
+                    raise ChainError('the wallet lock on %s is still held after %d s (a timer run?)' % (lock_dir, wait))
+                time.sleep(0.5)
+        yield
+    finally:
+        os.close(fd)          # closing the descriptor releases the lock
+
+
+def check_wallet(chain, wallet, eth_float):
+    """Start-up guard with the float on: the wallet holds at least FLOAT_RESERVE floats, or exit 2."""
+    bal = int(chain.eth('eth_getBalance', [wallet.address, 'latest']), 16)
+    if bal < FLOAT_RESERVE * eth_float:
+        log('refusing to start: the Base wallet %s holds %s, below %d floats of %s; fund it or pass --eth-float 0'
+            % (wallet.address, fmt_eth(bal), FLOAT_RESERVE, fmt_eth(eth_float)))
+        raise SystemExit(2)
+    log('Base wallet %s holds %s (%d floats of %s)' % (wallet.address, fmt_eth(bal), bal // eth_float, fmt_eth(eth_float)))
+
+
 def check_networks(chain):
     """Testnet guard at start-up: Base chain id 84532 and NEAR chain id testnet, or exit 2."""
     cid = int(chain.eth('eth_chainId', []), 16)
@@ -778,14 +885,100 @@ class State:
 
 # ---------------------------------------------------------------- the service
 
-class App:
-    """The endpoints' logic; `chain` does every network access, `state` keeps the counters."""
+class Jobs:
+    """Asynchronous /create-vault and /owner-call jobs, in memory only: the last `limit` are kept, the oldest is
+    dropped, and a restart forgets them all (the chains keep the truth: NEAR tx, owner_nonce, Base receipts)."""
 
-    def __init__(self, chain, state, sender, factory):
+    def __init__(self, limit=JOBS_MAX):
+        self.limit, self.lock, self.jobs = limit, threading.Lock(), OrderedDict()
+
+    def new(self, kind, **fields):
+        jid = secrets.token_hex(8)
+        rec = dict({'ok': True, 'job': jid, 'kind': kind, 'stage': 'accepted', 'times': {'accepted': now_s()}}, **fields)
+        with self.lock:
+            self.jobs[jid] = rec
+            while len(self.jobs) > self.limit:
+                self.jobs.popitem(last=False)
+        return jid
+
+    def update(self, jid, stage=None, **fields):
+        """Merge `fields` into the job; a new stage is stamped with the time it was reached."""
+        with self.lock:
+            rec = self.jobs.get(jid)
+            if rec is None:            # dropped from the map while it ran
+                return
+            rec.update(json.loads(json.dumps(fields)))
+            if stage:
+                rec['stage'] = stage
+                rec['times'].setdefault(stage, now_s())     # base_sent is reached once, then grows
+
+    def get(self, jid):
+        with self.lock:
+            rec = self.jobs.get(jid)
+            return None if rec is None else json.loads(json.dumps(rec))
+
+    def counts(self):
+        with self.lock:
+            stages = [r['stage'] for r in self.jobs.values()]
+        by = {s: stages.count(s) for s in dict.fromkeys(stages)}
+        return {'kept': len(stages), 'max': self.limit, 'running': len(stages) - by.get('done', 0) - by.get('failed', 0),
+                'stages': by}
+
+
+def now_s():
+    return round(time.time(), 3)
+
+
+def outcome(app, fn):
+    """(HTTP status, body) of an endpoint call, as the synchronous path answers it (RELAYER.md, status codes)."""
+    try:
+        return 200, fn()
+    except Refused as e:
+        return 400, {'ok': False, 'error': str(e)}
+    except Skipped as e:
+        return 200, {'ok': True, 'dry_run': True, 'reads_skipped': [e.call],
+                     'note': 'stopped at the first read-only call; serve --dry-run --allow-reads goes further'}
+    except (ChainError, OSError) as e:
+        return 502, {'ok': False, 'error': 'chain: %s' % e}
+    except Exception as e:
+        app.state.bump('errors')
+        return 500, {'ok': False, 'error': '%s: %s' % (type(e).__name__, e)}
+
+
+def no_progress(stage=None, **fields):
+    pass
+
+
+class App:
+    """The endpoints' logic; `chain` does every network access, `state` keeps the counters, `jobs` the
+    asynchronous calls. `wallet` (with `eth_float` > 0) pays the ETH float of a new vault."""
+
+    def __init__(self, chain, state, sender, factory, wallet=None, eth_float=0, cors_origins=(), jobs=None,
+                 wallet_lock_dir=WALLET_LOCK_DIR):
         self.chain, self.state = chain, state
         self.sender, self.factory = check_named_account(sender, 'sender'), check_named_account(factory, 'factory')
+        if eth_float and wallet is None:
+            raise Refused('--eth-float needs the Base wallet key file')
+        self.wallet, self.eth_float, self.wallet_lock_dir = wallet if eth_float else None, eth_float, wallet_lock_dir
+        self.cors_origins = frozenset(cors_origins)
+        self.jobs = jobs or Jobs()
         self.started = time.time()
         self.send_lock = threading.Lock()     # one sending request at a time (Base nonces, the funding cap)
+        self.float_lock = threading.Lock()    # one float at a time (the wallet's nonce)
+
+    def start_job(self, kind, fn, **fields):
+        """Runs fn(progress) in a thread; its result ends the job: `done` when the synchronous path would answer
+        200 with ok true, else `failed` with that answer's fields and its status as `http_status`."""
+        jid = self.jobs.new(kind, **fields)
+
+        def run():
+            code, out = outcome(self, lambda: fn(lambda stage=None, **f: self.jobs.update(jid, stage, **f)))
+            if code == 200 and out.get('ok'):
+                self.jobs.update(jid, 'done', **out)
+            else:
+                self.jobs.update(jid, 'failed', **dict(out, http_status=code))
+        threading.Thread(target=run, name='job-' + jid, daemon=True).start()
+        return jid
 
     def dry(self, cmd, **extra):
         log('dry run, would run: ' + shlex.join(cmd)[:2000])
@@ -795,9 +988,14 @@ class App:
         out = {'ok': True, 'dry_run': self.chain.dry_run, 'sender': self.sender, 'factory': self.factory,
                'near_rpc': self.chain.near_rpc, 'base_rpc': self.chain.base_rpc, 'chain_id': CHAIN_ID,
                'near_network': NEAR_NETWORK, 'uptime_s': int(time.time() - self.started),
-               'counters': dict(self.state.data['counters']), 'agents_funded': len(self.state.data['funded'])}
-        for key, f in (('sender_balance_yocto', lambda: str(self.chain.near_balance(self.sender))),
-                       ('base_block', lambda: int(self.chain.eth('eth_blockNumber', []), 16))):
+               'counters': dict(self.state.data['counters']), 'agents_funded': len(self.state.data['funded']),
+               'jobs': self.jobs.counts(), 'eth_float_wei': str(self.eth_float), 'wallet': None}
+        reads = [('sender_balance_yocto', lambda: str(self.chain.near_balance(self.sender))),
+                 ('base_block', lambda: int(self.chain.eth('eth_blockNumber', []), 16))]
+        if self.wallet:
+            out['wallet'] = {'address': self.wallet.address}
+            reads.append(('wallet_balance_wei', lambda: str(int(self.chain.eth('eth_getBalance', [self.wallet.address, 'latest']), 16))))
+        for key, f in reads:
             try:
                 out[key] = f()
             except Skipped as s:
@@ -807,21 +1005,35 @@ class App:
                 out.setdefault('errors', []).append('%s: %s' % (key, e))
         if 'sender_balance_yocto' in out:
             out['sender_balance'] = fmt_near(int(out['sender_balance_yocto']))
+        if 'wallet_balance_wei' in out:
+            bal = int(out.pop('wallet_balance_wei'))
+            out['wallet'].update(balance_wei=str(bal), balance=fmt_eth(bal), floats_left=bal // self.eth_float)
         return out
 
-    def create_vault(self, req):
+    def create_vault_cmd(self, req):
+        """The request's checks (no network) and the factory call it makes."""
         check_keys(req, ('owner', 'policy', 'deposit_near'), 'request')
         validate_policy(req['owner'], req['policy'])
         deposit = parse_near(req['deposit_near'])
         if not 0 < deposit <= DEPOSIT_MAX:
             raise Refused('deposit_near must be above 0 and at most %s' % fmt_near(DEPOSIT_MAX))
         args = json.dumps({'owner': req['owner'], 'policy': req['policy']}, separators=(',', ':'))
-        cmd = near_cmd(['contract', 'call-function', 'as-transaction', self.factory, 'create_vault', 'json-args', args,
-                        'prepaid-gas', CREATE_VAULT_GAS, 'attached-deposit', '%d yoctonear' % deposit, 'sign-as', self.sender])
+        return near_cmd(['contract', 'call-function', 'as-transaction', self.factory, 'create_vault', 'json-args', args,
+                         'prepaid-gas', CREATE_VAULT_GAS, 'attached-deposit', '%d yoctonear' % deposit, 'sign-as', self.sender])
+
+    def create_vault(self, req, progress=no_progress):
+        """Stages: vault_created (the factory's log), then with the float on float_sent (its hash); a float
+        failure is ok false with the vault still named (it exists)."""
+        cmd = self.create_vault_cmd(req)
         if self.chain.dry_run:
-            return self.dry(cmd)
+            extra = {'then': 'send %s (%s wei) from %s to the new vault Base address, signed offline by cast mktx, '
+                             'then eth_sendRawTransaction on %s and wait for the receipt'
+                             % (fmt_eth(self.eth_float), self.eth_float, self.wallet.address, self.chain.base_rpc)} \
+                if self.eth_float else {}
+            return self.dry(cmd, **extra)
         with self.send_lock:
             h = self.chain.near_send(cmd)
+            progress(near_tx=h)        # known before the outcome: a later chain error still names it
             r = self.chain.near_tx(h, self.sender)
         self.state.bump('create_vault')
         try:
@@ -829,7 +1041,40 @@ class App:
             near_result(r)     # raises if the vault's init failed
         except ChainError as e:
             return {'ok': False, 'error': str(e), 'near_tx': h}
-        return {'ok': True, 'near_tx': h, 'vault': vault, 'base_address': base_address}
+        out = {'ok': True, 'near_tx': h, 'vault': vault, 'base_address': base_address}
+        progress('vault_created', near_tx=h, vault=vault, base_address=base_address)
+        if not self.eth_float:
+            return out
+        fl = {'from': self.wallet.address, 'to': base_address, 'value_wei': str(self.eth_float)}
+
+        def sent(tx):
+            fl['tx'] = tx
+            progress('float_sent', float=fl)
+        try:
+            fl.update(self.send_float(base_address, sent))
+        except (ChainError, Refused, OSError) as e:
+            return dict(out, ok=False, float=fl, error='ETH float of %s to %s failed: %s; the vault exists'
+                        % (fmt_eth(self.eth_float), base_address, e))
+        if fl['receipt']['status'] != 1:
+            return dict(out, ok=False, float=fl, error='ETH float transaction %s reverted; the vault exists' % fl['tx'])
+        return dict(out, float=fl)
+
+    def send_float(self, to, sent):
+        """eth_float wei from the wallet to `to`: pending nonce, fees as for the vault (capped at 2 gwei), signed
+        offline, chain id checked, broadcast, receipt. `sent(hash)` is called once it is broadcast."""
+        with self.float_lock, wallet_lock(self.wallet_lock_dir):
+            nonce = int(self.chain.eth('eth_getTransactionCount', [self.wallet.address, 'pending']), 16)
+            base_fee = int(self.chain.eth('eth_getBlockByNumber', ['latest', False])['baseFeePerGas'], 16)
+            max_fee, prio = fees(base_fee, int(self.chain.eth('eth_maxPriorityFeePerGas', []), 16))
+            tx = self.wallet.sign_transfer(to, self.eth_float, nonce, max_fee, prio)
+            h = self.chain.send_raw(tx['raw'])
+            if h.lower() != tx['hash'].lower():
+                raise ChainError('RPC hash %s differs from the signed hash %s' % (h, tx['hash']))
+            self.state.bump('eth_float')
+            log('float %s to %s: %s' % (fmt_eth(self.eth_float), to, h))
+            sent(h)
+            row = receipt_row(self.chain.receipt(h))
+        return {'tx': h, 'nonce': nonce, 'receipt': row}
 
     def vault_view(self, vault):
         check_named_account(vault, 'vault')
@@ -853,9 +1098,15 @@ class App:
                 'corridor': read_corridor(self.chain, ex, base, m['id']),
                 'position': {k: str(v) for k, v in pos.items()}}
 
-    def owner_call(self, req):
+    def check_owner_request(self, req):
+        """The request's own checks (no network); the message is checked against the vault in owner_call."""
         check_keys(req, ('vault', 'message', 'signature'), 'request')
-        vault = check_named_account(req['vault'], 'vault')
+        return check_named_account(req['vault'], 'vault')
+
+    def owner_call(self, req, progress=no_progress):
+        """Stages: vault_checked (the NEAR call returned the signed transactions), base_sent (hashes broadcast so
+        far), with receipts as they arrive."""
+        vault = self.check_owner_request(req)
         with self.send_lock:
             st = self.chain.near_view(vault, 'get_state', {})
             m = parse_message(req['message'], req['signature'], vault, st['owner_nonce'], int(time.time()))
@@ -871,16 +1122,18 @@ class App:
                 return self.dry(cmd, method=m['method'], plan=plan, txs=txs, then=(
                     'eth_sendRawTransaction on %s for each of the %d signed transactions in nonce order, waiting for '
                     'each receipt' % (self.chain.base_rpc, len(txs))))
-            return self.submit_and_broadcast(vault, st, m['method'], cmd, txs)
+            return self.submit_and_broadcast(vault, st, m['method'], cmd, txs, progress)
 
-    def submit_and_broadcast(self, vault, st, method, cmd, txs):
+    def submit_and_broadcast(self, vault, st, method, cmd, txs, progress=no_progress):
         h = self.chain.near_send(cmd)
+        progress(near_tx=h)            # known before the outcome: a later chain error still names it
         self.state.bump('owner_call')
         try:
             signed = check_signed(near_result(self.chain.near_tx(h, self.sender)), txs, st)
         except ChainError as e:
             return {'ok': False, 'error': str(e), 'near_tx': h}
-        receipts, error = self.broadcast_all(signed)
+        progress('vault_checked', method=method, near_tx=h, signed=signed)
+        receipts, error = self.broadcast_all(signed, progress)
         held = signed[len(receipts):]
         self.state.record_broadcast(vault, {'time': int(time.time()), 'method': method, 'near_tx': h, 'receipts': receipts,
                                             'held': [{'nonce': s['nonce'], 'hash': s['hash'], 'raw': s['raw']} for s in held]})
@@ -891,19 +1144,22 @@ class App:
                 'or ask the owner to sign cancel'))
         return out
 
-    def broadcast_all(self, signed):
+    def broadcast_all(self, signed, progress=no_progress):
         """Broadcast in nonce order, waiting for each receipt; stop at the first failure or revert."""
-        receipts = []
+        receipts, sent = [], []
         for s in signed:
             try:
                 h = self.chain.send_raw(s['raw'])
                 self.state.bump('broadcast')
                 if h.lower() != s['hash'].lower():
                     return receipts, 'RPC hash %s differs from the vault hash-to-be %s' % (h, s['hash'])
+                sent.append(h)
+                progress('base_sent', base_sent=sent)
                 row = receipt_row(self.chain.receipt(h))
             except (ChainError, Refused, OSError) as e:
                 return receipts, 'broadcast of nonce %d failed: %s' % (s['nonce'], e)
             receipts.append(row)
+            progress(receipts=receipts)
             log('broadcast %s status %d block %d' % (row['hash'], row['status'], row['block']))
             if row['status'] != 1:
                 self.state.bump('broadcast_reverted')
@@ -954,13 +1210,17 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(app.health)
         elif self.path.startswith('/vault/'):
             self.respond(lambda: app.vault_view(urllib.parse.unquote(self.path[len('/vault/'):])))
+        elif self.path.startswith('/job/'):
+            rec = app.jobs.get(self.path[len('/job/'):]) if JOB_ID.fullmatch(self.path[len('/job/'):]) else None
+            self.send_json(200, rec) if rec else self.send_json(404, {'ok': False, 'error': 'no such job'})
         else:
             self.send_json(404, {'ok': False, 'error': 'no such endpoint'})
 
     def do_POST(self):
         app = self.server.app
-        routes = {'/create-vault': app.create_vault, '/owner-call': app.owner_call, '/fund-agent': app.fund_agent}
-        if self.path not in routes:
+        jobbed = {'/create-vault': ('create_vault', app.create_vault_cmd, app.create_vault),
+                  '/owner-call': ('owner_call', app.check_owner_request, app.owner_call)}
+        if self.path not in jobbed and self.path != '/fund-agent':
             return self.send_json(404, {'ok': False, 'error': 'no such endpoint'})
         n = int(self.headers.get('Content-Length') or 0)
         if not 0 < n <= self.MAX_BODY:
@@ -969,28 +1229,51 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n))
         except ValueError:
             return self.send_json(400, {'ok': False, 'error': 'body is not JSON'})
-        self.respond(lambda: routes[self.path](body))
+        if self.path == '/fund-agent':
+            return self.respond(lambda: app.fund_agent(body))
+        kind, check, run = jobbed[self.path]
+        wait = body.pop('wait', False) if isinstance(body, dict) else False
+        if type(wait) is not bool:
+            return self.send_json(400, {'ok': False, 'error': 'wait: expected true or false'})
+        if wait:                               # the synchronous contract: one answer when everything is final
+            return self.respond(lambda: run(body))
+        code, out = outcome(app, lambda: check(body))     # a bad request is refused now; no job is started
+        if code != 200:
+            return self.send_json(code, out)
+        fields = {'vault': body['vault']} if kind == 'owner_call' else {'owner': body['owner']}
+        jid = app.start_job(kind, lambda progress: run(body, progress), **fields)
+        self.send_json(202, {'ok': True, 'job': jid})
+
+    def do_OPTIONS(self):
+        """CORS preflight: 204; the Access-Control headers only for an origin given with --cors-origin."""
+        self.send_response(204)
+        self.send_header('Allow', 'GET, POST, OPTIONS')
+        if self.cors():
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'content-type')
+            self.send_header('Access-Control-Max-Age', '600')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+
+    def cors(self):
+        """Access-Control-Allow-Origin for an allowed Origin (true then); Vary: Origin whenever CORS is on."""
+        allowed, origin = self.server.app.cors_origins, self.headers.get('Origin')
+        if allowed:
+            self.send_header('Vary', 'Origin')
+        if origin and origin in allowed:
+            self.send_header('Access-Control-Allow-Origin', origin)
+            return True
+        return False
 
     def respond(self, fn):
-        try:
-            code, out = 200, fn()
-        except Refused as e:
-            code, out = 400, {'ok': False, 'error': str(e)}
-        except Skipped as e:
-            code, out = 200, {'ok': True, 'dry_run': True, 'reads_skipped': [e.call],
-                              'note': 'stopped at the first read-only call; serve --dry-run --allow-reads goes further'}
-        except (ChainError, OSError) as e:
-            code, out = 502, {'ok': False, 'error': 'chain: %s' % e}
-        except Exception as e:
-            code, out = 500, {'ok': False, 'error': '%s: %s' % (type(e).__name__, e)}
-            self.server.app.state.bump('errors')
-        self.send_json(code, out)
+        self.send_json(*outcome(self.server.app, fn))
 
     def send_json(self, code, out):
         b = json.dumps(out).encode()
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(b)))
+        self.cors()
         self.end_headers()
         self.wfile.write(b)
 
@@ -1011,13 +1294,28 @@ def cmd_serve(a):
         check_networks(chain)
     else:
         log('dry run without reads: chain ids not checked, nothing read or sent')
+    wallet = None
+    if a.eth_float:
+        try:
+            wallet = Wallet(a.eth_key_file)
+        except (OSError, ValueError, KeyError, TypeError, IndexError, ChainError, Refused, subprocess.TimeoutExpired) as e:
+            # the type and file only: a parse error's text could quote the file
+            log('refusing to start: --eth-float %s needs the Base wallet key file %s (%s); or pass --eth-float 0'
+                % (fmt_eth(a.eth_float), a.eth_key_file, type(e).__name__))
+            raise SystemExit(2)
+        if chain.allow_reads:
+            check_wallet(chain, wallet, a.eth_float)
+        else:
+            log('dry run without reads: Base wallet %s balance not checked' % wallet.address)
     try:
-        app = App(chain, State(a.state, write=not a.dry_run), a.sender, a.factory)
+        app = App(chain, State(a.state, write=not a.dry_run), a.sender, a.factory, wallet=wallet, eth_float=a.eth_float,
+                  cors_origins=a.cors_origin)
     except Refused as e:
         log('refusing to start: %s' % e)
         raise SystemExit(2)
     srv = make_server(app, a.port)
-    log('listening on http://%s:%d dry_run=%s state=%s' % (HOST, a.port, a.dry_run, a.state))
+    log('listening on http://%s:%d dry_run=%s state=%s eth_float=%s cors=%s' % (
+        HOST, a.port, a.dry_run, a.state, fmt_eth(a.eth_float), ','.join(a.cors_origin) or 'off'))
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -1140,6 +1438,11 @@ def parser():
     p.add_argument('--factory', required=True); p.add_argument('--near-rpc', default=NEAR_RPC); p.add_argument('--base-rpc', default=BASE_RPC)
     p.add_argument('--state', default=STATE_DEFAULT); p.add_argument('--dry-run', action='store_true')
     p.add_argument('--allow-reads', action='store_true', help='with --dry-run: make read-only calls (still sends nothing)')
+    p.add_argument('--eth-float', type=parse_eth, default=parse_eth(ETH_FLOAT_DEFAULT), metavar='ETH',
+                   help='ETH sent to each new vault Base address from the Base wallet (default %s; 0 disables)' % ETH_FLOAT_DEFAULT)
+    p.add_argument('--eth-key-file', default=EOA_KEY_DEFAULT, help='the Base wallet key file (default %(default)s)')
+    p.add_argument('--cors-origin', type=parse_origin, action='append', default=[], metavar='ORIGIN',
+                   help='an allowed browser origin, e.g. https://app.cmdk.fi (repeatable; default none, no CORS headers)')
     p.set_defaults(f=cmd_serve)
     p = sp.add_parser('derive'); p.add_argument('--account', required=True); p.add_argument('--path', default='cmdk-base'); p.set_defaults(f=cmd_derive)
     p = sp.add_parser('params'); p.add_argument('--from', required=True); p.add_argument('--to', required=True)

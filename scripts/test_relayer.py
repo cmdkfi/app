@@ -662,7 +662,8 @@ class TestHttp(unittest.TestCase):
         self.addCleanup(setattr, R, 'log', log)
 
     def owner_call(self, method, args):
-        return self.get('/owner-call', {'vault': VAULT, 'message': message(method, args), 'signature': SIG})
+        # "wait": true is the synchronous contract (3 Nov); TestJobs covers the asynchronous default
+        return self.get('/owner-call', {'vault': VAULT, 'message': message(method, args), 'signature': SIG, 'wait': True})
 
     def test_binds_localhost(self):
         self.start(FakeChain())
@@ -834,8 +835,9 @@ class TestHttp(unittest.TestCase):
         self.start(c)
         req = {'owner': OWNER, 'deposit_near': '2', 'policy': {'cooldown_secs': 120, 'markets': [
             {'id': LIVE, 'loan_token': USDC, 'collateral_token': WETH, 'executor': EXEC, 'slice_max': '1000000000'}]}}
-        code, out = self.get('/create-vault', req)
+        code, out = self.get('/create-vault', dict(req, wait=True))
         self.assertEqual((code, out['vault'], out['base_address']), (200, 'v1.factory.testnet', BASE))
+        self.assertNotIn('float', out)                       # App's default: no float
         cmd = c.sent_cmds[0]
         self.assertEqual(cmd[4:6], ['factory.testnet', 'create_vault'])
         self.assertEqual(cmd[cmd.index('attached-deposit') + 1], '%d yoctonear' % (2 * R.YOCTO))
@@ -849,13 +851,363 @@ class TestHttp(unittest.TestCase):
         self.start(FakeChain(dry_run=True, allow_reads=False))
         req = {'owner': OWNER, 'deposit_near': '2', 'policy': {'cooldown_secs': 120, 'markets': [
             {'id': LIVE, 'loan_token': USDC, 'collateral_token': WETH, 'executor': EXEC, 'slice_max': '1'}]}}
-        code, out = self.get('/create-vault', req)
+        code, out = self.get('/create-vault', dict(req, wait=True))
         self.assertEqual((code, out['dry_run']), (200, True))
         self.assertIn("create_vault json-args '{", out['near_command'])
         self.assertEqual(self.get('/nope')[0], 404)
         self.assertEqual(self.get('/owner-call', b'not json')[0], 400)
         code, out = self.get('/fund-agent', {'implicit_account': AGENT})
         self.assertEqual((code, out['dry_run'], len(out['reads_skipped'])), (200, True, 1))
+
+
+class GatedChain(FakeChain):
+    """FakeChain whose NEAR send and Base receipts wait for the test, so a job can be seen between stages."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.near_gate, self.receipt_gate = threading.Event(), threading.Event()
+
+    def near_send(self, cmd):
+        assert self.near_gate.wait(5), 'near gate not opened'
+        return super().near_send(cmd)
+
+    def receipt(self, h, timeout=0, poll=0):
+        assert self.receipt_gate.wait(5), 'receipt gate not opened'
+        return super().receipt(h)
+
+
+class FakeWallet:
+    """Wallet without a key: records the transfers it signs; a raw transaction FakeChain can decode."""
+    address = '0x' + 'ee' * 20
+
+    def __init__(self, fail=None):
+        self.signed, self.fail = [], fail
+
+    def sign_transfer(self, to, value, nonce, max_fee, priority):
+        if self.fail:
+            raise R.ChainError(self.fail)
+        self.signed.append({'to': to, 'value': value, 'nonce': nonce, 'max_fee': max_fee, 'priority': priority})
+        return {'raw': fake_raw(84532, nonce), 'hash': '0x%064x' % nonce}
+
+
+CREATED = {'status': {'SuccessValue': ''}, 'receipts_outcome': [
+    {'outcome': {'logs': ['creating vault: v2.factory.testnet ' + BASE]}}]}
+CREATE_REQ = {'owner': OWNER, 'deposit_near': '2', 'policy': {'cooldown_secs': 120, 'markets': [
+    {'id': LIVE, 'loan_token': USDC, 'collateral_token': WETH, 'executor': EXEC, 'slice_max': '1000000000'}]}}
+FLOAT = 5 * 10 ** 15
+
+
+class JobHttp(TestHttp):
+    """TestHttp's server and helpers with App options (float, CORS); TestHttp's own tests are not inherited."""
+
+    def start(self, chain, **app):
+        self.dir = tempfile.mkdtemp()
+        self.chain = chain
+        self.app = R.App(chain, R.State(os.path.join(self.dir, 's.json'), write=not chain.dry_run), 'relayer.testnet',
+                         'factory.testnet', wallet_lock_dir=os.path.join(self.dir, 'lock'), **app)
+        self.srv = R.make_server(self.app, 0)
+        self.addCleanup(self.stop)
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.url = 'http://127.0.0.1:%d' % self.srv.server_address[1]
+
+    def post_owner(self, method, args, **extra):
+        return self.get('/owner-call', dict({'vault': VAULT, 'message': message(method, args), 'signature': SIG}, **extra))
+
+    def wait_stage(self, jid, *stages, timeout=5):
+        t0, out = time.time(), None
+        while time.time() - t0 < timeout:
+            code, out = self.get('/job/' + jid)
+            if out.get('stage') in stages:
+                return code, out
+            time.sleep(0.02)
+        raise AssertionError('job %s never reached %s: %s' % (jid, stages, out))
+
+    def request(self, method, path, headers=None):
+        req = urllib.request.Request(self.url + path, None, headers or {}, method=method)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status, r.headers, r.read()
+
+
+for _name in [n for n in dir(TestHttp) if n.startswith('test_')]:
+    setattr(JobHttp, _name, None)        # inherit the helpers, not the tests
+
+
+class TestJobs(JobHttp):
+    def test_owner_call_stages_in_order(self):
+        c = GatedChain()
+        self.start(c)
+        code, out = self.post_owner('setup', setup_args(part(LIVE)))
+        self.assertEqual(code, 202)
+        self.assertEqual(sorted(out), ['job', 'ok'])
+        jid = out['job']
+        self.assertRegex(jid, '^[0-9a-f]{16}$')
+        code, job = self.get('/job/' + jid)
+        self.assertEqual((code, job['ok'], job['stage'], job['kind'], job['vault']), (200, True, 'accepted', 'owner_call', VAULT))
+        c.near_gate.set()
+        code, job = self.wait_stage(jid, 'base_sent')         # the first receipt is held back
+        self.assertEqual((code, job['ok'], job['method'], job['near_tx']), (200, True, 'setup', '9' * 44))
+        self.assertEqual([s['nonce'] for s in job['signed']], [7, 8, 9])
+        self.assertEqual(job['base_sent'], ['0x%064x' % 7])
+        self.assertNotIn('receipts', job)
+        c.receipt_gate.set()
+        code, job = self.wait_stage(jid, 'done', 'failed')
+        self.assertEqual((code, job['ok'], job['stage']), (200, True, 'done'))
+        self.assertEqual(list(job['times']), ['accepted', 'vault_checked', 'base_sent', 'done'])
+        t = list(job['times'].values())
+        self.assertEqual(t, sorted(t))
+        self.assertEqual(job['base_sent'], ['0x%064x' % n for n in (7, 8, 9)])
+        self.assertEqual([(r['hash'], r['status']) for r in job['receipts']], [('0x%064x' % n, 1) for n in (7, 8, 9)])
+        code, health = self.get('/health')
+        self.assertEqual(health['jobs'], {'kept': 1, 'max': 1000, 'running': 0, 'stages': {'done': 1}})
+
+    def test_owner_call_without_base_transaction(self):
+        self.start(FakeChain())
+        code, out = self.post_owner('revoke_agent', {})
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['stage'], job['signed'], job['receipts']), ('done', [], []))
+        self.assertEqual(list(job['times']), ['accepted', 'vault_checked', 'done'])
+
+    def test_failure_paths(self):
+        c = FakeChain()
+        c.statuses = [1, 0, 1]
+        self.start(c)
+        code, out = self.post_owner('setup', setup_args(part(LIVE)))
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((code, job['ok'], job['stage'], job['http_status']), (200, False, 'failed', 200))
+        self.assertIn('reverted; the rest were not broadcast', job['error'])
+        self.assertEqual((len(job['receipts']), job['held'], job['near_tx']), (2, ['0x%064x' % 9], '9' * 44))
+        self.assertEqual(list(job['times']), ['accepted', 'vault_checked', 'base_sent', 'failed'])
+        # a refusal found in the thread (it needs reads): failed, http_status 400, nothing sent
+        c.authorized.add((BASE, EXEC))
+        code, out = self.post_owner('setup', setup_args(part(LIVE)))
+        self.assertEqual(code, 202)
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['ok'], job['http_status'], list(job['times'])), (False, 400, ['accepted', 'failed']))
+        self.assertIn('would revert', job['error'])
+        self.assertEqual(len(c.sent_cmds), 1)
+        # the vault refuses on NEAR: failed with near_tx, as the synchronous answer
+        c.authorized.clear()
+
+        def refused_on_near(cmd):
+            c.tx_result = {'status': {'Failure': {'panic': 'bad owner signature'}}}
+            return '8' * 44
+        c.near_send = refused_on_near
+        code, out = self.post_owner('setup', setup_args(part(LIVE)))
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['ok'], job['http_status'], job['near_tx']), (False, 200, '8' * 44))
+        self.assertIn('NEAR transaction failed', job['error'])
+        # a bad request is refused at once and starts no job
+        code, out = self.get('/owner-call', {'vault': VAULT, 'message': '{}'})
+        self.assertEqual((code, out['ok']), (400, False))
+        self.assertIn('request: missing', out['error'])
+        code, out = self.get('/owner-call', {'vault': 'v1.f.near', 'message': '{}', 'signature': SIG})
+        self.assertEqual(code, 400)
+        self.assertEqual(self.app.jobs.counts()['kept'], 3)
+
+    def test_chain_error_after_near_send(self):
+        # the NEAR transaction was sent, then its RPC read failed: failed with http_status 502 and the NEAR tx named
+        c = FakeChain()
+        self.start(c)
+
+        def rpc_down(h, sender):
+            raise R.ChainError('tx near-rpc: timeout')
+        c.near_tx = rpc_down
+        code, out = self.get('/create-vault', CREATE_REQ)
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['ok'], job['http_status'], job['near_tx'], job['error']),
+                         (False, 502, '9' * 44, 'chain: tx near-rpc: timeout'))
+        self.assertEqual(list(job['times']), ['accepted', 'failed'])
+        code, out = self.post_owner('revoke_agent', {})          # owner_call answers this one as 200 ok false
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['ok'], job['http_status'], job['near_tx'], job['error']),
+                         (False, 200, '9' * 44, 'tx near-rpc: timeout'))
+
+    def test_unknown_job(self):
+        self.start(FakeChain())
+        for path in ('/job/0123456789abcdef', '/job/nope', '/job/', '/job/0123456789ABCDEF'):
+            code, out = self.get(path)
+            self.assertEqual((code, out), (404, {'ok': False, 'error': 'no such job'}), path)
+
+    def test_bounded_map(self):
+        jobs = R.Jobs(limit=3)
+        ids = [jobs.new('owner_call', vault=VAULT) for _ in range(5)]
+        self.assertEqual([jobs.get(i) is None for i in ids], [True, True, False, False, False])
+        jobs.update(ids[0], 'done', ok=True)                 # a dropped job's thread updates nothing
+        jobs.update(ids[4], 'failed', ok=False, error='x')
+        self.assertEqual(jobs.counts(), {'kept': 3, 'max': 3, 'running': 2, 'stages': {'accepted': 2, 'failed': 1}})
+        self.assertEqual(R.JOBS_MAX, 1000)
+
+    def test_wait_true_is_synchronous(self):
+        c = FakeChain()
+        self.start(c)
+        code, out = self.post_owner('setup', setup_args(part(LIVE)), wait=True)
+        self.assertEqual((code, out['ok'], len(out['receipts'])), (200, True, 3))
+        self.assertNotIn('job', out)
+        c.authorized.add((BASE, EXEC))
+        code, out = self.post_owner('setup', setup_args(part(LIVE)), wait=True)
+        self.assertEqual((code, out['ok']), (400, False))     # the 3 Nov status codes
+        code, out = self.post_owner('setup', setup_args(part(LIVE)), wait='yes')
+        self.assertEqual((code, out['error']), (400, 'wait: expected true or false'))
+        code, out = self.post_owner('revoke_agent', {}, wait=False)
+        self.assertEqual(code, 202)
+        self.assertEqual(self.get('/fund-agent', {'implicit_account': AGENT, 'wait': True})[0], 400)   # fund-agent stays synchronous
+        self.assertEqual(self.app.jobs.counts()['kept'], 1)
+
+    def test_dry_run_job(self):
+        self.start(FakeChain(dry_run=True, allow_reads=False))
+        code, out = self.post_owner('revoke_agent', {})
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['stage'], job['dry_run'], len(job['reads_skipped'])), ('done', True, 1))
+        code, out = self.get('/create-vault', CREATE_REQ)
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['kind'], job['owner'], job['dry_run']), ('create_vault', OWNER, True))
+        self.assertIn('create_vault json-args', job['near_command'])
+
+
+class TestFloat(JobHttp):
+    def test_float_sent(self):
+        c = FakeChain()
+        c.tx_result, c.pending_nonce = CREATED, 3
+        wal = FakeWallet()
+        self.start(c, wallet=wal, eth_float=FLOAT)
+        code, out = self.get('/create-vault', CREATE_REQ)
+        self.assertEqual(code, 202)
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['ok'], job['stage'], job['vault'], job['base_address']), (True, 'done', 'v2.factory.testnet', BASE))
+        self.assertEqual(list(job['times']), ['accepted', 'vault_created', 'float_sent', 'done'])
+        fl = job['float']
+        self.assertEqual((fl['from'], fl['to'], fl['value_wei'], fl['tx'], fl['nonce']),
+                         (wal.address, BASE, str(FLOAT), '0x%064x' % 3, 3))
+        self.assertEqual(fl['receipt']['status'], 1)
+        self.assertEqual(wal.signed, [{'to': BASE, 'value': FLOAT, 'nonce': 3, 'max_fee': 2 * 10 ** 6 + 10 ** 3, 'priority': 10 ** 3}])
+        self.assertEqual([raw_nonce(r) for r in c.sent_raws], [3])
+        self.assertEqual(self.app.state.data['counters']['eth_float'], 1)
+        code, out = self.get('/create-vault', dict(CREATE_REQ, wait=True))     # synchronous: the same fields
+        self.assertEqual((code, out['ok'], out['float']['receipt']['status']), (200, True, 1))
+        code, health = self.get('/health')
+        self.assertEqual(health['eth_float_wei'], str(FLOAT))
+        self.assertEqual(health['wallet'], {'address': wal.address, 'balance_wei': str(10 ** 17), 'balance': '0.1 ETH',
+                                            'floats_left': 20})
+
+    def test_float_disabled(self):
+        c = FakeChain()
+        c.tx_result = CREATED
+        self.start(c)
+        code, out = self.get('/create-vault', CREATE_REQ)
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['stage'], list(job['times'])), ('done', ['accepted', 'vault_created', 'done']))
+        self.assertNotIn('float', job)
+        self.assertEqual(c.sent_raws, [])
+        code, health = self.get('/health')
+        self.assertEqual((health['eth_float_wei'], health['wallet']), ('0', None))
+        with self.assertRaises(R.Refused):
+            R.App(c, self.app.state, 'relayer.testnet', 'factory.testnet', eth_float=FLOAT)    # a float needs a wallet
+
+    def test_float_failure_keeps_the_vault(self):
+        c = FakeChain()
+        c.tx_result = CREATED
+        self.start(c, wallet=FakeWallet(fail='insufficient funds'), eth_float=FLOAT)
+        code, out = self.get('/create-vault', CREATE_REQ)
+        code, job = self.wait_stage(out['job'], 'done', 'failed')
+        self.assertEqual((job['ok'], job['stage'], job['http_status'], job['vault'], job['base_address']),
+                         (False, 'failed', 200, 'v2.factory.testnet', BASE))
+        self.assertEqual(list(job['times']), ['accepted', 'vault_created', 'failed'])
+        self.assertIn('ETH float of 0.005 ETH to %s failed: insufficient funds; the vault exists' % BASE, job['error'])
+        c.statuses = [0]                                      # the float transaction reverts
+        self.app.wallet = FakeWallet()
+        code, out = self.get('/create-vault', dict(CREATE_REQ, wait=True))
+        self.assertEqual((code, out['ok'], out['vault'], out['float']['tx']), (200, False, 'v2.factory.testnet', '0x%064x' % 7))
+        self.assertIn('reverted; the vault exists', out['error'])
+
+    def test_wallet_lock(self):
+        d = os.path.join(tempfile.mkdtemp(), 'lock')
+        self.addCleanup(shutil.rmtree, os.path.dirname(d))
+        with R.wallet_lock(d):                               # a timer run holds the lock
+            with self.assertRaisesRegex(R.ChainError, 'still held'):
+                with R.wallet_lock(d, wait=0.2):
+                    pass
+        with R.wallet_lock(d, wait=0.2):                     # released
+            pass
+
+    def test_insufficient_wallet_refuses_to_start(self):
+        c = FakeChain()
+        wal = FakeWallet()
+        c.eth_balance = 20 * FLOAT - 1
+        with self.assertRaises(SystemExit) as e:
+            R.check_wallet(c, wal, FLOAT)
+        self.assertEqual(e.exception.code, 2)                # relayer.sh does not restart on 2
+        c.eth_balance = 20 * FLOAT
+        R.check_wallet(c, wal, FLOAT)
+
+    def test_flags(self):
+        a = R.parser().parse_args(['serve', '--sender', 'r.testnet', '--factory', 'f.testnet'])
+        self.assertEqual((a.eth_float, a.eth_key_file, a.cors_origin), (FLOAT, R.EOA_KEY_DEFAULT, []))
+        a = R.parser().parse_args(['serve', '--sender', 'r.testnet', '--factory', 'f.testnet', '--eth-float', '0',
+                                   '--cors-origin', 'https://app.example.com/', '--cors-origin', 'http://localhost:5173'])
+        self.assertEqual((a.eth_float, a.cors_origin), (0, ['https://app.example.com', 'http://localhost:5173']))
+        for bad in ('-1', 'x', '0.0000000000000000001'):
+            with self.assertRaises(R.argparse.ArgumentTypeError):
+                R.parse_eth(bad)
+        with self.assertRaises(R.argparse.ArgumentTypeError):
+            R.parse_origin('https://app.example.com/path')
+        self.assertEqual(R.fmt_eth(FLOAT), '0.005 ETH')
+
+    @unittest.skipUnless(os.path.exists(R.CAST), 'cast not installed')
+    def test_wallet_signs_offline(self):
+        # a fresh throwaway key from `cast wallet new` (the EOA key file has the same shape); never funded
+        path = os.path.join(tempfile.mkdtemp(), 'k.json')
+        self.addCleanup(shutil.rmtree, os.path.dirname(path))
+        d = json.loads(subprocess.run([R.CAST, 'wallet', 'new', '--json'], capture_output=True, text=True, check=True).stdout)
+        key, addr = d['data'][0]['private_key'], d['data'][0]['address']
+        with open(path, 'w') as f:
+            json.dump(d, f)
+        wal = R.Wallet(path)
+        self.assertEqual(wal.address, addr.lower())
+        self.assertNotIn(key[2:], repr(wal))
+        tx = wal.sign_transfer(BASE, FLOAT, 3, 2 * 10 ** 6, 10 ** 3)
+        self.assertEqual((R.raw_chain_id(tx['raw']), raw_nonce(tx['raw'])), (84532, 3))
+        self.assertEqual(tx['hash'], R.keccak(tx['raw']))
+        with self.assertRaises(R.ChainError) as e:            # a cast failure never carries the key
+            wal.sign_transfer(BASE, 'not-a-number', 3, 2 * 10 ** 6, 10 ** 3)
+        self.assertNotIn(key[2:], str(e.exception))
+        with open(path, 'w') as f:
+            json.dump({'data': {'private_key': key, 'address': BASE}}, f)
+        with self.assertRaisesRegex(R.Refused, 'not the address of its key'):
+            R.Wallet(path)
+
+
+class TestCors(JobHttp):
+    ORIGIN = 'https://app.example.com'
+
+    def test_preflight_and_headers(self):
+        self.start(FakeChain(), cors_origins=[self.ORIGIN])
+        code, h, body = self.request('OPTIONS', '/owner-call', {'Origin': self.ORIGIN, 'Access-Control-Request-Method': 'POST',
+                                                               'Access-Control-Request-Headers': 'content-type'})
+        self.assertEqual((code, body), (204, b''))
+        self.assertEqual((h['Access-Control-Allow-Origin'], h['Access-Control-Allow-Methods'], h['Access-Control-Allow-Headers'],
+                          h['Vary']), (self.ORIGIN, 'GET, POST, OPTIONS', 'content-type', 'Origin'))
+        code, h, _ = self.request('GET', '/health', {'Origin': self.ORIGIN})
+        self.assertEqual((code, h['Access-Control-Allow-Origin']), (200, self.ORIGIN))
+        req = urllib.request.Request(self.url + '/owner-call', json.dumps(
+            {'vault': VAULT, 'message': message('revoke_agent', {}), 'signature': SIG}).encode(),
+            {'Content-Type': 'application/json', 'Origin': self.ORIGIN})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            self.assertEqual((r.status, r.headers['Access-Control-Allow-Origin']), (202, self.ORIGIN))
+        with self.assertRaises(urllib.error.HTTPError) as e:   # an error answer carries it too
+            self.request('GET', '/job/0123456789abcdef', {'Origin': self.ORIGIN})
+        self.assertEqual((e.exception.code, e.exception.headers['Access-Control-Allow-Origin']), (404, self.ORIGIN))
+        e.exception.close()
+        code, h, _ = self.request('OPTIONS', '/owner-call', {'Origin': 'https://evil.example.com'})
+        self.assertEqual((code, h['Access-Control-Allow-Origin'], h['Vary']), (204, None, 'Origin'))
+        code, h, _ = self.request('GET', '/health', {'Origin': 'https://evil.example.com'})
+        self.assertIsNone(h['Access-Control-Allow-Origin'])
+
+    def test_off_by_default(self):
+        self.start(FakeChain())
+        code, h, _ = self.request('OPTIONS', '/owner-call', {'Origin': self.ORIGIN, 'Access-Control-Request-Method': 'POST'})
+        self.assertEqual((code, h['Allow'], h['Access-Control-Allow-Origin'], h['Vary']), (204, 'GET, POST, OPTIONS', None, None))
+        code, h, _ = self.request('GET', '/health', {'Origin': self.ORIGIN})
+        self.assertEqual((code, h['Access-Control-Allow-Origin']), (200, None))
 
 
 if __name__ == '__main__':
