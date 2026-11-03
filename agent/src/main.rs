@@ -1,7 +1,7 @@
 //! PRIME agent (hackathon build, from the 27–31 Oct prototype). Spec: docs/01-design-and-feasibility.md §4.4 (key,
 //! quote, registration) and §4.9 (collect, compute, screen, judge, decide, propose).
-//! Deviations (brief): one vault, the positions of its Base address; on-chain reads plus one allowlisted text feed;
-//! no scores and no similar-case retrieval.
+//! Deviations (brief): one vault, the positions of its Base address; on-chain reads plus three allowlisted text feeds
+//! (status.base.org and the two labelled demo feeds); no scores and no similar-case retrieval.
 //!
 //! Behaviour is fixed in the binary; the compose file (measured) passes only `--mode`, `--operator` and the evidence
 //! port. Modes (one flag, four values; `MEASUREMENT.md` has the table):
@@ -19,7 +19,10 @@
 //! Tick loop (build items 44–54): each tick runs in its own task, so a panic is logged and the next tick runs. The
 //! judge runs in a separate task, at most one call in flight; its result is taken on the first tick after it
 //! arrives, applied only while the screens it was asked about are still on, and never delays the protective rule.
-//! Decisions are pure functions in `logic.rs`.
+//! Feed-item trigger (§4.9 step 3): outside the twin modes a feed task polls the allowlisted feeds every `--feed-secs`
+//! (60 s); an item id not seen before (memory plus `feeds/seen.json` in the evidence volume) wants a judge call, like
+//! a new screen. The tick never waits for the poll: it takes what the last poll left. Decisions are pure functions
+//! in `logic.rs`; the agreement rule's text path is `logic::text_corroboration`.
 mod chain;
 mod judge;
 mod logic;
@@ -30,7 +33,7 @@ mod tee;
 use anyhow::{anyhow, Result};
 use chain::{Base, Snapshot, DEADLINE_SECS};
 use ed25519_dalek::SigningKey;
-use logic::{Act, AgentStatus, Decision, Due, Fired, Judgment};
+use logic::{Act, AgentStatus, CitedItem, Decision, Due, Fired, Judgment};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -43,7 +46,10 @@ const VAULT: &str = "p2-vault.prime-measure-1792736012.testnet";
 const NEAR_RPC: &str = "https://rpc.testnet.near.org";
 const BASE_RPCS: [&str; 2] = ["https://base-sepolia-rpc.publicnode.com", "https://sepolia.base.org"];
 const DIGEST_SECS: u64 = 6 * 3600;
-const FEED_SECS: u64 = 600;
+/// The feed poll's default interval (`--feed-secs`).
+const FEED_POLL_SECS: u64 = 60;
+/// The seen-items file in the evidence volume (private: not served on 8080).
+const SEEN_FILE: &str = "feeds/seen.json";
 const REGISTER_ATTEMPTS: u32 = 4; // then exit non-zero (the restart policy restarts it): never tick unregistered
 /// How often the re-registration task reads the vault's expiry; a failed re-registration is retried on the next poll.
 const REREGISTER_POLL_SECS: u64 = 600;
@@ -108,6 +114,7 @@ struct Args {
     digest_at_start: bool,
     evidence: PathBuf,
     nearai_key_file: Option<String>,
+    feed_secs: u64,
 }
 
 fn args() -> Result<Args> {
@@ -125,6 +132,7 @@ fn args() -> Result<Args> {
         digest_at_start: true,
         evidence: PathBuf::from("/evidence"),
         nearai_key_file: None,
+        feed_secs: FEED_POLL_SECS,
     };
     let v: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
@@ -147,6 +155,7 @@ fn args() -> Result<Args> {
                     "--max-ticks" => a.max_ticks = val.parse()?,
                     "--evidence" => a.evidence = PathBuf::from(val),
                     "--nearai-key-file" => a.nearai_key_file = Some(val),
+                    "--feed-secs" => a.feed_secs = val.parse::<u64>()?.max(1),
                     x => return Err(anyhow!("unknown argument {x}")),
                 }
                 i += 1;
@@ -202,18 +211,31 @@ struct Ctx {
     base_address: String,
     executor: String,
     market_ids: Vec<String>,
+    /// what the feed task left: the latest poll and the new item ids not yet taken by a tick
+    feeds: Arc<std::sync::Mutex<FeedShared>>,
+}
+
+#[derive(Default)]
+struct FeedShared {
+    latest: Option<Value>,
+    pending: Vec<String>,
+}
+
+fn lock_feeds(f: &std::sync::Mutex<FeedShared>) -> std::sync::MutexGuard<'_, FeedShared> {
+    f.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// What the judge task returns: the full record for the transcript and, if accepted, the answer.
 struct JudgeOutcome {
     record: Value,
-    feed: (Value, u64),
-    accepted: Option<(String, String)>, // (action, risk)
+    accepted: Option<(String, String, Vec<CitedItem>)>, // (action, risk, the feed items it cited)
 }
 
 struct InFlight {
     handle: JoinHandle<JudgeOutcome>,
     trigger: BTreeSet<String>,
+    /// the new feed items that wanted this call (empty for a screen or digest trigger)
+    feed_items: Vec<String>,
     block: u64,
     started: Instant,
 }
@@ -221,6 +243,7 @@ struct InFlight {
 struct Ready {
     outcome: JudgeOutcome,
     trigger: BTreeSet<String>,
+    feed_items: Vec<String>,
     block: u64,
     arrived_tick: u64,
 }
@@ -229,13 +252,15 @@ struct State {
     vault: Value,
     fired_prev: BTreeSet<String>,
     next_digest: u64,
-    feed: (Value, u64),
     loops: u64,
     next_recheck: u64,
     inflight: Option<InFlight>,
     ready: Option<Ready>,
-    /// a judge call is wanted (Some(digest)) but one is in flight; started on the first tick the slot is free
+    /// a judge call is wanted (Some(independent of screens: digest or new feed item)) but one is in flight;
+    /// started on the first tick the slot is free (`logic::want_judge`)
     judge_wanted: Option<bool>,
+    /// new feed items taken from the feed task, handed to the next judge call started
+    feed_trigger: Vec<String>,
     /// a judgment that was wanted but skipped (no key), recorded in the next transcript
     judge_skipped: Option<Value>,
     status: AgentStatus,
@@ -243,13 +268,19 @@ struct State {
 
 // ------------------------------------------------------------------ judge task (build items 44, 45)
 
-async fn judge_job(judge: Arc<judge::Judge>, mut feed: (Value, u64), s: Snapshot, fired: Vec<Fired>, vault: Value) -> JudgeOutcome {
+async fn judge_job(judge: Arc<judge::Judge>, feed: Option<Value>, s: Snapshot, fired: Vec<Fired>, vault: Value) -> JudgeOutcome {
     let t = Instant::now();
-    if now() >= feed.1 + FEED_SECS {
-        let http = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap_or_default();
-        feed = (judge::fetch_feeds(&http).await, now());
-    }
-    let (user, ids) = logic::judge_input(&s, &fired, &feed.0, &vault, now());
+    // the feed task's latest poll; only before its first poll does the judge fetch the feeds itself
+    let feed = match feed {
+        Some(f) => f,
+        None => {
+            let http = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap_or_default();
+            let f = judge::fetch_feeds(&http).await;
+            judge::log_feeds(&f);
+            f
+        }
+    };
+    let (user, ids) = logic::judge_input(&s, &fired, &feed, &vault, now());
     let att = judge.attest().await.unwrap_or_else(|e| json!({"ok": false, "error": e.to_string()}));
     let call = if att["ok"] == true {
         judge.ask(&user, &ids, att["signing_address"].as_str().unwrap_or("")).await.unwrap_or_else(|e| json!({"error": e.to_string()}))
@@ -259,27 +290,90 @@ async fn judge_job(judge: Arc<judge::Judge>, mut feed: (Value, u64), s: Snapshot
     };
     let outcome = judge::classify(&call);
     let accepted = if outcome == "answer" {
-        Some((call["parsed"]["action"].as_str().unwrap_or("").to_string(), call["parsed"]["risk"].as_str().unwrap_or("").to_string()))
+        let p = &call["parsed"];
+        let sids: Vec<String> = p["source_ids"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(|x| x.to_string())).collect();
+        Some((p["action"].as_str().unwrap_or("").to_string(), p["risk"].as_str().unwrap_or("").to_string(), logic::cited_items(&sids, &feed)))
     } else {
         None
     };
     let record = json!({"attestation": att, "model_tcb_status": att["tcb_status"], "call": call, "outcome": outcome, "accepted": accepted.is_some(),
         "applies": if accepted.is_some() { "the judgment, through the agreement rule" } else { "rules only" },
-        "input_block": s.block, "feed": feed.0, "seconds": t.elapsed().as_secs_f64()});
-    JudgeOutcome { record, feed, accepted }
+        "cited_feed_items": accepted.as_ref().map(|a| a.2.clone()),
+        "input_block": s.block, "feed": feed, "seconds": t.elapsed().as_secs_f64()});
+    JudgeOutcome { record, accepted }
 }
 
 fn spawn_judge(ctx: &Ctx, st: &mut State, s: &Snapshot, fired: &[Fired], tick: u64) {
     let trigger = logic::fired_set(fired);
+    let feed_items = std::mem::take(&mut st.feed_trigger);
     let Some(judge) = ctx.judge.clone() else {
         // twin modes never reach here; without a NEAR AI key the judgment is skipped and the rules apply alone
-        println!("RESULT judge skipped tick={tick} block={} trigger={trigger:?}: no NEARAI_API_KEY set, rules only", s.block);
-        st.judge_skipped = Some(json!({"outcome": "skipped_no_api_key", "applies": "rules only", "trigger": trigger, "tick": tick}));
+        println!("RESULT judge skipped tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}: no NEARAI_API_KEY set, rules only", s.block);
+        st.judge_skipped = Some(json!({"outcome": "skipped_no_api_key", "applies": "rules only", "trigger": trigger, "trigger_feed_items": feed_items, "tick": tick}));
         return;
     };
-    println!("RESULT judge started tick={tick} block={} trigger={trigger:?}", s.block);
-    let handle = tokio::spawn(judge_job(judge, st.feed.clone(), s.clone(), fired.to_vec(), st.vault.clone()));
-    st.inflight = Some(InFlight { handle, trigger, block: s.block, started: Instant::now() });
+    println!("RESULT judge started tick={tick} block={} trigger={trigger:?} feed_items={feed_items:?}", s.block);
+    let latest = lock_feeds(&ctx.feeds).latest.clone();
+    let handle = tokio::spawn(judge_job(judge, latest, s.clone(), fired.to_vec(), st.vault.clone()));
+    st.inflight = Some(InFlight { handle, trigger, feed_items, block: s.block, started: Instant::now() });
+}
+
+// ------------------------------------------------------------------ feed-item trigger (§4.9 step 3)
+
+fn load_seen(path: &std::path::Path) -> logic::Seen {
+    match std::fs::read(path) {
+        Ok(b) => match serde_json::from_slice::<Value>(&b).ok().and_then(|v| serde_json::from_value(v["seen"].clone()).ok()) {
+            Some(m) => m,
+            None => {
+                println!("RESULT feed seen file {} unreadable: starting with no items seen", path.display());
+                logic::Seen::new()
+            }
+        },
+        Err(_) => logic::Seen::new(),
+    }
+}
+
+/// Polls every allowlisted feed every `every`, in its own task (never in a tick). New item ids go to `pending` for
+/// the next good tick and are written to the seen file at once, so a restart does not re-trigger them. A feed that
+/// fails (the demo feeds return 404 while the repository is private) is logged and left out; the others are used.
+async fn feed_task(shared: Arc<std::sync::Mutex<FeedShared>>, evidence: PathBuf, every: Duration) {
+    let http = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().unwrap_or_default();
+    let mut seen = load_seen(&evidence.join(SEEN_FILE));
+    println!("RESULT feed poll started every={}s feeds={:?} seen_on_disk={}", every.as_secs(),
+        [judge::FEED_URL].iter().chain(judge::DEMO_FEEDS.iter()).collect::<Vec<_>>(), seen.len());
+    let mut last_sig = vec![];
+    let mut n = 0u64;
+    loop {
+        n += 1;
+        let t = Instant::now();
+        let mut feed = judge::fetch_feeds(&http).await;
+        let new = logic::note_poll(&mut seen, &mut feed, now());
+        let sig = judge::feeds_signature(&feed);
+        if sig != last_sig || !new.is_empty() {
+            judge::log_feeds(&feed); // per-feed lines on the first poll and whenever a feed's state changes
+            last_sig = sig;
+        }
+        if !new.is_empty() {
+            let body = json!({"version": 1, "seen": seen});
+            if let Err(e) = tee::save_private(&evidence, SEEN_FILE, body.to_string().as_bytes()) {
+                println!("RESULT feed seen file write failed (kept in memory): {e}");
+            }
+        }
+        let ok = feed["feeds"].as_array().map(|a| a.iter().filter(|f| f["ok"] == true).count()).unwrap_or(0);
+        println!("RESULT feed poll={n} feeds_ok={ok}/{} new_items={} {new:?} seen={} seconds={:.1}",
+            feed["feeds"].as_array().map(|a| a.len()).unwrap_or(0), new.len(), seen.len(), t.elapsed().as_secs_f64());
+        {
+            let mut g = lock_feeds(&shared);
+            g.latest = Some(feed);
+            for id in new {
+                if !g.pending.contains(&id) {
+                    g.pending.push(id);
+                }
+            }
+        }
+        let el = t.elapsed();
+        tokio::time::sleep(every.saturating_sub(el)).await;
+    }
 }
 
 // ------------------------------------------------------------------ propose (build items 10, 11, 12, 50, 54)
@@ -407,11 +501,10 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         if let Some(f) = st.inflight.take() {
             let outcome = match f.handle.await {
                 Ok(o) => o,
-                Err(e) => JudgeOutcome { record: json!({"error": format!("judge task failed: {e}"), "outcome": "error", "applies": "rules only"}), feed: st.feed.clone(), accepted: None },
+                Err(e) => JudgeOutcome { record: json!({"error": format!("judge task failed: {e}"), "outcome": "error", "applies": "rules only"}), accepted: None },
             };
-            st.feed = outcome.feed.clone();
             println!("RESULT judge arrived tick={n} block={} outcome={} accepted={} seconds={:.1}", f.block, outcome.record["outcome"], outcome.accepted.is_some(), f.started.elapsed().as_secs_f64());
-            st.ready = Some(Ready { outcome, trigger: f.trigger, block: f.block, arrived_tick: n });
+            st.ready = Some(Ready { outcome, trigger: f.trigger, feed_items: f.feed_items, block: f.block, arrived_tick: n });
         }
     }
 
@@ -433,14 +526,17 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
     let new: Vec<String> = fired_set.difference(&st.fired_prev).cloned().collect();
     let t_now = now();
 
-    // judge: on a new screen or a digest, at most one call in flight
+    // judge: on a new screen, a new feed item or a digest, at most one call in flight
     let digest = t_now >= st.next_digest;
     if digest {
         st.next_digest = t_now + DIGEST_SECS;
     }
-    if (!new.is_empty() || digest) && !ctx.a.mode.twin() {
-        st.judge_wanted = Some(st.judge_wanted.unwrap_or(false) || digest);
+    let feed_new: Vec<String> = if ctx.a.mode.twin() { vec![] } else { std::mem::take(&mut lock_feeds(&ctx.feeds).pending) };
+    if !feed_new.is_empty() {
+        println!("TICK {n} block={} new feed items {feed_new:?}: judge wanted", s.block);
+        st.feed_trigger.extend(feed_new.iter().cloned());
     }
+    st.judge_wanted = logic::want_judge(st.judge_wanted, !new.is_empty(), digest, !feed_new.is_empty(), ctx.a.mode.twin());
     if let Some(want_digest) = st.judge_wanted {
         if !want_digest && fired.is_empty() {
             st.judge_wanted = None; // the screens that wanted a judgment are gone
@@ -489,12 +585,13 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         if let Some(r) = st.ready.take() {
             let mut rec = r.outcome.record;
             rec["trigger"] = json!(r.trigger);
+            rec["trigger_feed_items"] = json!(r.feed_items);
             rec["arrived_tick"] = json!(r.arrived_tick);
             if ready_relevant == Some(false) {
                 let gone: Vec<&String> = r.trigger.difference(&fired_set).collect();
                 rec["ignored"] = json!(format!("the screens it was asked about are gone: {gone:?}; rules only"));
-            } else if let Some((action, risk)) = r.outcome.accepted {
-                judgment = Some(Judgment { action, risk, trigger: r.trigger, block: r.block });
+            } else if let Some((action, risk, cited)) = r.outcome.accepted {
+                judgment = Some(Judgment { action, risk, trigger: r.trigger, block: r.block, cited });
             }
             judge_record = rec;
         }
@@ -518,7 +615,7 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
         "judge": judge_record, "judgment_applied": judgment,
         "decisions": decisions.iter().map(|d| d.json()).collect::<Vec<_>>(), "chosen": chosen.map(|i| decisions[i].market.name.clone())});
     for d in &decisions {
-        println!("RESULT decision loop={loops} market={} action={:?} protective={} amount={} fraction={} basis={}", d.market.name, d.action, d.protective, d.amount, d.fraction, d.basis);
+        println!("RESULT decision loop={loops} market={} action={:?} protective={} text_path={} amount={} fraction={} basis={}", d.market.name, d.action, d.protective, d.text.is_some(), d.amount, d.fraction, d.basis);
     }
     if let Some(i) = chosen {
         let d = &decisions[i];
@@ -533,7 +630,9 @@ async fn tick(ctx: Arc<Ctx>, st: Arc<Mutex<State>>, n: u64) {
             st.status = status;
             p
         };
-        println!("RESULT proposal loop={loops} {}", json!({"market": d.market.name, "method": p["method"], "args": p["args"], "tx": p["tx"],
+        let mut p = p;
+        p["reasons"] = d.reasons();
+        println!("RESULT proposal loop={loops} {}", json!({"market": d.market.name, "method": p["method"], "args": p["args"], "text_path": d.text.is_some(), "tx": p["tx"],
             "estimate": p["estimate"], "l1_fee_wei": p["l1_fee_wei"], "vault_check_transaction": p["vault_check_transaction"], "refusals": p["refusals"],
             "sent": p["sent"], "why_not_sent": p["why_not_sent"], "why_not_proposed": p["why_not_proposed"], "near_tx": p["near_tx"],
             "base": p["base"], "error": p["error"], "near_error": p["near_error"]}));
@@ -781,17 +880,23 @@ async fn main() -> Result<()> {
     }
     let next_digest = if a.digest_at_start { now() } else { now() + DIGEST_SECS };
     let (tick_secs, max_ticks) = (a.tick_secs, a.max_ticks);
-    let ctx = Arc::new(Ctx { a, base, nearc, sk, our_pk, judge, agent_record, fork, boot_id, base_address, executor, market_ids });
+    let feeds = Arc::new(std::sync::Mutex::new(FeedShared::default()));
+    if a.mode.twin() {
+        println!("RESULT feed poll off: mode {} is the deterministic twin (no text feeds)", a.mode.label());
+    } else {
+        tokio::spawn(feed_task(feeds.clone(), a.evidence.clone(), Duration::from_secs(a.feed_secs)));
+    }
+    let ctx = Arc::new(Ctx { a, base, nearc, sk, our_pk, judge, agent_record, fork, boot_id, base_address, executor, market_ids, feeds });
     let st = Arc::new(Mutex::new(State {
         vault,
         fired_prev: BTreeSet::new(),
         next_digest,
-        feed: (Value::Null, 0),
         loops: 0,
         next_recheck: 0,
         inflight: None,
         ready: None,
         judge_wanted: None,
+        feed_trigger: vec![],
         judge_skipped: None,
         status,
     }));

@@ -5,7 +5,7 @@ use crate::chain::{Feed, Ltv, MarketSnap, Snapshot, ETH_USD, USDC_USD, WAD};
 use primitive_types::U256;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const UTILIZATION_SCREEN: f64 = 0.95;
 /// Execution check before any sale (31 Oct, §4.9 step 3): the executor fills a sale no worse than oracle − 1%
@@ -236,14 +236,55 @@ pub struct Decision {
     pub fraction: u128,
     pub basis: String,
     pub detail: Value,
+    /// Some when this discretionary action rests on the agreement rule's text path (no on-chain screen on this market)
+    pub text: Option<TextCorroboration>,
 }
 
 impl Decision {
     pub fn json(&self) -> Value {
         json!({"action": self.action, "protective": self.protective, "market": self.market.name, "market_id": self.market.id,
             "to": self.to.as_ref().map(|m| &m.name), "amount": self.amount.to_string(), "fraction": self.fraction.to_string(),
-            "basis": self.basis, "detail": self.detail})
+            "basis": self.basis, "text_path": self.text.is_some(), "text_corroboration": self.text, "detail": self.detail})
     }
+    /// The proposal's reasons (transcript): the basis, whether the text path carried it, and the items it counted.
+    pub fn reasons(&self) -> Value {
+        json!({"basis": self.basis, "text_path": self.text.is_some(),
+            "cited_items": self.text.as_ref().map(|t| t.counted.clone()).unwrap_or_default()})
+    }
+}
+
+/// A feed item the judge cited in `source_ids`, resolved against the feeds it was given (never against text the
+/// model wrote): what the transcript and the proposal's reasons record of it.
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+pub struct CitedItem {
+    pub source_id: String,
+    pub feed_id: String,
+    pub item_id: String,
+    pub title: String,
+    pub body_sha256: String,
+    pub published: String,
+    /// None when `published` could not be read; such an item never counts for the text path
+    pub published_unix: Option<u64>,
+    pub url: String,
+}
+
+/// The cited source ids that name feed items, resolved against `feed` (the poll the judge was given; feeds that
+/// failed carry no items). Chain and screen ids, and ids no feed carries, are not feed items and are skipped.
+pub fn cited_items(source_ids: &[String], feed: &Value) -> Vec<CitedItem> {
+    let items: Vec<&Value> = feed["feeds"].as_array().into_iter().flatten().filter(|f| f["ok"] == true)
+        .flat_map(|f| f["items"].as_array().into_iter().flatten()).collect();
+    let mut out: Vec<CitedItem> = vec![];
+    for id in source_ids {
+        if out.iter().any(|c| &c.source_id == id) {
+            continue;
+        }
+        if let Some(i) = items.iter().find(|i| i["id"].as_str() == Some(id.as_str())) {
+            let st = |k: &str| i[k].as_str().unwrap_or("").to_string();
+            out.push(CitedItem { source_id: id.clone(), feed_id: st("feed_id"), item_id: st("item_id"), title: st("title"),
+                body_sha256: st("body_sha256"), published: st("published"), published_unix: i["published_unix"].as_u64(), url: st("link") });
+        }
+    }
+    out
 }
 
 /// A judge answer the loop may apply: accepted (schema valid, `provider_tee` signature verified), and still relevant.
@@ -254,6 +295,114 @@ pub struct Judgment {
     /// the fired screens of the snapshot the judge was given
     pub trigger: BTreeSet<String>,
     pub block: u64,
+    /// the feed items among its `source_ids` (`cited_items`)
+    pub cited: Vec<CitedItem>,
+}
+
+// ------------------------------------------------------------------ the agreement rule's text path (§4.9 step 6)
+
+/// The judge's highest risk level (`judge::RISKS`): text alone acts only at this level.
+pub const TEXT_RISK: &str = "critical";
+/// Independent sources the text path needs.
+pub const TEXT_MIN_SOURCES: usize = 2;
+/// A cited item counts only if it was published at most this long before the snapshot's block time.
+pub const TEXT_WINDOW_SECS: u64 = 86_400;
+/// ... and not more than this after it (clock skew); a scheduled-event item dated in the future does not count.
+pub const TEXT_FUTURE_SKEW_SECS: u64 = 300;
+/// The judge actions text alone can carry: `leave_market` (to `migrate`, else `exit`) and `reduce_light`.
+pub const TEXT_PATH_ACTIONS: [&str; 2] = ["leave_market", "reduce_light"];
+
+/// Whether the judge's citations corroborate a discretionary action with no on-chain screen on its market.
+///
+/// **Independent** (the definition the text path uses): two cited items are independent sources when they come
+/// from different feeds, i.e. their `feed_id` differs (`feed.id` of a demo-feed file, `base-status` for
+/// status.base.org). Each allowlisted feed is one source: any number of items from one feed count once, so a feed
+/// cannot corroborate itself. A cited item counts only when it is recent: `published` readable and within
+/// [block time − TEXT_WINDOW_SECS, block time + TEXT_FUTURE_SKEW_SECS]. The rule holds when `risk` is
+/// TEXT_RISK and at least TEXT_MIN_SOURCES feeds have a counted item.
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+pub struct TextCorroboration {
+    pub ok: bool,
+    pub why: String,
+    pub risk: String,
+    /// the feeds with at least one counted item (each counts once)
+    pub independent_feeds: Vec<String>,
+    pub counted: Vec<CitedItem>,
+    /// (source id, why it did not count)
+    pub not_counted: Vec<(String, String)>,
+}
+
+pub fn text_corroboration(j: &Judgment, now: u64) -> TextCorroboration {
+    let mut feeds: BTreeSet<String> = BTreeSet::new();
+    let (mut counted, mut not_counted) = (vec![], vec![]);
+    for c in &j.cited {
+        let why = match c.published_unix {
+            None => Some(format!("published time {:?} not readable", c.published)),
+            Some(p) if p > now.saturating_add(TEXT_FUTURE_SKEW_SECS) => Some(format!("published {} s after the block time", p - now)),
+            Some(p) if now.saturating_sub(p) > TEXT_WINDOW_SECS => Some(format!("published {} s before the block time, outside the {TEXT_WINDOW_SECS} s window", now - p)),
+            Some(_) => None,
+        };
+        match why {
+            Some(w) => not_counted.push((c.source_id.clone(), w)),
+            None => {
+                feeds.insert(c.feed_id.clone());
+                counted.push(c.clone());
+            }
+        }
+    }
+    let risk_ok = j.risk == TEXT_RISK;
+    let ok = risk_ok && feeds.len() >= TEXT_MIN_SOURCES;
+    let why = if !risk_ok {
+        format!("risk {} is not {TEXT_RISK}", j.risk)
+    } else if feeds.len() < TEXT_MIN_SOURCES {
+        format!("{} independent feed(s) with a recent cited item, {TEXT_MIN_SOURCES} needed (items from one feed count once)", feeds.len())
+    } else {
+        format!("risk {TEXT_RISK} and {} independent feeds cited: {:?}", feeds.len(), feeds)
+    };
+    TextCorroboration { ok, why, risk: j.risk.clone(), independent_feeds: feeds.into_iter().collect(), counted, not_counted }
+}
+
+// ------------------------------------------------------------------ feed-item trigger: items seen (§4.9 step 3)
+
+/// Feed item ids this agent has seen, with the unix time it first saw each. Kept in memory and in the evidence
+/// volume (`feeds/seen.json`), so a restart does not treat old items as new.
+pub type Seen = BTreeMap<String, u64>;
+/// An entry no longer in any feed's newest items is dropped this long after it was first seen.
+pub const SEEN_KEEP_SECS: u64 = 30 * 86_400;
+
+/// One poll's bookkeeping: returns the ids of items not seen before (a judge trigger, like a new screen), records
+/// them as seen at `now`, writes each item's `first_seen` into `feed` (the judge sees it), and prunes old entries.
+/// Feeds that failed carry no items and change nothing.
+pub fn note_poll(seen: &mut Seen, feed: &mut Value, now: u64) -> Vec<String> {
+    let mut new = vec![];
+    let mut present = BTreeSet::new();
+    for f in feed["feeds"].as_array_mut().into_iter().flatten().filter(|f| f["ok"] == true) {
+        for i in f["items"].as_array_mut().into_iter().flatten() {
+            let Some(id) = i["id"].as_str().map(|x| x.to_string()) else { continue };
+            let first = *seen.entry(id.clone()).or_insert_with(|| {
+                new.push(id.clone());
+                now
+            });
+            i["first_seen"] = json!(first);
+            present.insert(id);
+        }
+    }
+    seen.retain(|id, t| present.contains(id) || now.saturating_sub(*t) <= SEEN_KEEP_SECS);
+    new
+}
+
+/// Whether a judge call is wanted after this tick: `Some(independent)` where `independent` means the call does not
+/// depend on a screen staying on (a digest or a new feed item); a call wanted only for new screens is dropped when
+/// they go. The deterministic twin never wants one.
+pub fn want_judge(prev: Option<bool>, new_screens: bool, digest: bool, new_feed_items: bool, twin: bool) -> Option<bool> {
+    if twin {
+        return None;
+    }
+    if new_screens || digest || new_feed_items {
+        Some(prev.unwrap_or(false) || digest || new_feed_items)
+    } else {
+        prev
+    }
 }
 
 /// A judgment is relevant while every screen that was on when it was asked is still on (build item 44). Otherwise
@@ -272,6 +421,7 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
         fraction: 0,
         basis: basis.into(),
         detail,
+        text: None,
     };
     if m.ltv == Ltv::NoCollateralValue {
         return none("collateral worth 0 at the oracle: nothing to sell, no action (screen collateral_value_zero)", json!({"debt": m.debt.to_string()}));
@@ -305,19 +455,33 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
             fraction: 0,
             basis: if a > 0 { basis.into() } else { format!("{basis}; amount 0 after the clamps (slice maximum {slice})") },
             detail: detail.clone(),
+            text: None,
         }
     };
     if is_protective {
         // rule, independent of the judge: a protective session sells to target (§3); the executor clamps again
         return reduce(to_target, "rule: LTV above the act line (or a protective session still above target), protective reduce to target", true);
     }
+    // the agreement rule: the judge plus a fired on-chain screen on this market (unchanged), or, with no screen
+    // here, the judge plus two independent text sources (the text path, `text_corroboration`)
+    let mut text: Option<TextCorroboration> = None;
     if confirm.is_empty() {
-        return none("no fired on-chain screen on this market: no discretionary action", detail);
+        let Some(j) = judged.filter(|j| TEXT_PATH_ACTIONS.contains(&j.action.as_str())) else {
+            return none("no fired on-chain screen on this market: no discretionary action", detail);
+        };
+        let tc = text_corroboration(j, s.timestamp);
+        if !tc.ok {
+            let mut d = detail;
+            d["text_corroboration"] = json!(tc);
+            return none(&format!("no fired on-chain screen on this market and the text path does not hold: {}", tc.why), d);
+        }
+        text = Some(tc);
     }
-    match action {
+    let path = if text.is_some() { "two independent text sources (text path)" } else { "on-chain screen" };
+    let mut d = match action {
         None => none("no judgment to apply on this tick: rules only", detail),
         Some("reduce_to_target") => reduce(to_target.min(budget_value).min(floor_room), "judge reduce_to_target + on-chain screen; clamped to budget and floor", false),
-        Some("reduce_light") => reduce((budget_value / REDUCE_LIGHT_SHARE).min(floor_room), "judge reduce_light + on-chain screen: 1/4 of the remaining budget, clamped to floor", false),
+        Some("reduce_light") => reduce((budget_value / REDUCE_LIGHT_SHARE).min(floor_room), &format!("judge reduce_light + {path}: 1/4 of the remaining budget, clamped to floor"), false),
         Some("leave_market") => {
             // the code picks the destination: same tokens and executor, corridor in force with migrate allowed, no
             // screen, fresh feeds, USDC to lend, and LTV after the move at or below its act line
@@ -345,8 +509,9 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
                     fraction: migrate_fraction(d.liquidity, m.debt),
                     to: Some(d),
                     amount: 0,
-                    basis: "judge leave_market + on-chain screen: migrate to the approved market that can take it".into(),
+                    basis: format!("judge leave_market + {path}: migrate to the approved market that can take it"),
                     detail,
+                    text: None,
                 },
                 _ if c.exit_allowed => Decision {
                     action: Act::Exit,
@@ -355,14 +520,19 @@ pub fn decide_market(s: &Snapshot, m: &MarketSnap, fired: &[Fired], judged: Opti
                     to: None,
                     amount: 0,
                     fraction: 0,
-                    basis: "judge leave_market + on-chain screen, no approved market can take the position: exit".into(),
+                    basis: format!("judge leave_market + {path}, no approved market can take the position: exit"),
                     detail,
+                    text: None,
                 },
                 _ => none("leave_market, but no destination qualifies and exit is off", detail),
             }
         }
         Some(_) => none("judge hold: nothing to do", detail),
+    };
+    if d.action != Act::None {
+        d.text = text;
     }
+    d
 }
 
 /// Every market of the vault where the position has debt, each with its own decision (build item 52).
@@ -676,10 +846,12 @@ pub fn judge_input(s: &Snapshot, fired: &[Fired], feed: &Value, vault: &Value, n
                 .into_iter()
                 .map(|i| {
                     ids.push(i["id"].as_str().unwrap_or("").to_string());
-                    json!({"source_id": i["id"], "published": i["published"], "text": i["text"]})
+                    json!({"source_id": i["id"], "item_id": i["item_id"], "published": i["published"],
+                        "first_seen_by_agent_utc": i["first_seen"].as_u64().map(crate::iso), "text": i["text"]})
                 })
                 .collect();
-            json!({"source": f["url"], "kind": f["kind"], "notice": f["notice"], "untrusted": true, "items": items})
+            json!({"source": f["url"], "feed_id": f["feed_id"], "kind": f["kind"], "publisher": f["publisher"], "notice": f["notice"],
+                "untrusted": true, "items": items})
         })
         .collect();
     let user = json!({"now_utc": crate::iso(s.timestamp), "base_block": s.block, "markets": markets, "screens_fired": sc,
@@ -688,6 +860,10 @@ pub fn judge_input(s: &Snapshot, fired: &[Fired], feed: &Value, vault: &Value, n
             "pool_note": "the pool price is not a screen: on testnet the team sets the pool"},
         "agent_limits": {"executor_cooldown_s": exec_cooldown(s), "vault_cooldown_s": vault["cooldown_secs"],
             "agent_may_act_in_s": free_at.saturating_sub(now)},
+        "agreement_rule": {"discretionary_action_needs": "a fired screen on that market, or (text path) the conditions below",
+            "text_path_actions": TEXT_PATH_ACTIONS, "text_path_risk": TEXT_RISK, "text_path_independent_feeds_min": TEXT_MIN_SOURCES,
+            "independent_means": "different feed_id; items from one feed count once",
+            "item_published_within_s_before_now": TEXT_WINDOW_SECS},
         "text_feeds": text_feeds});
     (serde_json::to_string_pretty(&user).unwrap_or_default(), ids)
 }
@@ -757,7 +933,7 @@ mod tests {
     use super::*;
 
     fn judgment(action: &str, trigger: &[&str]) -> Judgment {
-        Judgment { action: action.into(), risk: "high".into(), trigger: trigger.iter().map(|s| s.to_string()).collect(), block: 100 }
+        Judgment { action: action.into(), risk: "high".into(), trigger: trigger.iter().map(|s| s.to_string()).collect(), block: 100, cited: vec![] }
     }
 
     // ---- 52: every position
@@ -1123,5 +1299,263 @@ mod tests {
         let (bc, _) = budget(&s, &s.markets[0]);
         // (1 + 3 + 0.1) * 10% - 0.1 = 0.31 WETH
         assert_eq!(bc, 310_000_000_000_000_000);
+    }
+
+    // ---- step 3: the agreement rule's text path and the feed-item trigger
+
+    /// 2026-11-06T12:00:00Z, the `published` of the scene-five items in testdata/scene5
+    const SCENE_PUB: u64 = 1_793_966_400;
+
+    fn cited(feed: &str, item: &str, published_unix: u64) -> CitedItem {
+        CitedItem { source_id: format!("feed:{feed}:{item}"), feed_id: feed.into(), item_id: item.into(), title: "t".into(),
+            body_sha256: "00".repeat(32), published: crate::iso(published_unix), published_unix: Some(published_unix), url: String::new() }
+    }
+
+    fn text_judgment(action: &str, risk: &str, cited: Vec<CitedItem>) -> Judgment {
+        Judgment { action: action.into(), risk: risk.into(), trigger: BTreeSet::new(), block: 100, cited }
+    }
+
+    /// The scene's markets: a calm position on live (LTV 0.55 under act 0.70, utilization 0.5, fresh feeds) and an
+    /// empty backup market with USDC to lend; block time 10 minutes after the items were published.
+    fn calm_live_and_backup() -> Snapshot {
+        let live = market("live", 1100, 1000, 2000, 0.50, 0.70, 0.30);
+        let backup = market("backup", 0, 0, 2000, 0.50, 0.70, 0.30);
+        let mut s = snap(vec![live, backup]);
+        s.timestamp = SCENE_PUB + 600;
+        s
+    }
+
+    #[test]
+    fn the_text_path_needs_two_independent_recent_feeds_and_critical_risk() {
+        let s = calm_live_and_backup();
+        let v = vault(&s);
+        assert!(screens(&s).is_empty(), "calm: no screen anywhere");
+        let act = |j: &Judgment| decide_market(&s, &s.markets[0], &[], Some(j), &v);
+        let gov = cited("cmdk-testnet-governance", "g1", SCENE_PUB);
+        let gov2 = cited("cmdk-testnet-governance", "g2", SCENE_PUB);
+        let sec = cited("cmdk-testnet-venue-status", "s1", SCENE_PUB);
+
+        // two items of one feed count once: no action
+        let d = act(&text_judgment("leave_market", "critical", vec![gov.clone(), gov2.clone()]));
+        assert_eq!(d.action, Act::None);
+        assert!(d.basis.contains("1 independent feed(s)"), "{}", d.basis);
+        assert!(d.text.is_none());
+        assert_eq!(d.detail["text_corroboration"]["independent_feeds"], json!(["cmdk-testnet-governance"]));
+
+        // two feeds: migrate, recorded as the text path with the counted items
+        let d = act(&text_judgment("leave_market", "critical", vec![gov.clone(), sec.clone()]));
+        assert_eq!(d.action, Act::Migrate);
+        assert_eq!(d.to.as_ref().unwrap().name, "backup");
+        assert_eq!(d.fraction, WAD);
+        let t = d.text.as_ref().expect("text path");
+        assert!(t.ok);
+        assert_eq!(t.independent_feeds, vec!["cmdk-testnet-governance", "cmdk-testnet-venue-status"]);
+        assert!(d.basis.contains("two independent text sources (text path)"), "{}", d.basis);
+        assert_eq!(d.json()["text_path"], true);
+
+        // risk below the highest level: no action
+        for r in ["low", "elevated", "high"] {
+            assert_eq!(act(&text_judgment("leave_market", r, vec![gov.clone(), sec.clone()])).action, Act::None, "{r}");
+        }
+
+        // stale: one item older than 24 h before the block time leaves one feed; both stale, none
+        let old = cited("cmdk-testnet-venue-status", "s0", s.timestamp - TEXT_WINDOW_SECS - 1);
+        let d = act(&text_judgment("leave_market", "critical", vec![gov.clone(), old.clone()]));
+        assert_eq!(d.action, Act::None);
+        assert!(d.detail["text_corroboration"]["not_counted"][0][1].as_str().unwrap().contains("outside the 86400 s window"));
+        let edge = cited("cmdk-testnet-venue-status", "s0", s.timestamp - TEXT_WINDOW_SECS);
+        assert_eq!(act(&text_judgment("leave_market", "critical", vec![gov.clone(), edge])).action, Act::Migrate, "exactly 24 h counts");
+        // dated in the future (a scheduled event) beyond the skew: does not count
+        let future = cited("base-status", "f1", s.timestamp + TEXT_FUTURE_SKEW_SECS + 1);
+        assert_eq!(act(&text_judgment("leave_market", "critical", vec![gov.clone(), future])).action, Act::None);
+        // unreadable time: does not count
+        let mut unknown = sec.clone();
+        unknown.published_unix = None;
+        assert_eq!(act(&text_judgment("leave_market", "critical", vec![gov.clone(), unknown])).action, Act::None);
+
+        // reduce_light can rest on text; reduce_to_target and hold cannot
+        let d = act(&text_judgment("reduce_light", "critical", vec![gov.clone(), sec.clone()]));
+        assert_eq!(d.action, Act::Reduce);
+        assert!(!d.protective && d.text.is_some());
+        assert_eq!(d.amount, (budget(&s, &s.markets[0]).1 / REDUCE_LIGHT_SHARE).min(amount_to(&s.markets[0], s.markets[0].exec.as_ref().unwrap().corridor.floor)));
+        for a in ["reduce_to_target", "hold"] {
+            assert_eq!(act(&text_judgment(a, "critical", vec![gov.clone(), sec.clone()])).action, Act::None, "{a}");
+        }
+
+        // migrate impossible (backup has no USDC to lend) and exit allowed: exit; exit off too: nothing
+        let mut s2 = s.clone();
+        s2.markets[1].liquidity = 0;
+        let j = text_judgment("leave_market", "critical", vec![gov.clone(), sec.clone()]);
+        let d = decide_market(&s2, &s2.markets[0], &[], Some(&j), &v);
+        assert_eq!(d.action, Act::Exit);
+        assert!(d.text.is_some());
+        s2.markets[0].exec.as_mut().unwrap().corridor.exit_allowed = false;
+        assert_eq!(decide_market(&s2, &s2.markets[0], &[], Some(&j), &v).action, Act::None);
+    }
+
+    #[test]
+    fn with_an_onchain_screen_the_onchain_path_applies_as_before() {
+        let mut s = calm_live_and_backup();
+        s.markets[0].utilization = 0.99;
+        let v = vault(&s);
+        let fired = screens(&s);
+        assert!(fired.iter().any(|f| f.key() == "live:utilization_above_95pct"));
+        // the judge cites no text at all and risk is only high: the on-chain screen carries it, as in step 2
+        let j = judgment("leave_market", &["live:utilization_above_95pct"]);
+        let d = decide_market(&s, &s.markets[0], &fired, Some(&j), &v);
+        assert_eq!(d.action, Act::Migrate);
+        assert!(d.text.is_none());
+        assert_eq!(d.basis, "judge leave_market + on-chain screen: migrate to the approved market that can take it");
+        let d = decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_to_target", &[])), &v);
+        assert_eq!(d.basis, "judge reduce_to_target + on-chain screen; clamped to budget and floor");
+        assert_eq!(decide_market(&s, &s.markets[0], &fired, Some(&judgment("reduce_light", &[])), &v).basis,
+            "judge reduce_light + on-chain screen: 1/4 of the remaining budget, clamped to floor");
+    }
+
+    fn scene_feeds(venue_file: &str) -> Value {
+        let f = |name: &str, url: &str| crate::judge::parse_demo_feed(url, &std::fs::read(format!("testdata/scene5/{name}.json")).unwrap()).unwrap();
+        json!({"fetched_at": SCENE_PUB + 300, "feeds": [
+            {"url": crate::judge::FEED_URL, "ok": false, "error": "HTTP 503", "items": []},
+            f(venue_file, crate::judge::DEMO_FEEDS[0]), f("governance", crate::judge::DEMO_FEEDS[1])]})
+    }
+
+    /// Fifth scene, "Warning before the numbers move" (§6, 31 Oct), replayed offline from fixtures.
+    #[test]
+    fn scene_five_warning_before_the_numbers_move() {
+        let s = calm_live_and_backup();
+        let v = vault(&s);
+        let fired = screens(&s);
+        assert!(fired.is_empty() && !standing(&s, &fired), "every on-chain number calm");
+
+        // the poll: the agent has seen the two 3 Nov items; the two scene items are new and want a judge call
+        let mut seen: Seen = [("feed:cmdk-testnet-governance:governance-2026-11-03-001".to_string(), SCENE_PUB - 86_400),
+            ("feed:cmdk-testnet-venue-status:venue-status-2026-11-03-001".to_string(), SCENE_PUB - 86_400)].into();
+        let mut feed = scene_feeds("venue-status");
+        let new = note_poll(&mut seen, &mut feed, SCENE_PUB + 300);
+        let gov = "feed:cmdk-testnet-governance:governance-2026-11-06-001";
+        let sec = "feed:cmdk-testnet-venue-status:venue-status-2026-11-06-001";
+        assert_eq!(new, vec![sec.to_string(), gov.to_string()]);
+        assert_eq!(want_judge(None, false, false, !new.is_empty(), false), Some(true), "a new item wants the judge");
+
+        // the judge input carries both items with feed id, kind, notice and item id
+        let (user, ids) = judge_input(&s, &fired, &feed, &v, s.timestamp);
+        let u: Value = serde_json::from_str(&user).unwrap();
+        let tf = u["text_feeds"].as_array().unwrap();
+        assert_eq!(tf.len(), 2, "the failed status feed is left out");
+        let g = tf.iter().find(|f| f["feed_id"] == "cmdk-testnet-governance").unwrap();
+        assert_eq!(g["kind"], "protocol announcements (demo)");
+        assert!(g["notice"].as_str().unwrap().starts_with("Published by the cmdk team"));
+        assert_eq!(g["items"][1]["item_id"], "governance-2026-11-06-001");
+        assert!(g["items"][1]["first_seen_by_agent_utc"].is_string());
+        assert_eq!(u["agreement_rule"]["text_path_risk"], "critical");
+
+        // the judge's answer, through the strict schema
+        let answer = json!({"risk": "critical", "action": "leave_market",
+            "reasons": ["governance deprecates the live market's oracle", "a security alert from a second feed reports the same"],
+            "source_ids": [gov, sec, "chain:live:market"]});
+        assert_eq!(crate::judge::validate(&answer, &ids), Ok(()));
+        let sids: Vec<String> = answer["source_ids"].as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect();
+        let cited = cited_items(&sids, &feed);
+        assert_eq!(cited.len(), 2, "the chain id is not a feed item");
+        assert_eq!(cited[0].title, "Live market oracle deprecated");
+        assert_eq!(cited[0].body_sha256.len(), 64);
+        assert_eq!(cited[0].published_unix, Some(SCENE_PUB));
+        let j = Judgment { action: "leave_market".into(), risk: "critical".into(), trigger: fired_set(&fired), block: s.block, cited };
+        assert!(relevant(&j.trigger, &fired_set(&fired)));
+
+        // the agent: migrate(live -> backup, 1e18), on the text path, with the cited items in its reasons
+        let ds = decide_all(&s, &fired, Some(&j), &v);
+        let i = pick(&ds).expect("one proposal");
+        let d = &ds[i];
+        assert_eq!((d.action, d.market.name.as_str(), d.to.as_ref().map(|t| t.name.as_str()), d.fraction), (Act::Migrate, "live", Some("backup"), WAD));
+        assert_eq!(d.fraction, 1_000_000_000_000_000_000);
+        let r = d.reasons();
+        assert_eq!(r["text_path"], true);
+        let items = r["cited_items"].as_array().unwrap();
+        assert_eq!(items.len(), 2);
+        for k in ["feed_id", "item_id", "title", "body_sha256"] {
+            assert!(items.iter().all(|x| x[k].as_str().map(|v| !v.is_empty()).unwrap_or(false)), "{k}");
+        }
+        assert!(refusals(&prechecks(d, &s, &v, PK, s.timestamp)).is_empty(), "{:?}", refusals(&prechecks(d, &s, &v, PK, s.timestamp)));
+        assert_eq!(sale_blocked_by_pool(d), None, "migrate sells nothing");
+
+        // the deterministic twin on the same fixtures: no judge wanted, no judgment, nothing
+        assert_eq!(want_judge(None, false, false, true, true), None);
+        let twin = decide_all(&s, &fired, None, &v);
+        assert!(twin.iter().all(|d| d.action == Act::None), "{:?}", twin.iter().map(|d| d.json()).collect::<Vec<_>>());
+        assert_eq!(pick(&twin), None);
+    }
+
+    #[test]
+    fn an_injected_item_in_one_feed_moves_nothing() {
+        let s = calm_live_and_backup();
+        let v = vault(&s);
+        let feed = scene_feeds("venue-status-injected");
+        let (_, ids) = judge_input(&s, &[], &feed, &v, s.timestamp);
+        let inj = "feed:cmdk-testnet-venue-status:venue-status-2026-11-06-002";
+        assert!(ids.contains(&inj.to_string()));
+        // whatever the model was talked into, citing only the injected item (one source) moves nothing
+        for action in crate::judge::ACTIONS {
+            for risk in crate::judge::RISKS {
+                let a = json!({"risk": risk, "action": action, "reasons": ["the item says so"], "source_ids": [inj]});
+                assert_eq!(crate::judge::validate(&a, &ids), Ok(()));
+                let j = Judgment { action: action.into(), risk: risk.into(), trigger: BTreeSet::new(), block: s.block, cited: cited_items(&[inj.to_string()], &feed) };
+                for d in decide_all(&s, &[], Some(&j), &v) {
+                    assert_eq!(d.action, Act::None, "{action}/{risk}: {}", d.basis);
+                }
+            }
+        }
+        // the item's own instruction is no option: the schema has no borrow or withdraw, and no free numbers
+        for bad in [json!({"risk": "critical", "action": "borrow_max", "reasons": [], "source_ids": [inj]}),
+                    json!({"risk": "critical", "action": "leave_market", "reasons": [], "source_ids": [inj], "withdraw_to": "0xdead"})] {
+            assert!(crate::judge::validate(&bad, &ids).is_err());
+        }
+        // and no decision is ever anything but none, reduce, migrate or exit
+        let gov = "feed:cmdk-testnet-governance:governance-2026-11-03-001";
+        let j = Judgment { action: "leave_market".into(), risk: "critical".into(), trigger: BTreeSet::new(), block: s.block,
+            cited: cited_items(&[inj.to_string(), gov.to_string()], &feed) };
+        for d in decide_all(&s, &[], Some(&j), &v) {
+            let a = d.json()["action"].as_str().unwrap().to_string();
+            assert!(["none", "reduce", "migrate", "exit"].contains(&a.as_str()), "{a}");
+        }
+    }
+
+    #[test]
+    fn seen_items_trigger_once_and_survive_a_restart() {
+        let feed0 = scene_feeds("venue-status");
+        let mut seen = Seen::new();
+        let mut f = feed0.clone();
+        let new = note_poll(&mut seen, &mut f, 1000);
+        assert_eq!(new.len(), 4, "a first boot sees every item as new");
+        assert_eq!(f["feeds"][1]["items"][0]["first_seen"], 1000);
+        let mut f = feed0.clone();
+        assert!(note_poll(&mut seen, &mut f, 1060).is_empty(), "the next poll: nothing new");
+        assert_eq!(f["feeds"][1]["items"][0]["first_seen"], 1000, "first seen is kept");
+        // the seen file round-trips: a restart does not re-trigger
+        let file = json!({"version": 1, "seen": seen}).to_string();
+        let mut back: Seen = serde_json::from_value(serde_json::from_str::<Value>(&file).unwrap()["seen"].clone()).unwrap();
+        let mut f = feed0.clone();
+        assert!(note_poll(&mut back, &mut f, 2000).is_empty());
+        // a failed poll (404) changes nothing and triggers nothing
+        let mut failed = json!({"feeds": [{"url": "u", "ok": false, "error": "HTTP 404 Not Found", "items": []}]});
+        assert!(note_poll(&mut back, &mut failed, 3000).is_empty());
+        assert_eq!(back.len(), 4);
+        // entries gone from the feeds are dropped after SEEN_KEEP_SECS
+        note_poll(&mut back, &mut failed, 1000 + SEEN_KEEP_SECS + 1);
+        assert!(back.is_empty());
+    }
+
+    #[test]
+    fn judge_wanted_for_screens_digests_and_feed_items() {
+        assert_eq!(want_judge(None, false, false, false, false), None);
+        assert_eq!(want_judge(None, true, false, false, false), Some(false), "screens only: dropped when they go");
+        assert_eq!(want_judge(None, false, true, false, false), Some(true));
+        assert_eq!(want_judge(None, false, false, true, false), Some(true), "a new feed item does not depend on a screen");
+        assert_eq!(want_judge(Some(false), false, false, true, false), Some(true));
+        assert_eq!(want_judge(Some(true), true, false, false, false), Some(true));
+        assert_eq!(want_judge(Some(false), false, false, false, false), Some(false), "kept until a slot is free");
+        for (a, b, c) in [(true, false, false), (false, true, false), (false, false, true), (true, true, true)] {
+            assert_eq!(want_judge(None, a, b, c, true), None, "the twin never");
+        }
     }
 }

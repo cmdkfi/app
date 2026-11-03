@@ -206,4 +206,7 @@ One flag, `--mode`, four values. "Sends" = calls the vault's agent methods and b
 
 Twin transcripts are named `<boot>-twin-<n>.json` and carry `"twin": true` and a label. Other flags: `--no-tee`
 (local runs: no quote, no registration), `--fork` (an anvil-fork rehearsal; also detected when every provider answers
-`anvil_nodeInfo`: `feed_stale` is recorded under `frozen_on_fork` and does not fire), `--evidence-http <addr>|off`.
+`anvil_nodeInfo`: `feed_stale` is recorded under `frozen_on_fork` and does not fire), `--evidence-http <addr>|off`,
+`--feed-secs <n>` (the feed poll interval, 60 s by default; the measured compose does not pass it). Outside the twin
+modes the agent polls its three allowlisted feeds on that timer; an item id it has not seen (kept in memory and in
+`feeds/seen.json` in the evidence volume, private, not served) wants a judge call. The twin modes never poll.

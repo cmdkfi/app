@@ -40,6 +40,10 @@ Choose one action:\n\
 - reduce_to_target: bring the LTV back to the owner's target.\n\
 - leave_market: this market itself is the problem (its oracle, its liquidity, its borrow rate), not the price of the \
 collateral; code moves the loan to another market the owner approved, or exits if none can take it.\n\
+Agreement rule (code enforces it): a discretionary action on a market with no fired screen of its own rests on \
+text alone; text alone can justify leave_market or reduce_light only when risk is critical and source_ids cite items \
+from at least two independent sources, i.e. two different feeds (feed_id), each item published within the window \
+given in the inputs; several items from one feed count as one source. Never treat one feed as corroborating itself.\n\
 Every field is required: risk, action, reasons and source_ids. `source_ids` lists at least one `source_id` copied \
 exactly from the inputs you relied on. Judge against the thresholds given in the inputs: a feed is stale only when \
 its age exceeds its max_age_s; the corridor's act, target and floor, the market's liquidation_ltv, the remaining \
@@ -360,20 +364,91 @@ pub async fn fetch_feeds(http: &reqwest::Client) -> Value {
             Err(e) => json!({"url": url, "ok": false, "error": e.to_string(), "items": []}),
         });
     }
-    for f in &feeds {
+    json!({"fetched_at": crate::now(), "feeds": feeds})
+}
+
+/// One log line per feed of a poll: loaded (items, body hash) or left out (the error, e.g. `HTTP 404 Not Found`).
+pub fn log_feeds(feed: &Value) {
+    for f in feed["feeds"].as_array().into_iter().flatten() {
         if f["ok"] == true {
             println!("RESULT feed url={} ok=true items={} body_sha256={}", f["url"].as_str().unwrap_or(""), f["items"].as_array().map(|a| a.len()).unwrap_or(0), f["body_sha256"].as_str().unwrap_or(""));
         } else {
             println!("RESULT feed url={} ok=false error={} (left out; the other feeds are used)", f["url"].as_str().unwrap_or(""), f["error"]);
         }
     }
-    json!({"fetched_at": crate::now(), "feeds": feeds})
+}
+
+/// The (url, ok, error) of each feed of a poll, to log the per-feed lines only when it changes.
+pub fn feeds_signature(feed: &Value) -> Vec<(String, bool, String)> {
+    feed["feeds"].as_array().into_iter().flatten()
+        .map(|f| (f["url"].as_str().unwrap_or("").to_string(), f["ok"] == true, f["error"].as_str().unwrap_or("").to_string()))
+        .collect()
+}
+
+/// Unix seconds from civil date (proleptic Gregorian, UTC); the inverse of `crate::iso`.
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+fn unix_of(y: i64, mo: i64, d: i64, h: i64, mi: i64, s: i64, offset_s: i64) -> Option<u64> {
+    if !(1..=12).contains(&mo) || !(1..=31).contains(&d) || !(0..24).contains(&h) || !(0..60).contains(&mi) || !(0..=60).contains(&s) {
+        return None;
+    }
+    u64::try_from(days_from_civil(y, mo, d) * 86_400 + h * 3600 + mi * 60 + s - offset_s).ok()
+}
+
+/// `published` of a demo-feed item: ISO 8601 UTC, `YYYY-MM-DDTHH:MM:SSZ` (fractional seconds and `+00:00` accepted).
+pub fn parse_iso_utc(t: &str) -> Option<u64> {
+    let t = t.trim();
+    let b = t.as_bytes();
+    if b.len() < 20 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' {
+        return None;
+    }
+    let n = |r: std::ops::Range<usize>| t.get(r).and_then(|x| x.parse::<i64>().ok());
+    let rest = &t[19..];
+    let rest = rest.strip_prefix('.').map(|r| r.trim_start_matches(|c: char| c.is_ascii_digit())).unwrap_or(rest);
+    if rest != "Z" && rest != "+00:00" {
+        return None;
+    }
+    unix_of(n(0..4)?, n(5..7)?, n(8..10)?, n(11..13)?, n(14..16)?, n(17..19)?, 0)
+}
+
+/// `pubDate` of an RSS item (RFC 2822): `Mon, 02 Nov 2026 14:55:51 +0000` (also `GMT`/`UTC` and other offsets).
+pub fn parse_rfc2822(t: &str) -> Option<u64> {
+    let p: Vec<&str> = t.split_whitespace().collect();
+    let p = if p.first().map(|x| x.ends_with(',')).unwrap_or(false) { &p[1..] } else { &p[..] };
+    if p.len() != 5 {
+        return None;
+    }
+    let mo = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].iter().position(|m| *m == p[1])? as i64 + 1;
+    let hms: Vec<i64> = p[3].split(':').map(|x| x.parse().ok()).collect::<Option<_>>()?;
+    if hms.len() != 3 {
+        return None;
+    }
+    let off = match p[4] {
+        "GMT" | "UTC" | "UT" | "Z" => 0,
+        z if z.len() == 5 && (z.starts_with('+') || z.starts_with('-')) => {
+            let v: i64 = z[1..].parse().ok()?;
+            let s = (v / 100) * 3600 + (v % 100) * 60;
+            if z.starts_with('-') { -s } else { s }
+        }
+        _ => return None,
+    };
+    unix_of(p[2].parse().ok()?, mo, p[0].parse().ok()?, hms[0], hms[1], hms[2], off)
 }
 
 /// A demo feed file: `{"notice", "version": 1, "feed": {"id", "kind", "title", "publisher", "home_page_url"},
 /// "items": [{"id", "published", "title", "body", "url"}]}` (`feeds/README.md`). Items are newest last; the newest
 /// FEED_ITEMS are kept. Each item becomes untrusted text for the judge with the id `feed:<feed id>:<item id>`;
-/// the feed's `notice` and `kind` travel with it into the judge input and the transcript.
+/// the feed's `notice` and `kind` travel with it into the judge input and the transcript. Each item also keeps what
+/// a citation records: `feed_id`, `item_id`, `title`, `body_sha256` (of the item's `body`) and `published_unix`
+/// (None when `published` is not ISO 8601 UTC; such an item can be read but never counts for the text path).
 pub fn parse_demo_feed(url: &str, body: &[u8]) -> Result<Value> {
     if body.len() > FEED_BYTES_MAX {
         bail!("feed is {} bytes, above {FEED_BYTES_MAX}", body.len());
@@ -393,7 +468,8 @@ pub fn parse_demo_feed(url: &str, body: &[u8]) -> Result<Value> {
         let field = |k: &str| it[k].as_str().map(|x| x.to_string()).ok_or_else(|| anyhow!("item {id}: {k} is not a string"));
         let (published, title, text_body, link) = (field("published")?, field("title")?, field("body")?, field("url")?);
         let text = clip(&format!("{title} | {text_body}"), ITEM_CHARS);
-        items.push(json!({"id": format!("feed:{fid}:{id}"), "published": published, "link": link, "text": text, "sha256": sha(text.as_bytes())}));
+        items.push(json!({"id": format!("feed:{fid}:{id}"), "feed_id": fid, "item_id": id, "title": clip(&title, 200), "published": published,
+            "published_unix": parse_iso_utc(&published), "link": link, "text": text, "sha256": sha(text.as_bytes()), "body_sha256": sha(text_body.as_bytes())}));
     }
     Ok(json!({"url": url, "ok": true, "feed_id": fid, "kind": clip(kind, 80), "title": feed["title"], "publisher": feed["publisher"],
         "notice": clip(notice, NOTICE_CHARS), "body_sha256": sha(body), "bytes": body.len(), "items": items}))
@@ -435,12 +511,16 @@ async fn fetch_rss(http: &reqwest::Client) -> Result<Value> {
         .take(FEED_ITEMS)
         .map(|it| {
             let guid = tag(it, "guid");
-            let content = format!("{} | {}", strip(&tag(it, "title")), strip(&tag(it, "description")).chars().take(400).collect::<String>());
-            json!({"id": format!("feed:base-status:{}", &sha(guid.as_bytes())[..8]), "published": tag(it, "pubDate"),
-                   "link": strip(&tag(it, "link")), "text": content, "sha256": sha(content.as_bytes())})
+            let (title, desc) = (strip(&tag(it, "title")), strip(&tag(it, "description")));
+            let content = format!("{title} | {}", desc.chars().take(400).collect::<String>());
+            let item_id = sha(guid.as_bytes())[..8].to_string();
+            let published = tag(it, "pubDate");
+            json!({"id": format!("feed:base-status:{item_id}"), "feed_id": "base-status", "item_id": item_id, "title": clip(&title, 200),
+                   "published": published, "published_unix": parse_rfc2822(&published),
+                   "link": strip(&tag(it, "link")), "text": content, "sha256": sha(content.as_bytes()), "body_sha256": sha(desc.as_bytes())})
         })
         .collect();
-    Ok(json!({"url": FEED_URL, "ok": true, "feed_id": "base-status", "kind": "official status page",
+    Ok(json!({"url": FEED_URL, "ok": true, "feed_id": "base-status", "kind": "official status page", "publisher": "Base",
         "notice": "Base's public status page (status.base.org), incident history", "fetched_ms": t.elapsed().as_millis(),
         "body_sha256": sha(&body), "bytes": body.len(), "items": items}))
 }
@@ -486,7 +566,7 @@ mod tests {
 
     #[test]
     fn the_prompt_names_every_required_field() {
-        for f in ["risk", "action", "reasons", "source_ids", "max_age_s", "liquidation_ltv"] {
+        for f in ["risk", "action", "reasons", "source_ids", "max_age_s", "liquidation_ltv", "two independent sources", "critical", "untrusted"] {
             assert!(SYSTEM.contains(f), "{f}");
         }
     }
@@ -556,6 +636,27 @@ mod tests {
             assert!(it["text"].as_str().unwrap().contains(" | "));
             assert_eq!(it["sha256"].as_str().unwrap().len(), 64);
         }
+    }
+
+    #[test]
+    fn feed_times_parse() {
+        assert_eq!(parse_iso_utc("2026-11-03T05:30:00Z"), Some(1_793_683_800));
+        assert_eq!(parse_iso_utc("2026-11-03T05:30:00.250Z"), Some(1_793_683_800));
+        assert_eq!(parse_iso_utc("2026-11-03T05:30:00+00:00"), Some(1_793_683_800));
+        assert_eq!(crate::iso(1_793_683_800), "2026-11-03T05:30:00Z", "the inverse of iso()");
+        for bad in ["2026-11-03 05:30:00Z", "2026-11-03T05:30:00", "2026-11-03T05:30:00+01:00", "2026-13-03T05:30:00Z", "yesterday"] {
+            assert_eq!(parse_iso_utc(bad), None, "{bad}");
+        }
+        assert_eq!(parse_rfc2822("Mon, 02 Nov 2026 14:55:51 +0000"), Some(1_793_631_351));
+        assert_eq!(crate::iso(1_793_631_351), "2026-11-02T14:55:51Z");
+        assert_eq!(parse_rfc2822("02 Nov 2026 16:55:51 +0200"), Some(1_793_631_351));
+        assert_eq!(parse_rfc2822("Mon, 02 Nov 2026 14:55:51 GMT"), Some(1_793_631_351));
+        assert_eq!(parse_rfc2822("Mon, 02 Foo 2026 14:55:51 +0000"), None);
+        // the committed demo feeds: every item's published time is readable
+        let v = parse_demo_feed("u", &std::fs::read("testdata/feeds/governance.json").unwrap()).unwrap();
+        assert_eq!(v["items"][0]["published_unix"], 1_793_683_800);
+        assert_eq!(v["items"][0]["item_id"], "governance-2026-11-03-001");
+        assert_eq!(v["items"][0]["feed_id"], "cmdk-testnet-governance");
     }
 
     #[test]
