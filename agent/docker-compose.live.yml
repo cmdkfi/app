@@ -1,7 +1,7 @@
 # Measured: dstack hashes Phala's app-compose.json, which embeds this file byte for byte, the pre-launch script
 # (pre-launch.sh, passed with --pre-launch-script) and allowed_envs (NEARAI_API_KEY only). Every behaviour flag is
 # here, on the command line; the encrypted environment carries only the NEAR AI key. Deploy and verify:
-# MEASUREMENT.md. The image digest is the OCI manifest digest ./build.sh prints for the committed source.
+# MEASUREMENT.md. The image digest is the registry (manifest) digest recorded after the push (MEASUREMENT.md §2).
 services:
   agent:
     image: ghcr.io/cmdkfi/agent@sha256:REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS

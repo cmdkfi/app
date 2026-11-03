@@ -8,10 +8,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 tag="${1:-cmdk-agent}"
+# Builder on the docker-container driver: on the docker driver with the classic image store the daemon's own
+# exporter ignores rewrite-timestamp (3 Nov: two builds, identical bytes, but COPY-created directories and the
+# binary kept each build's wall-clock mtime, so the image IDs differed). type=docker still loads into the daemon.
+docker buildx inspect cmdk-repro >/dev/null 2>&1 || docker buildx create --name cmdk-repro --driver docker-container \
+  --driver-opt image=moby/buildkit@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe --bootstrap >/dev/null
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct -- Dockerfile Cargo.toml Cargo.lock src)}"
 ids=()
 for i in 1 2; do
-  docker buildx build --no-cache --platform linux/amd64 \
+  docker buildx build --builder cmdk-repro --no-cache --platform linux/amd64 \
     --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
     --output "type=docker,name=$tag:repro-$i,rewrite-timestamp=true" \
     --progress plain . > "build-$i.log" 2>&1 || { echo "build $i failed: see build-$i.log"; exit 1; }

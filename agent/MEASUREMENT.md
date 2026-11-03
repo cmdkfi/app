@@ -156,10 +156,16 @@ The vault checks which code runs, not who runs it. To run the published agent un
    - file and image timestamps from `SOURCE_DATE_EPOCH`.
    Compare your image ID with the published image's: `docker pull <image>@sha256:<digest>` then
    `docker image inspect -f '{{.Id}}' <image>@sha256:<digest>`. The ID is the config digest, independent of how the
-   registry compresses layers. **Status (3 Nov): not yet run to completion.** The first attempt on the founder's Mac
-   stopped in `apt-get update` because Docker's disk was full (46 of 47 GB used; apt reports this as "At least one
-   invalid signature"); the snapshot's `InRelease` itself verifies with the image's keyring (gpgv, 3 Nov). The result
-   goes here once two builds have been compared.
+   registry compresses layers. **Status (3 Nov): reproducible on the founder's Mac** (Docker Desktop 27.4.0, buildx
+   v0.19.2): `REPRODUCIBLE image sha256:6472af962cb83bece6649abb7b432beb846db068a60955366aa68c315de7b593
+   SOURCE_DATE_EPOCH=1793718091`, binary sha256 `2247b3ec3eab3600984d79f09c539591485be66324ea5a5364a275dc26fd6637`,
+   89.3 MB, 927 s for the two builds. The builder must be on the `docker-container` driver (`build.sh` creates
+   `cmdk-repro`; this run: BuildKit v0.34.2, `moby/buildkit@sha256:c5f8862f…`). On the `docker` driver with the
+   classic image store the daemon's exporter ignored `rewrite-timestamp`: the two images had identical file bytes,
+   but the directories COPY creates and the binary kept each build's wall-clock mtime, so the IDs differed
+   (`60b8cb4c…` and `85dc8a17…`). An earlier attempt stopped in `apt-get update` because Docker's disk was full
+   (46 of 47 GB used; apt reports this as "At least one invalid signature"); the snapshot's `InRelease` itself
+   verifies with the image's keyring (gpgv, 3 Nov).
 2. **Choose your operator name** and put it in the compose's `--operator` (1–32 of a-z, 0-9, '-').
 3. **Push the image** to a registry the CVM can pull from anonymously, put its digest in the compose.
 4. **Deploy** with the command in §2, then read the agent's `measurement=` line and the evidence (§4), and reproduce
