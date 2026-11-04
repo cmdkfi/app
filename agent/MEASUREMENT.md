@@ -130,6 +130,22 @@ Check a transcript's judge call offline with `./verify-transcript.sh <transcript
 SHA-256, the `provider_tee` signed text, the EIP-191 signer against the attested address, TCB status); on the
 prototype's CVM transcript in `testdata/transcripts/` it prints `ALL PASS`.
 
+Key check (4 Nov). Outside the twin modes, when a NEAR AI key is set, the agent calls NEAR AI's
+`POST https://cloud-api.near.ai/v1/check_api_key` once at boot (15 s timeout) and prints one public line, so a spent
+or invalid key is visible without reading the private transcripts:
+
+```
+RESULT nearai_key http=200 valid=true api_key_id=<id> seconds=<s>
+RESULT nearai_key http=402 valid=unknown api_key_id=none seconds=<s> error_type=api_key_limit_exceeded error="API key spend limit exceeded. Spent: $5.09, Limit: $5.00"
+RESULT nearai_key http=none valid=unknown api_key_id=none seconds=<s> error_type=transport error="<reqwest error>"
+```
+
+`http` is the status (401 invalid or missing key, 402 credits or spend limit exhausted, 429 rate limit, 500), `none`
+when the request did not complete; `error_type` and `error` are NEAR AI's `error.type` and `error.message` as sent.
+The line never contains the key. A failed check does not stop the boot: the agent continues, and each judge call
+still records its own error in its transcript (`outcome="error"` in `RESULT judge arrived`). Without a key the line
+is not printed (`RESULT judge disabled` instead).
+
 ## 5. Restarts, new CVMs, new images; restart policy
 
 - **Reboot of the same CVM** (`phala cvms restart`): the event log is byte-identical, so RTMR3 and all six values are

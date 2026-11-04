@@ -12,6 +12,9 @@
 //! call; NEAR AI Cloud's documented chat-completions body has no separate thinking-budget parameter that has been
 //! verified here, so none is sent. An answer that never arrives (reasoning used the whole budget, content without a
 //! JSON object) is classified `no_answer` and the loop applies the rules only; `classify` names every outcome.
+//!
+//! Key check (4 Nov): at boot, outside the twin modes, `check_key` calls `POST /v1/check_api_key` once (15 s) and
+//! main prints `RESULT nearai_key`, so a spent or invalid key shows in the public log; a failed check never stops the boot.
 use anyhow::{anyhow, bail, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
@@ -230,9 +233,42 @@ pub fn classify(call: &Value) -> &'static str {
     }
 }
 
+/// The boot check's record from `POST {BASE}/check_api_key`: `status` is None on a transport error, and `body` is
+/// then the error's text. Never holds the key or the Authorization header.
+pub fn key_check_record(status: Option<u16>, body: &str, seconds: f64) -> Value {
+    let Some(code) = status else {
+        return json!({"ok": false, "http": null, "error": {"message": clip(body, 300), "type": "transport"}, "seconds": seconds});
+    };
+    let v: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+    if code == 200 {
+        if let Some(valid) = v["valid"].as_bool() {
+            return json!({"ok": true, "valid": valid, "api_key_id": v["api_key_id"], "organization_id": v["organization_id"],
+                "workspace_id": v["workspace_id"], "http": 200, "seconds": seconds});
+        }
+        return json!({"ok": false, "http": 200, "error": {"message": clip(body, 300), "type": "invalid_response"}, "seconds": seconds});
+    }
+    let e = &v["error"];
+    let message = e["message"].as_str().map(|m| clip(m, 300)).unwrap_or_else(|| clip(body, 300));
+    json!({"ok": false, "http": code, "error": {"message": message, "type": e["type"]}, "seconds": seconds})
+}
+
 impl Judge {
     pub fn new(key: String) -> Self {
         Judge { http: reqwest::Client::builder().timeout(Duration::from_secs(900)).build().unwrap(), key }
+    }
+
+    /// One call to NEAR AI's key check (15 s timeout), at boot: a spent or invalid key shows in the public log.
+    pub async fn check_key(&self) -> Value {
+        let t = Instant::now();
+        let r = self.http.post(format!("{BASE}/check_api_key")).bearer_auth(&self.key).timeout(Duration::from_secs(15)).send().await;
+        match r {
+            Ok(r) => {
+                let st = r.status().as_u16();
+                let body = r.text().await.unwrap_or_default();
+                key_check_record(Some(st), &body, t.elapsed().as_secs_f64())
+            }
+            Err(e) => key_check_record(None, &e.to_string(), t.elapsed().as_secs_f64()),
+        }
     }
 
     async fn get(&self, url: &str) -> Result<Value> {
@@ -727,5 +763,22 @@ mod tests {
         let v = parse_demo_feed("u", body.as_bytes()).unwrap();
         let ids: Vec<&str> = v["items"].as_array().unwrap().iter().map(|i| i["id"].as_str().unwrap()).collect();
         assert_eq!(ids, vec!["feed:a:i4", "feed:a:i5", "feed:a:i6", "feed:a:i7", "feed:a:i8"]);
+    }
+
+    #[test]
+    fn the_key_check_record_of_200_402_and_a_transport_error() {
+        let ok = key_check_record(Some(200), r#"{"valid":true,"organization_id":"org-1","workspace_id":"ws-1","api_key_id":"key-1","extra":1}"#, 0.4);
+        assert_eq!(ok, serde_json::json!({"ok": true, "valid": true, "api_key_id": "key-1", "organization_id": "org-1",
+            "workspace_id": "ws-1", "http": 200, "seconds": 0.4}));
+        let spent = key_check_record(Some(402), r#"{"error":{"message":"API key spend limit exceeded. Spent: $5.09, Limit: $5.00","type":"api_key_limit_exceeded","code":null,"param":null}}"#, 0.3);
+        assert_eq!(spent, serde_json::json!({"ok": false, "http": 402, "error": {"message": "API key spend limit exceeded. Spent: $5.09, Limit: $5.00",
+            "type": "api_key_limit_exceeded"}, "seconds": 0.3}));
+        let down = key_check_record(None, "error sending request for url (https://cloud-api.near.ai/v1/check_api_key)", 15.0);
+        assert_eq!(down, serde_json::json!({"ok": false, "http": null, "error": {"message": "error sending request for url (https://cloud-api.near.ai/v1/check_api_key)",
+            "type": "transport"}, "seconds": 15.0}));
+        // a 200 without `valid` and an error status without the error object are failures, not panics
+        assert_eq!(key_check_record(Some(200), "<html>", 0.1)["error"]["type"], "invalid_response");
+        let bare = key_check_record(Some(500), "upstream", 0.1);
+        assert_eq!((bare["ok"].clone(), bare["error"]["message"].clone(), bare["error"]["type"].clone()), (false.into(), "upstream".into(), Value::Null));
     }
 }

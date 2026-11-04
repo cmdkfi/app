@@ -123,6 +123,19 @@ fn require_judge_key(mode: Mode, tee: bool, key_file: Option<&str>, has_key: boo
     Err(anyhow!("--mode live needs the NEAR AI API key for the judge: {source}; refusing to start"))
 }
 
+/// The boot line of the NEAR AI key check (`judge::key_check_record`): HTTP status, validity, key id and, on failure,
+/// the provider's error type and message. The record never holds the key.
+fn key_check_line(r: &Value) -> String {
+    let http = r["http"].as_u64().map_or("none".to_string(), |c| c.to_string());
+    let valid = r["valid"].as_bool().map_or("unknown", |v| if v { "true" } else { "false" });
+    let id = r["api_key_id"].as_str().unwrap_or("none");
+    let mut line = format!("RESULT nearai_key http={http} valid={valid} api_key_id={id} seconds={:.1}", r["seconds"].as_f64().unwrap_or(0.0));
+    if r["ok"] != true {
+        line += &format!(" error_type={} error={:?}", r["error"]["type"].as_str().unwrap_or("none"), r["error"]["message"].as_str().unwrap_or(""));
+    }
+    line
+}
+
 /// An operator name: 1–32 of a-z, 0-9 and '-', starting with a letter or digit.
 fn valid_operator(s: &str) -> bool {
     !s.is_empty() && s.len() <= 32 && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-') && !s.starts_with('-')
@@ -1095,7 +1108,10 @@ async fn main() -> Result<()> {
         println!("RESULT judge never called: mode {} is the deterministic twin (no model, no text feeds)", a.mode.label());
         None
     } else if let Some(k) = key {
-        Some(Arc::new(judge::Judge::new(k)))
+        let j = judge::Judge::new(k);
+        // one key check at boot; a failed check is printed and the boot continues (each judge call records its own error)
+        println!("{}", key_check_line(&j.check_key().await));
+        Some(Arc::new(j))
     } else {
         println!("RESULT judge disabled: NEARAI_API_KEY not set; every judgment is skipped and logged, the rules apply alone");
         None
@@ -1274,5 +1290,15 @@ mod tests {
         for bad in ["", "-x", "Cmdk", "a b", "a_b", &"x".repeat(33)] {
             assert!(!valid_operator(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn the_key_check_line() {
+        let ok = judge::key_check_record(Some(200), r#"{"valid":true,"organization_id":"o","workspace_id":"w","api_key_id":"key-1"}"#, 0.42);
+        assert_eq!(key_check_line(&ok), "RESULT nearai_key http=200 valid=true api_key_id=key-1 seconds=0.4");
+        let spent = judge::key_check_record(Some(402), r#"{"error":{"message":"API key spend limit exceeded. Spent: $5.09, Limit: $5.00","type":"api_key_limit_exceeded","code":null,"param":null}}"#, 0.3);
+        assert_eq!(key_check_line(&spent), r#"RESULT nearai_key http=402 valid=unknown api_key_id=none seconds=0.3 error_type=api_key_limit_exceeded error="API key spend limit exceeded. Spent: $5.09, Limit: $5.00""#);
+        let down = judge::key_check_record(None, "connect timed out", 15.0);
+        assert_eq!(key_check_line(&down), r#"RESULT nearai_key http=none valid=unknown api_key_id=none seconds=15.0 error_type=transport error="connect timed out""#);
     }
 }
