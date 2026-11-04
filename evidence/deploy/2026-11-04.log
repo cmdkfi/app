@@ -100,3 +100,6 @@ signature 0x7e4218990171a1a532f11d1a9bc5c6c476ec5e0bc681a164327a5f425116c1cb7ab5
 {"protocol":"cmdk-vault/1","network":"testnet","vault":"v1.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c","collateral_in":"10000000000000000","target_ltv":"500000000000000000"},"nonce":2,"expiry":1793795949}
 signature 0x40631cbbc372599023fde2ed219232977046bae556671aeef109e6c2576b71f433475c8547a3734fee92363ce72df6cdb16cd6643b7587721898ed079b401ca51c
 {"ok":true,"near_tx":"57i8A36eBQ73LNfB549t4JveamMPNNzK17wSTYi1Mmr6","error":null,"receipts":[{"hash":"0x2df257f66a5efb2c3b40af44fcc2c3d4b1866b968a675c0b3531f793f1f9f950","status":1}]}
+{"ok": true, "job": "ecac59ee6047bd25"}
+{"stage":"done","result":null}
+end-to-end check through relayer.cmdk.fi (not a runbook step): POST /create-vault from Origin http://localhost:5173 answered 202 with the CORS header; job ecac59ee6047bd25 accepted->vault_created->float_sent->done in 9.5 s; vault v2.factory.prime-measure-1792736012.testnet, base 0xfc85641356fe56b8851f715c3c81ad2b511a67cf, near tx 37ygVbwiQDfmgJqcTqiFZNXcCR2K7LFkJM7RBYUg6BaW, float 0.005 ETH; factory count 2; relayer 25.98 NEAR, floats_left 94
