@@ -15,6 +15,13 @@
    "title": "Testnet markets operating normally",
    "body": "The live, backup and demo markets on Base Sepolia (deployments/testnet.json) accept supply and borrowing. No incident is open for their oracles or pools.",
    "url": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json"
+  },
+  {
+   "id": "venue-status-2026-11-04-001",
+   "published": "2026-11-04T12:45:00Z",
+   "title": "Testnet markets re-supplied; executor redeployed",
+   "body": "On 4 November the team's lender supply returned to the live and backup markets (13 USDC each) and the demo market (5,000 dUSDC) on Base Sepolia, and the executor moved to 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b (deployments/testnet.json). All three markets accept supply and borrowing; the live market's public Uniswap 0.01% pool again holds the team's price band. No incident is open for their oracles or pools.",
+   "url": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json"
   }
  ]
 }

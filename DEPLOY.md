@@ -15,6 +15,19 @@ Base Sepolia (chain 84532) and NEAR testnet. Nothing here touches mainnet.
   so a pool of our own is impossible. Backup keeps the same pool: migrate uses a flash loan and no swap.
   `executor/script/Deploy.s.sol` is unchanged (its `LIVE_POOL` constant stays).
 
+- **Run on 4 Nov (status).** The founder decided on 4 Nov that the schedule is not fixed and the reviews come after
+  everything is ready, so steps 1–7 ran on Wednesday 4 November (C, with F's go), not Friday. Every check matched.
+  The shell setup, log and evidence files are dated `2026-11-04` (`~/.local/state/cmdk/deploy-2026-11-04.sh`,
+  `evidence/deploy/2026-11-04.log`, `evidence/deploy/2026-11-04-*.json`); read `2026-11-06` below as `2026-11-04`.
+  Results: executor `0xA9bbabE6d75C5BA96CA095586284774c9D09D18b` (block 54354973); supply 13/13 USDC and 5,000
+  dUSDC; live band 83707 after a 1.659 USDC repair (the pool had drifted 2.36% since the close-out); demo 83708,
+  83709, 83710; timer resumed 11:50 UTC, cron rounds exit 0. Vault wasm 783,124 bytes from commit `975b98d`, hash
+  `G1Q5ksFhGbgPTN4A2DuvgraYmsbRpfwb78B547gAKXWq`, published for 78.31 NEAR (tx `8PsReqwVUKeWqFbgN2DXTYtQM5PvRD9mZP2BYbRoFJng`);
+  factory `factory.prime-measure-1792736012.testnet`, keys deleted; vault `v1.factory.prime-measure-1792736012.testnet`,
+  Base address `0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb`, `setup` (7 receipts) and `open` on live (LTV
+  499999892050639305) done through the relayer. Wallet after step 7: 0.4776 ETH, 0.0343 WETH, 27.16 USDC. Step 8
+  waits for F's image push (same day); steps 9–11 follow it. The "Known gaps" at the end were closed on 3 Nov.
+
 ## Budget (Base Sepolia test wallet)
 
 Holdings after the close-out (3 Nov, block 53,979,463; `--status` read the same at 15:09 UTC): 0.287648 ETH,

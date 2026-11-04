@@ -71,13 +71,13 @@
  },
  "near": {
   "network": "testnet",
-  "factory": null,
-  "vault_code_hash": null,
-  "vault_code_hash_hex": null,
-  "vault": null,
-  "vault_base_address": null,
-  "relayer": null,
-  "_comment": "filled on 6 Nov at the public testnet deployment (DEPLOY.md step 7; docs/03-plan.md, Fri 6): vault_code_hash is base58, vault_code_hash_hex the same SHA-256 in hex; vault is v1.<factory>; vault_base_address is the vault's derived Base Sepolia address"
+  "factory": "factory.prime-measure-1792736012.testnet",
+  "vault_code_hash": "G1Q5ksFhGbgPTN4A2DuvgraYmsbRpfwb78B547gAKXWq",
+  "vault_code_hash_hex": "def9671e099fe325a7ac8c43831de0334a3dc75221f6c302b17a893e0377e1ba",
+  "vault": "v1.factory.prime-measure-1792736012.testnet",
+  "vault_base_address": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+  "relayer": "relayer.prime-measure-1792736012.testnet",
+  "_comment": "filled on 4 Nov 2026 at the public testnet deployment (DEPLOY.md step 7; moved forward from Fri 6): vault_code_hash is base58, vault_code_hash_hex the same SHA-256 in hex; vault is v1.<factory>; vault_base_address is the vault's derived Base Sepolia address"
  },
  "feeds": {
   "venueStatus": "feeds/venue-status.json",

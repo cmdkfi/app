@@ -1,8 +1,22 @@
 # Deploying the vault Global Contract and the factory to NEAR testnet
 
-For the founder to run on Fri 6 Nov 2026 with near-cli-rs 0.30.1. Testnet only. Nothing here was run on testnet
-when this file was written; the same sequence (publish by hash, factory `init`, key deletion, `create_vault`,
-and the raw-RPC checks of steps 2 and 7) runs in the sandbox test `factory` in `vault/tests/sandbox.rs`.
+Written for Fri 6 Nov 2026 with near-cli-rs 0.30.1; **run on Wed 4 Nov 2026** by C with the founder's go (decided
+4 Nov: the schedule is not fixed, reviews come after everything is ready). Testnet only. The same sequence (publish
+by hash, factory `init`, key deletion, `create_vault`, and the raw-RPC checks of steps 2 and 7) runs in the sandbox
+test `factory` in `vault/tests/sandbox.rs`.
+
+**Run record (4 Nov).** `ACCOUNT` `prime-measure-1792736012.testnet`, `RELAYER` `relayer.prime-measure-1792736012.testnet`,
+`OWNER` `0x0B7Ed66f46fe83252a208563A88201BA60490d25`. Step 1: reproducible build from commit `975b98d`, 783,124
+bytes, SHA-256 hex `def9671e099fe325a7ac8c43831de0334a3dc75221f6c302b17a893e0377e1ba`, `HASH`
+`G1Q5ksFhGbgPTN4A2DuvgraYmsbRpfwb78B547gAKXWq`; factory wasm 152,851 bytes. Step 2: tx
+`8PsReqwVUKeWqFbgN2DXTYtQM5PvRD9mZP2BYbRoFJng`, 78.3124 NEAR burnt plus 0.00056 NEAR fee; the account went from
+149.31 to 70.99 NEAR, so a second publish needs a faucet top-up of about 10 NEAR first. Step 3: tx
+`5oex8xeH5wNBtaLsx97NAW7MRMGWRDs9ip891hRZos2d`. Step 4: tx `EYZ7syKuHXFTEdynWhBqr1LpmFf19AraPFU6wKZ2XV8j`, `get_config`
+as expected. Step 5: tx `6vsJtei5B6AKSfnfAh3VhyCfya8PhAjZjUJT6W6BswYC`, key list `[]`. Step 6: tx
+`5gEoJutK5xCupYUThWBnseyvcV9jutHdLUtRojJbCeZk`, log `creating vault: v1.factory.prime-measure-1792736012.testnet
+0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb`, 0.354 Tgas burnt in the transaction. Step 7: `global_contract_hash` =
+`HASH`, `code_hash` `11111111111111111111111111111111`, amount 2 NEAR, storage 645 bytes, no keys, `get_state` as
+expected (owner lower case, `owner_nonce` 0, three markets with `corridor_set` false), `count` 1.
 
 Steps 2, 3 and 6 move NEAR; each says how much. Step 5 is irreversible: after it the factory has no keys,
 so nobody can change, redeploy or withdraw from it. A mistake found after step 5 means a new factory account.
