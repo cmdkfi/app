@@ -4,7 +4,7 @@
   python3 -I -m unittest discover -s scripts -p test_relayer.py     (from the repository root)
   python3 -I scripts/test_relayer.py
 """
-import base64, json, os, shutil, subprocess, sys, tempfile, threading, time, unittest, urllib.error, urllib.request
+import base64, json, os, shutil, subprocess, sys, tempfile, threading, time, unittest, unittest.mock, urllib.error, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import relayer as R  # noqa: E402  (our own file)
 
@@ -171,6 +171,14 @@ class FakeChain(R.Chain):
         if sel == R.SEL['market']:
             return enc(*self.totals)
         raise AssertionError('unexpected eth_call ' + data)
+
+    def near_send_quiet(self, cmd):
+        if self.dry_run:
+            raise R.Refused('dry run')
+        self.sent_cmds.append(cmd)
+        acct, amount = cmd[cmd.index('send-near') + 1], int(cmd[cmd.index('send-near') + 2].split()[0])
+        self.near_balances[acct] = self.near_balances.get(acct, 0) + amount   # the transfer creates the account
+        return None
 
     def near_send(self, cmd):
         if self.dry_run:
@@ -604,10 +612,32 @@ class TestFunding(unittest.TestCase):
         shutil.rmtree(self.dir)
 
     def test_new_account(self):
+        # the account does not exist: the CLI is asked by near_send_quiet (--quiet, no transaction id) and the
+        # balance confirms the transfer; near_send (which parses a transaction id) is not used
         out = self.app.fund_agent({'implicit_account': AGENT})
         self.assertEqual(out['amount_yocto'], str(16 * 10 ** 22))
         self.assertEqual(self.chain.sent_cmds[0][:5], ['near', 'tokens', 'relayer.testnet', 'send-near', AGENT])
         self.assertEqual(self.chain.sent_cmds[0][5], '%d yoctonear' % (16 * 10 ** 22))
+        self.assertEqual((out['status'], out['near_tx'], out['created'], out['balance_after_yocto']),
+                         ('funded', None, True, str(16 * 10 ** 22)))
+        self.assertEqual(self.app.state.data['funded'][AGENT][0]['near_tx'], None)
+
+    def test_new_account_quiet_runs_with_the_flag(self):
+        # the real Chain.near_send_quiet inserts --quiet right after "near" and keeps the signing tail
+        seen = {}
+        def fake_run(q, **kw):
+            seen['cmd'] = q
+            self.chain.near_balances[AGENT] = 16 * 10 ** 22
+            return type('P', (), {'returncode': 0, 'stdout': '', 'stderr': ''})()
+        chain = R.Chain('near-rpc', 'base-rpc', False, True)
+        chain.near_balance = lambda acct: self.chain.near_balances.get(acct, 0)
+        with unittest.mock.patch.object(R.subprocess, 'run', fake_run):
+            chain.near_send_quiet(R.near_cmd(['tokens', 'relayer.testnet', 'send-near', AGENT, '1 yoctonear']))
+        self.assertEqual(seen['cmd'][:3], ['near', '--quiet', 'tokens'])
+        self.assertEqual(seen['cmd'][-3 - len(R.SIGN):], ['network-config', R.NEAR_NETWORK] + R.SIGN + ['send'])
+        with unittest.mock.patch.object(R.subprocess, 'run', lambda q, **kw: type('P', (), {'returncode': 1, 'stdout': '', 'stderr': 'boom'})()):
+            with self.assertRaises(R.ChainError):
+                chain.near_send_quiet(R.near_cmd(['tokens', 'relayer.testnet', 'send-near', AGENT, '1 yoctonear']))
 
     def test_top_up_and_already_funded(self):
         self.chain.near_balances[AGENT] = 10 ** 23

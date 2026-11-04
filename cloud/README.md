@@ -55,7 +55,9 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
   or the `WAITING` line (that is in the CVM's log only), so the Worker takes the account from the quote the index
   lists: `tdx_quote.hex` (checked against the index's SHA-256), whose report_data is the agent's ed25519 key and 32
   zero bytes (`agent/src/tee.rs`); the account is that key in hex (`agent/src/near.rs`) and must match the boot id's
-  8-hex suffix. Read once per boot. The relayer decides whether to send: it tops the account up to 0.16 NEAR only
+  8-hex suffix. Read once per boot. The first call of a boot creates the agent's account (the relayer sends that
+  one transfer with `--quiet` and confirms it by the balance, so its event has `near_tx` null; `scripts/RELAYER.md`,
+  "The first funding creates the account"). The relayer decides whether to send: it tops the account up to 0.16 NEAR only
   when it holds under 0.15 (the agent waits for 0.14992 before each registration), else answers `already funded`,
   so a vault that is registering for another reason costs one read. One registration per refill: N vaults take
   0.16 + (N − 1) × 0.0116 NEAR, one cron (10 min) per vault after the first.
@@ -238,7 +240,12 @@ have run. The 400 did not count.
   observability on); the container's own stdout (each round's full output with every transaction hash, the
   relayer's log) is under the container application's logs. `GET /runs` keeps the last 5,000 `RUN` lines.
 - **Redeploy.** `wrangler deploy` replaces the container (SIGTERM; a running round finishes) and resets the
-  Durable Object, which can drop a round's result in flight. Once the timer runs: `curl -s -X POST -H @$A $U/pause`
+  Durable Object, which can drop a round's result in flight. The Durable Object adopts new code and new `vars`
+  under Cloudflare's default deferred update (up to 300 s after the deploy while the object is active, which it
+  is while the container runs): on 4 Nov `AGENT_EVIDENCE_URL` reached the Worker at once but the object's
+  `/funding` and the evidence proxy read the old value for about five minutes, then switched by themselves.
+  Wait those minutes before reading a changed var back, or deploy with
+  `--durable-objects-code-update-mode immediate`. Once the timer runs: `curl -s -X POST -H @$A $U/pause`
   first, deploy, then `curl -s -X POST -H @$A $U/resume`. The image carries `deployments/testnet.json` as built;
   the rebalancer reads only tokens, pools and oracles from it, which the 6 Nov steps do not change.
 - **Wallet transactions from the Mac** (the `tx` helper in DEPLOY.md) take the Mac's rebalancer lock, which the

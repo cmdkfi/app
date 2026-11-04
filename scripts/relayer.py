@@ -620,6 +620,22 @@ class Chain:
     def eth_call(self, to, data):
         return self.eth('eth_call', [{'to': to, 'data': data}, 'latest'])
 
+    def near_send_quiet(self, cmd):
+        """Runs a sending near-cli-rs command with --quiet: it prints nothing (so no transaction id) but skips every
+        interactive confirmation. near-cli-rs 0.30.1 asks one before a transfer to an account that does not exist
+        (src/common.rs, handle_validation_warning), which is every first transfer to an unfunded implicit account,
+        and the container has no terminal to answer it. The caller confirms the result by reading the balance."""
+        if self.dry_run or cmd[-3 - len(SIGN):] != ['network-config', NEAR_NETWORK] + SIGN + ['send']:
+            raise Refused('refusing to run: %s' % shlex.join(cmd)[:300])
+        q = cmd[:1] + ['--quiet'] + cmd[1:]
+        log('run: ' + shlex.join(q)[:2000])
+        try:
+            p = subprocess.run(q, capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            raise ChainError('the near CLI did not finish within 600 s; check the sender account for the transaction')
+        if p.returncode != 0:
+            raise ChainError('near CLI (--quiet) exited %d: %s' % (p.returncode, (p.stdout + p.stderr)[-600:]))
+
     def near_send(self, cmd):
         """Runs a near-cli-rs command that sends a transaction; returns its transaction id."""
         if self.dry_run or cmd[-3 - len(SIGN):] != ['network-config', NEAR_NETWORK] + SIGN + ['send']:
@@ -1181,10 +1197,28 @@ class App:
             cmd = near_cmd(['tokens', self.sender, 'send-near', acct, '%d yoctonear' % amount])
             if self.chain.dry_run:
                 return self.dry(cmd, amount_yocto=str(amount), balance_yocto=str(bal))
-            h = self.chain.near_send(cmd)
+            if bal == 0:
+                # The account does not exist yet (the first funding of a boot creates it): the CLI would ask whether
+                # to proceed, so it runs with --quiet and the balance confirms the transfer (no transaction id).
+                self.chain.near_send_quiet(cmd)
+                for _ in range(20):
+                    after = self.chain.near_balance(acct)
+                    if after >= AGENT_MIN:
+                        break
+                    time.sleep(1)
+                else:
+                    raise ChainError('sent %s to %s with --quiet, but its balance did not reach %s within 20 s; '
+                                     'check the sender account' % (fmt_near(amount), acct, fmt_near(AGENT_MIN)))
+                h = None
+            else:
+                h = self.chain.near_send(cmd)
+                after = None
             self.state.record_funding(acct, amount, h, now)
-        return {'ok': True, 'status': 'funded', 'near_tx': h, 'amount_yocto': str(amount), 'amount': fmt_near(amount),
-                'balance_before_yocto': str(bal)}
+        out = {'ok': True, 'status': 'funded', 'near_tx': h, 'amount_yocto': str(amount), 'amount': fmt_near(amount),
+               'balance_before_yocto': str(bal)}
+        if h is None:
+            out.update(created=True, balance_after_yocto=str(after))
+        return out
 
 
 def creating_log(r):

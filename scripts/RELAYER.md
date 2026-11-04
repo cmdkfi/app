@@ -74,7 +74,7 @@ Every response is JSON with a boolean `ok`: `{"ok": true, ...}` or `{"ok": false
 | `GET /vault/v1.FACTORY` | `{ok, vault, state: get_state, base: {address, eth_wei, pending_nonce, tokens: {token: balance}, markets: [{id, executor, morpho_authorized, loan_allowance, collateral_allowance, corridor: {..., set}, position: {collateral, borrow_shares, debt}}]}, notes}` |
 | `POST /owner-call {"vault":"v1.FACTORY","message":"{\"protocol\":\"cmdk-vault/1\",...}","signature":"0x.."}` | 202 `{ok, job}`; with `"wait": true`, `{ok, near_tx, signed: [{raw, hash, from, to, nonce, value}], receipts: [{hash, status, block, gasUsed, effectiveGasPrice, l1Fee}]}`; on a revert `ok: false`, the receipts so far, `held` (not broadcast) |
 | `GET /job/<id>` | the job (below); 404 for an unknown id |
-| `POST /fund-agent {"implicit_account":"<64 hex>"}` | synchronous only: `{ok, status:"funded", near_tx, amount_yocto}` or `{ok, status:"already funded", balance_yocto}` |
+| `POST /fund-agent {"implicit_account":"<64 hex>"}` | synchronous only: `{ok, status:"funded", near_tx, amount_yocto}` or `{ok, status:"already funded", balance_yocto}`; when the account did not exist yet (the first funding of a boot) `near_tx` is `null` and `created: true, balance_after_yocto` are added (below) |
 | `GET /health` | `{ok, dry_run, sender_balance, base_block, counters, agents_funded, uptime_s, jobs: {kept, max, running, stages: {stage: count}}, eth_float_wei, wallet: {address, balance_wei, balance, floats_left} or null}` |
 
 Paths are exact: no query string, no trailing slash.
@@ -218,6 +218,14 @@ Either the service or the reverse proxy does CORS. If the proxy answers `OPTIONS
 sees the preflight. A proxy that adds `Access-Control-Allow-Origin` while the service is started with
 `--cors-origin` sends the header twice, and browsers refuse a response with two values: then the proxy must
 set (replace) the header rather than add it, or the service runs without `--cors-origin`.
+
+**The first funding creates the account.** An implicit account exists only once it holds NEAR, and near-cli-rs
+0.30.1 asks "does not exist, proceed?" before a transfer to it (`src/common.rs`, `handle_validation_warning`),
+which no service without a terminal can answer (found 4 Nov: the container's `/fund-agent` failed with `The input
+device is not a TTY`). So when the balance reads 0 the service runs that one `send-near` with `--quiet`, which
+skips the question but prints nothing, and then reads the balance until it is at least 0.15 NEAR (up to 20 s);
+the answer carries `"near_tx": null, "created": true, "balance_after_yocto"`. Every later top-up of an existing
+account runs as before and returns the transaction id.
 
 Example: `curl -s localhost:8787/fund-agent -d '{"implicit_account":"'$IMPLICIT'"}'` after the agent prints
 `WAITING implicit_account=... pending_vaults=<k> ...`. It tops the account up to 0.15 NEAR plus 0.01 when the

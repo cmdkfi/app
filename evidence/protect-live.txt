@@ -1,0 +1,30 @@
+# Protect live: owner-lowered act line, the agent's reduce, LTV back at target (Base Sepolia, 2026-11-04)
+vault v1.factory.prime-measure-1792736012.testnet, Base address 0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb, executor 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b, live market 0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c
+## owner set_corridor (target 40%, act 45%)
+{"ok":true,"near_tx":"7qYYFd3jZk91M8YAwRKbdHuhVkeq7GRppa3mysQY2FPp","receipts":[{"hash":"0x3a2de9a980ac4624d67a594264be17c4cb88d57d1757e62958fe0ef557cf7092","status":1,"block":54393926}]}
+## the agent's reduce (executor Reduced event)
+- address: 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b
+  blockHash: 0x1febefab49fc789f195992937a2b5f9e1a718145ead9e2d981ca7e5b0e430c15
+  blockNumber: 54394078
+  data: 0x00000000000000000000000000000000000000000000000000000000003abe350000000000000000000000000000000000000000000000000005e9c2e22bec5200000000000000000000000000000000000000000000000006ef335136faa17f000000000000000000000000000000000000000000000000058d9fa7573120d40000000000000000000000000000000000000000000000000000000000000001
+  logIndex: 30
+  removed: false
+  topics: [
+  	0x04fa3a3c6cc1ec1dc4efb8381c2d7e0d0c847d25575a7a0028650d21897d72bf
+  	0x000000000000000000000000b3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb
+  	0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c
+  ]
+  transactionHash: 0xde7302261100b8888cd34e8a3bd201233110c053ced561935be9de09b38bd6e3
+  transactionIndex: 4
+  decoded:
+  	caller: 0xB3CCd0Ad7E5fcA9D4C18Cf59D19faB4703EEE6Fb
+  	market: 0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c
+  	repaid: 3849781 [3.849e6]
+  	collateralSold: 1664398111009874 [1.664e15]
+  	ltvBefore: 499674507569176959 [4.996e17]
+  	ltvAfter: 400151482977034452 [4.001e17]
+  	protective: true
+## LTV now
+400183863091216212 [4.001e17]
+## owner set_corridor restored (50/70/30)
+{"ok":true,"near_tx":"7Q2CkF2EjVaZpNGBQcFP7TMDb2WbmStLL5DgCWSm8XrY","receipts":[{"hash":"0xc5e432a2cac4c6fc42c9b10ead343916695817011de0167be5147e37338863b5","status":1,"block":54394817}]}
