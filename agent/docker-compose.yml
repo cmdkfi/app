@@ -4,8 +4,8 @@
 # MEASUREMENT.md. The image digest is the registry (manifest) digest recorded after the push (MEASUREMENT.md §2).
 services:
   agent:
-    image: ghcr.io/cmdkfi/agent@sha256:REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS
-    command: ["--mode", "dry", "--operator", "cmdk", "--factory", "REPLACE_WITH_THE_FACTORY_ACCOUNT"]
+    image: ghcr.io/cmdkfi/agent@sha256:984f0c0b54f0be4658227c6172b8c65a0912951991da7e9ee17f524cb9fda740
+    command: ["--mode", "dry", "--operator", "cmdk", "--factory", "factory.prime-measure-1792736012.testnet"]
     environment:
       - NEARAI_API_KEY=${NEARAI_API_KEY}
     volumes:
