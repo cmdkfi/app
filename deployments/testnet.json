@@ -1,10 +1,10 @@
 {
- "_comment": "Public addresses of the cmdk hackathon build. Testnet only: Base Sepolia (chain 84532) and NEAR testnet. No keys. Base part from executor/deployments.json (prototype executor, block 50841606), agent/src/chain.rs and the executor's on-chain config; read 3 Nov 2026.",
+ "_comment": "Public addresses of the cmdk hackathon build. Testnet only: Base Sepolia (chain 84532) and NEAR testnet. No keys. Base part from executor/deployments-2026-11-04.json (executor deployed 4 Nov 2026; the prototype executor 0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40 is retired), agent/src/chain.rs and the executor's on-chain config; read 3 Nov 2026.",
  "base": {
   "network": "base-sepolia",
   "chainId": 84532,
-  "executor": "0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40",
-  "executorDeployBlock": 50841606,
+  "executor": "0xA9bbabE6d75C5BA96CA095586284774c9D09D18b",
+  "executorDeployBlock": 54354973,
   "cooldownSeconds": 60,
   "morpho": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
   "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
@@ -53,7 +53,7 @@
     "lltv": "860000000000000000",
     "pool": "0x57183717A087d2fe3Ad890873877244c3B96156c",
     "feeds": ["ethUsd", "usdcUsd"],
-    "_comment": "its own MorphoChainlinkOracleV2 instance on the same two feeds; the prototype executor's config gives it the live market's pool"
+    "_comment": "its own MorphoChainlinkOracleV2 instance on the same two feeds; the executor's config gives it the live market's pool"
    },
    "demo": {
     "id": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",

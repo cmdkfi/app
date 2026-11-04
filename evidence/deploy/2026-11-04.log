@@ -1,0 +1,94 @@
+wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.487648 ETH, 0.057910 WETH, 64.341191 USDC, 25026.493470 dUSDC
+Compiling 1 files with Solc 0.8.28
+Solc 0.8.28 finished in 2.90s
+Compiler run successful!
+Script ran successfully.
+
+== Logs ==
+  executor 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b
+  backup oracle 0x20Ff664b99676a45A13bD77ACB2AFECeA10Cd538
+  demo pool 0x722F350ec250c1697063A080B0196506D7Fe21c1
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 84532
+
+Estimated max fee per gas: 0.011 gwei
+Estimated base fee per gas: 0.005 gwei
+Estimated max priority fee per gas: 0.001 gwei
+
+Estimated total gas used for script: 5792699
+
+Estimated amount required: 0.000063719689 ETH
+
+==========================
+
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+
+Transactions saved to: /Users/vf/cmdk/app/executor/broadcast/Deploy.s.sol/84532/run-latest.json
+
+Sensitive values saved to: /Users/vf/cmdk/app/executor/cache/Deploy.s.sol/84532/run-latest.json
+
+executor 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b block 54354973 tx 0x1839ce448f87c2e8e9ea4c8a8f27ff435cbff870e0c9cd6c3e95b2ade77ec83e
+  revoke USDC to the old executor: tx 0x92f826e5e6aa7800504a91f8968cf1eb581de0e13dab0b2faffd454e7f879720 status 1 gas 33501, fee 201006000092 wei (L2 201006000000 + L1 92)
+  revoke WETH to the old executor: tx 0x74a704df85f08a437bd357abcadc7d4117e5d67ea109267ceb8b9d946994fe5a status 1 gas 24059, fee 144479251246 wei (L2 144479251154 + L1 92)
+  revoke dUSDC to the old executor: tx 0x68e47c76a2377b3cd3f0bdd70b31bcb60b8fcfa2c1f8484fdeed66027707887f status 1 gas 24180, fee 145080000092 wei (L2 145080000000 + L1 92)
+  revoke the Morpho authorization of the old executor: tx 0xba5d5e167bb4e15f73a4ce881e969ce1bcd5b7236bfc3aba26856d7f6cd8f8df status 1 gas 25338, fee 152028000092 wei (L2 152028000000 + L1 92)
+  approve USDC to the executor: tx 0x1c81b2c4a27ff609be754ad391233c10201aa5676d88948d740eb910c534d073 status 1 gas 55785, fee 334710000092 wei (L2 334710000000 + L1 92)
+  approve WETH to the executor: tx 0x81d900398b5f1e84e54f44d3d5007843236fe6bfca7083dcbfec85ab1fbf9ea5 status 1 gas 46343, fee 278058000092 wei (L2 278058000000 + L1 92)
+  approve dUSDC to the executor: tx 0x0b4c7ef27f68b98c2894ae1ada95345509553d2a0b37368dd536ba0a5b669d9f status 1 gas 46464, fee 278784000092 wei (L2 278784000000 + L1 92)
+  Morpho authorization of the executor: tx 0x25fc727ed94fba559127ec8a396f491e332cc6ae5a767a35a0a2b78d39639110 status 1 gas 47250, fee 283500000092 wei (L2 283500000000 + L1 92)
+  setCorridor 0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c: tx 0xa1b15908cf9fa649361644015235706b66c5341257da2d47aab0cc4a37352171 status 1 gas 84133, fee 504798000134 wei (L2 504798000000 + L1 134)
+  setCorridor 0x99d43c0f2a0eb6172774598a4e34e7eee09caa502692c2b2df0f40e1e3c5ea75: tx 0x3ab2dcb1cc90b18c4b7eaae264d310019fdea47dde42820fb29fef0bc1ad314e status 1 gas 84133, fee 504798000134 wei (L2 504798000000 + L1 134)
+  setCorridor 0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585: tx 0xe414938302fd8261171e581a8ee981112d1a24863b17dfc5e94b077ad15719f5 status 1 gas 84133, fee 504798000134 wei (L2 504798000000 + L1 134)
+  approve Morpho 26 USDC: tx 0xe642eb0cf4256b320343bdd01c031a14ddbb8859843f8cbbf7c4d8ea3f4d11c2 status 1 gas 55449, fee 332694000092 wei (L2 332694000000 + L1 92)
+  supply 13 USDC to live: tx 0x1eeba05fedead55a4eb4b14cc30a3b27a9aa8b9c1e7577d736564d58ed11d1cb status 1 gas 115350, fee 692100000170 wei (L2 692100000000 + L1 170)
+  supply 13 USDC to backup: tx 0xb5222478dd1b6b8393ec569f0721ea13fceee7eb2fc523ab680f710fdb473809 status 1 gas 110550, fee 663300000170 wei (L2 663300000000 + L1 170)
+  approve Morpho 5,000 dUSDC: tx 0xf58857eaa69d7d2399fdf5ba0f1089cac89c3f542b82e11d89a4b8ae53de44ad status 1 gas 46128, fee 276768000092 wei (L2 276768000000 + L1 92)
+  supply 5,000 dUSDC to demo: tx 0x33bc3ba8c0bc655eb85666c2cd753a51c831e4bfdead18643a9d4c3dc454f67c status 1 gas 99754, fee 598524000170 wei (L2 598524000000 + L1 170)
+rpc https://base-sepolia-rpc.publicnode.com, deployments /Users/vf/cmdk/app/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.487615 ETH, 0.057910 WETH, 38.341191 USDC
+L1 data fee (GasPriceOracle): l1BaseFee 15 wei, blobBaseFee 1 wei, scalars 1101/659851, upper bound for a 400-byte tx 335 wei; L2 base fee 5000000 wei
+live: oracle $2331.28 pool $2276.29 deviation -2.359% tick 199017 L 2.896e+12
+repair: 1.659287 USDC in for about 0.000720 WETH out, to tick 198778 (0 initialised ticks crossed; tick walk with our positions burnt first); QuoterV2 with them in place 1.659289 USDC; cost used 1.659289 USDC = $1.6593
+guard: cost $1.6593 <= 6.00, wallet USDC after 36.681902 >= reserve 8.00: pass
+guard: cost $1.6593 <= 6.00, wallet USDC after 36.681902 >= reserve 8.00: pass
+swap 0x036cbd53842c5426634e7929541ec2318f3dcf7e -> 0x4200000000000000000000000000000000000006: up to 1.692473 USDC (tick walk + 2%), limit at the oracle
+  approve router: tx 0x2a7cfb318e3a9c8d7104eb0a091e1f1b8ed20296e3fd39668ec027e832a4bb83 status 1 gas 38337, fee 230022000092 wei (L2 230022000000 + L1 92)
+  swap to oracle: tx 0xb96b40e64dd84be68c9b93a412125839ef6a6dc0e9073e8def5b9bd6fbcbe1a4 status 1 gas 130317, fee 781902000130 wei (L2 781902000000 + L1 130)
+  spent 1.659289 USDC, received 0.000720 WETH
+after swap: pool $2331.28 deviation +0.000%
+mint +-1% band [198678, 198878) with 0.004289 WETH + 10.000000 USDC (keeps at least 14.00 USDC, reserve + max cost, in the wallet; cap 10.00 USDC)
+  approve token0 to NPM: tx 0x5d78502a45fe5f3eb7e45046bb7b8caf0c928d979ac154f6c74a67e6f384417d status 1 gas 38337, fee 230022000092 wei (L2 230022000000 + L1 92)
+  approve token1 to NPM: tx 0x809c4e5af3ca30bb32f922e822cdfd621cf5b0d0ac05b090b6cb3b0ee2412286 status 1 gas 28943, fee 173658000092 wei (L2 173658000000 + L1 92)
+  mint band: tx 0x7eadc9998a4e9466b4b1bda5059709c2a3b820158b0d5e64c09b47e4a55d1f1c status 1 gas 494719, fee 2968314000153 wei (L2 2968314000000 + L1 153)
+  band position 83707, ticks [198678, 198878)
+RUN 2026-11-04T11:49:37Z market=live tick=198778 oracle=2331.28 pool=2331.28 gap=+0.000% action=repair+band repair_quote=1.659289USDC swap_in=1.659289USDC txs=5 fee_eth=0.000004384 l1_fee_wei=559 l1_bound_wei=335
+rpc https://base-sepolia-rpc.publicnode.com, deployments /Users/vf/cmdk/app/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.487611 ETH, 0.054341 WETH, 26.763350 USDC
+L1 data fee (GasPriceOracle): l1BaseFee 15 wei, blobBaseFee 1 wei, scalars 1101/659851, upper bound for a 400-byte tx 335 wei; L2 base fee 5000000 wei
+demo: oracle $2334.93 pool $2244.68 deviation -3.865% tick -199157 L 0.000e+00
+  mint dUSDC for the anchor: tx 0x54dde5c9991f050cad93147e595230d5f932e599aa9f57d942e10322b3f6563e status 1 gas 34045, fee 170225034137 wei (L2 170225034045 + L1 92)
+  approve token0 to NPM: tx 0xcb4bc940cd13190fa04638b550ac1e109b38d65478bcce7dc57dc8fb68c6f767 status 1 gas 28931, fee 173586000092 wei (L2 173586000000 + L1 92)
+  approve token1 to NPM: tx 0x61ee22caa720ab1ac80181c9016d4ffde32a145d2318f5a2ebf5db8d41f63764 status 1 gas 46116, fee 230580046208 wei (L2 230580046116 + L1 92)
+  mint anchor: tx 0x886ef4017e8c910c1cdf08addaee598c0c086f375e76f52cdcb89d0f828c962c status 1 gas 516195, fee 3097170000146 wei (L2 3097170000000 + L1 146)
+  anchor position 83708, ticks [-887272, 887272)
+repair: 0.223423 dUSDC in for about 0.000098 WETH out, to tick -198763 (0 initialised ticks crossed; tick walk with our positions burnt first); QuoterV2 with them in place 0.223424 dUSDC; cost used 0.223424 dUSDC = $0.2234
+guard: dUSDC is minted, no budget check
+swap 0xeb68fd5baaafd4e46b43baa7feab3216b87b10d5 -> 0x4200000000000000000000000000000000000006: up to 0.227892 dUSDC (tick walk + 2%), limit at the oracle
+  approve router: tx 0xa772950b60cfabdad91cec072adea41aea8f3c94c76dbc2e5aca4c584332e24e status 1 gas 29016, fee 174096000092 wei (L2 174096000000 + L1 92)
+  swap to oracle: tx 0xa3f34129f0a902df34677259feb7ef353b3cf66b3a3d49c8f00d443e3e80dda5 status 1 gas 116048, fee 580240116177 wei (L2 580240116048 + L1 129)
+  spent 0.223424 dUSDC, received 0.000098 WETH
+pool $2334.9293 at oracle $2334.9293 (deviation +0.0000%), tick -198763
+  approve token1 to NPM: tx 0xb074da79d25ea51f29e03654ab178c5db8e3c6eb09cd84c94c0e8f6f4e99ef1f status 1 gas 29028, fee 174168000092 wei (L2 174168000000 + L1 92)
+  mint sell: tx 0x3653deb26bb4ec98063bcbaa1d443cbc37d5c272ae18ac5befcdc7486883165b status 1 gas 503995, fee 3023970000139 wei (L2 3023970000000 + L1 139)
+  sell position 83709, ticks [-198963, -198763)
+  approve token0 to NPM: tx 0x7d5f031f53db9b1881a4e00f5dcc488e07d728c218bc449890db6356898d2996 status 1 gas 28931, fee 173586000092 wei (L2 173586000000 + L1 92)
+  mint buy: tx 0x0e9e992727591fb78e2d1955d9c31b6f25471d408ad67af48ac8b799e3ec1684 status 1 gas 388594, fee 2331564000137 wei (L2 2331564000000 + L1 137)
+  buy position 83710, ticks [-198762, -198662)
+RUN 2026-11-04T11:50:11Z market=demo tick=-198763 oracle=2334.93 pool=2334.93 gap=+0.000% action=repair+bands repair_quote=0.223424dUSDC swap_in=0.223424dUSDC txs=10 fee_eth=0.000010129 l1_fee_wei=1103 l1_bound_wei=335
+{"live":{"band":{"token_id":83707,"lo":198678,"hi":198878}},"demo":{"anchor":83708,"sell":{"token_id":83709,"lo":-198963,"hi":-198763},"buy":{"token_id":83710,"lo":-198762,"hi":-198662}},"relayer":null}
+{"ok":true,"paused":false}
