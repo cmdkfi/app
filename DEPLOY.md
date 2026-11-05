@@ -36,6 +36,13 @@ Base Sepolia (chain 84532) and NEAR testnet. Nothing here touches mainnet.
   approved (NEAR tx `BDBaYmHCNwpEMjFimPaAXyzrGAMv8CpG6cXVJqA18942`), new agent account funded by `/fund-agent` (0.16 NEAR,
   created with the quiet path), boot line `RESULT nearai_key http=200 valid=true`, registered on v1 at 05:41 UTC (NEAR tx
   `GyV7A726jDGyFPgJZU5dnVzDx5u65ucA3QTCteHJ9J4d`, 0.0116 NEAR burnt, key valid to 12 Nov; `evidence/deploy/2026-11-05.log`).
+  **5 Nov, second image:** commit `fd0272f` (transcripts public for every vault, decided 5 Nov; cmdk name in the judge
+  prompt), image id `01027505…`, pushed as `@sha256:479f98f3…`, CVM updated in place again, boot `a405e917`, compose hash
+  `216124c1…` approved (NEAR tx `2wgYQgowE7Y4gxeV4DKjVe6P9H6yd9aFbAvt1QxGXi9t`), agent account funded by `/fund-agent`,
+  registered 11:24 UTC (NEAR tx `8jAe8ZJms584nGJ8ymFvwAeuEbTCsT5uidZ7WCCDQX9S`, key valid to 12 Nov 11:24 UTC);
+  `GET /transcripts` on the enclave lists the 34 transcripts of the two earlier boots and the Worker proxies them at
+  `relayer.cmdk.fi/agent/transcripts`; one fetched through the proxy matched the index's SHA-256 and passed
+  `agent/verify-transcript.sh` (`ALL PASS`). Step 7's record `evidence/attacks.txt` was made the same day (5 PASS on chain).
   Step 11 (screening rehearsal) waits for the judges' README decision. The "Known gaps" at the end were closed on 3 Nov.
 
 ## Budget (Base Sepolia test wallet)
