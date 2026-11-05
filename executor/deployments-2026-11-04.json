@@ -14,5 +14,6 @@
   "mockOracle": "0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f",
   "morpho": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
   "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  "weth": "0x4200000000000000000000000000000000000006"
+  "weth": "0x4200000000000000000000000000000000000006",
+  "_comment": "block is the fork block of forge's simulation before the broadcast; the deployment landed in block 54354973 (deployments/testnet.json executorDeployBlock)"
 }
