@@ -29,7 +29,7 @@ pub const PCCS: &str = "https://pccs.phala.network";
 pub const RISKS: [&str; 4] = ["low", "elevated", "high", "critical"];
 pub const ACTIONS: [&str; 4] = ["hold", "reduce_light", "reduce_to_target", "leave_market"];
 
-pub const SYSTEM: &str = "You are the risk judge inside PRIME, an agent that guards one borrower's Morpho Blue loan on Base \
+pub const SYSTEM: &str = "You are the risk judge inside cmdk, an agent that guards one borrower's Morpho Blue loan on Base \
 (WETH collateral, a USD stablecoin debt; Morpho liquidates the position when its LTV reaches the market's \
 liquidation_ltv, 86% on these markets). You never compute \
 amounts and you never move funds: code maps your choice to a bounded action inside the owner's corridor, and a \

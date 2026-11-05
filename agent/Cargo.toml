@@ -2,7 +2,7 @@
 name = "cmdk-agent"
 version = "0.1.0"
 edition = "2021"
-description = "PRIME prototype P3 (throwaway): the agent in a Phala TDX CVM"
+description = "cmdk agent: watches one borrower's Morpho Blue loan from a Phala TDX CVM"
 
 [dependencies]
 dstack-sdk = "=0.1.3"

@@ -1,4 +1,4 @@
-//! PRIME agent (hackathon build, from the 27–31 Oct prototype). Spec: docs/01-design-and-feasibility.md §4.4 (key,
+//! cmdk agent (hackathon build, from the 27–31 Oct prototype). Spec: docs/01-design-and-feasibility.md §4.4 (key,
 //! quote, registration) and §4.9 (collect, compute, screen, judge, decide, propose).
 //! Deviations (brief): the positions of each watched vault's Base address; on-chain reads plus three allowlisted text
 //! feeds (status.base.org and the two labelled demo feeds); no scores and no similar-case retrieval.
