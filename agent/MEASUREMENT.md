@@ -178,7 +178,12 @@ The vault checks which code runs, not who runs it. To run the published agent un
    sha256:<id>` or `DIFFERENT`. What makes the build reproducible:
    - base images by multi-platform index digest (`rust:1.95-bookworm@sha256:6258907a…`,
      `debian:bookworm-slim@sha256:99c0b25c…`); the Rust toolchain is the one in that image;
-   - the cross linker and libc from `snapshot.debian.org` at `20261101T000000Z`, not the moving archive;
+   - the cross linker and libc: 21 Debian bookworm packages at pinned versions (`pkg=version` in the Dockerfile) from
+     the main archive; apt checks every file against the archive's signed index, so the server only affects
+     availability. Bookworm is in LTS since July 2026 and its main suite no longer changes. Until 4 Nov the Dockerfile
+     took the packages from `snapshot.debian.org` at `20261101T000000Z`; that service answered 503/504 for a day
+     and the build was moved to the pins (same files). The snapshot stays as the fallback source for a rebuild
+     after bookworm is archived: `--build-arg DEBIAN_APT_URI=http://snapshot.debian.org/archive/debian/20261101T000000Z`;
    - `cargo build --release --locked` (Cargo.lock enforced);
    - `--remap-path-prefix` for `/src`, the Cargo registry and rustup, and `-ffile-prefix-map` for C code
      (aws-lc-sys), so no build path depends on the machine;
@@ -195,7 +200,7 @@ The vault checks which code runs, not who runs it. To run the published agent un
    daemon's exporter ignored `rewrite-timestamp`: the two images had identical file bytes, but the directories COPY
    creates and the binary kept each build's wall-clock mtime, so the IDs differed. An earlier attempt stopped in
    `apt-get update` because Docker's disk was full (46 of 47 GB used; apt reports this as "At least one invalid
-   signature"); the snapshot's `InRelease` itself verifies with the image's keyring (gpgv, 3 Nov).
+   signature"); the archive's `InRelease` itself verifies with the image's keyring (gpgv, 3 Nov, on the snapshot copy).
 
    **Push and pin our image (Friday, in this order, from `agent/`):**
    ```
