@@ -1,0 +1,2389 @@
+[
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-002",
+    "source": "llamarisk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-004",
+    "source": "llamarisk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-005",
+    "source": "llamarisk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-006",
+    "source": "ether-fi",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-009",
+    "source": "blockaid",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-010",
+    "source": "cointelegraph",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-011",
+    "source": "decrypt",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-012",
+    "source": "llamarisk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-014",
+    "source": "defillama-hacks-feed",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-015",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-01/usdc",
+    "id": "CTL01-016",
+    "source": "llamarisk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-004",
+    "source": "steakhouse",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-006",
+    "source": "ekuboprotocol",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-007",
+    "source": "blockaid",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-008",
+    "source": "the-block",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-009",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-011",
+    "source": "forklog",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-012",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-02/steakhouse",
+    "id": "CTL02-014",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-002",
+    "source": "coindesk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-005",
+    "source": "coindesk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-007",
+    "source": "moonwell-multichaingovernor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-008",
+    "source": "chidi",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-009",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-011",
+    "source": "pgov",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-012",
+    "source": "anthias",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-014",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-03/cbeth-borrower",
+    "id": "CTL03-015",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-002",
+    "source": "rhea",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-003",
+    "source": "salternullo",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-004",
+    "source": "cryptonews-net",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-005",
+    "source": "tokenpost",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-009",
+    "source": "rhea",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-010",
+    "source": "bloomingbit",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-011",
+    "source": "ddealmeida",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-012",
+    "source": "ddealmeida",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-013",
+    "source": "cryptoticker",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-014",
+    "source": "rhea",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-04/usdc",
+    "id": "CTL04-015",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-002",
+    "source": "llamarisk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-004",
+    "source": "blockaid",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-005",
+    "source": "certik",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-006",
+    "source": "peckshield",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-009",
+    "source": "summer-fi",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-011",
+    "source": "blocksec-phalcon",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-012",
+    "source": "coindesk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-013",
+    "source": "eli",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-014",
+    "source": "summer-fi",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-015",
+    "source": "defillama-hacks-feed",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-016",
+    "source": "summer-fi",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-05/morpho-vault",
+    "id": "CTL05-017",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-004",
+    "source": "kelp",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-006",
+    "source": "bgd-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-007",
+    "source": "steakhouse-financial",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-009",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-011",
+    "source": "llamarisk",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-012",
+    "source": "woz",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-013",
+    "source": "bgd-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-014",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "CTL-06/weth",
+    "id": "CTL06-015",
+    "source": "bgd-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-006",
+    "source": "bwenews",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-009",
+    "source": "peckshield",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-010",
+    "source": "the-block",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-011",
+    "source": "marc-zeller",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-012",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-014",
+    "source": "certik",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-015",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-016",
+    "source": "aave",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-017",
+    "source": "aave",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-018",
+    "source": "kelp",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-019",
+    "source": "cyvers-alerts",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-020",
+    "source": "peckshield",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-021",
+    "source": "beincrypto",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-022",
+    "source": "coindesk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-023",
+    "source": "llamarisk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-024",
+    "source": "defillama-hacks-feed",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-025",
+    "source": "lookonchain",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-026",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-027",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-028",
+    "source": "llamarisk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-029",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-030",
+    "source": "decrypt",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-031",
+    "source": "aave",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-032",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-033",
+    "source": "llamarisk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-034",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-035",
+    "source": "llamarisk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-036",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-01/weth",
+    "id": "INC01-037",
+    "source": "aave",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-001",
+    "source": "chaos-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-003",
+    "source": "schlagonia",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-005",
+    "source": "cbb0fe",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-006",
+    "source": "schlagonia",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-007",
+    "source": "hyperithm",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-009",
+    "source": "stream",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-010",
+    "source": "rekt-news",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-011",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-012",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-014",
+    "source": "elixir",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-015",
+    "source": "chaos-labs",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-016",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-017",
+    "source": "hyperithm",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-018",
+    "source": "stream",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-019",
+    "source": "peckshield",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-020",
+    "source": "the-block",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-021",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-022",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-023",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-024",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-025",
+    "source": "elixir",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-026",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-027",
+    "source": "parsec-weekly-138",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-028",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-029",
+    "source": "re7labs",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-030",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-031",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-032",
+    "source": "wublockchain12",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-02/relend",
+    "id": "INC02-033",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-007",
+    "source": "yieldsandmore",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-009",
+    "source": "d2-finance",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-011",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-012",
+    "source": "peckshield",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-014",
+    "source": "resolv",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-015",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-016",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-017",
+    "source": "gauntlet",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-018",
+    "source": "cointelegraph",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-019",
+    "source": "resolv",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-020",
+    "source": "aave",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-021",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-022",
+    "source": "re7labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-023",
+    "source": "peckshield",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-024",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-025",
+    "source": "the-block",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-026",
+    "source": "nine-summits",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-027",
+    "source": "chaos-labs",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-028",
+    "source": "paulframbot",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-029",
+    "source": "resolv",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-030",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-031",
+    "source": "gauntlet",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-032",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-033",
+    "source": "0xfluid",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-03/gauntlet",
+    "id": "INC03-034",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-001",
+    "source": "moonwell-governance",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-009",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-011",
+    "source": "moonwelldefi",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-012",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-014",
+    "source": "boardroom",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-015",
+    "source": "anthias",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-016",
+    "source": "usernate",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-017",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-018",
+    "source": "pashov",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-019",
+    "source": "evilcos",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-020",
+    "source": "decrypt",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-021",
+    "source": "forklog",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-022",
+    "source": "the-block",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-023",
+    "source": "moonwell-governance",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-024",
+    "source": "fechuky-25",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-025",
+    "source": "rekt-news",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-026",
+    "source": "cbeth-depositor",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-027",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-028",
+    "source": "defillama-hacks-feed",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-04/cbeth-borrower",
+    "id": "INC04-029",
+    "source": "juju",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-001",
+    "source": "chaos-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-002",
+    "source": "chaos-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-009",
+    "source": "ltv-protocol",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-010",
+    "source": "ltv-protocol",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-011",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-012",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-013",
+    "source": "chaos-labs",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-014",
+    "source": "coindesk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-015",
+    "source": "chaos-labs",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-016",
+    "source": "aave",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-017",
+    "source": "the-block",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-018",
+    "source": "coinbureau",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-019",
+    "source": "lidofinance",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-020",
+    "source": "cointelegraph",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-021",
+    "source": "tokenlogic",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-022",
+    "source": "chaos-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-023",
+    "source": "tokenlogic",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-024",
+    "source": "defillama-hacks-feed",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-025",
+    "source": "rekt-news",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-026",
+    "source": "chaos-labs",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-027",
+    "source": "llamarisk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-05/wsteth-looper",
+    "id": "INC05-028",
+    "source": "skoreless",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-009",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-011",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-012",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-014",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-015",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-016",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-017",
+    "source": "certik",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-018",
+    "source": "zacodil",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-019",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-020",
+    "source": "paoloardoino",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-021",
+    "source": "beincrypto",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-022",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-023",
+    "source": "rhea",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-024",
+    "source": "defillama-hacks-feed",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-025",
+    "source": "rhea",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-026",
+    "source": "quillaudits-ai",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-027",
+    "source": "rhea",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-028",
+    "source": "the-block",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-029",
+    "source": "rhea",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-030",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-031",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-032",
+    "source": "rhea",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-033",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-06/usdc",
+    "id": "INC06-034",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-001",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-002",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-004",
+    "source": "slowmist-team",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-005",
+    "source": "exvulsec",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-009",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-010",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-011",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-012",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-014",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-015",
+    "source": "near-intents",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-016",
+    "source": "near-intents",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-017",
+    "source": "coindesk",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-018",
+    "source": "cointelegraph",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-019",
+    "source": "defillama-hacks-feed",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-020",
+    "source": "near-intents",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-021",
+    "source": "ilblackdragon",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-022",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-023",
+    "source": "near-intents",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-07/intents",
+    "id": "INC07-024",
+    "source": "chaincatcher",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-001",
+    "source": "anthias",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-002",
+    "source": "anthias",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-003",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-004",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-005",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-006",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-007",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-008",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-009",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-010",
+    "source": "blockaid",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-011",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-012",
+    "source": "certik",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-013",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-014",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-015",
+    "source": "peckshield",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-016",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-017",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-018",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-019",
+    "source": "moonwell",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-020",
+    "source": "forklog",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-021",
+    "source": "protos",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-022",
+    "source": "the-block",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-023",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-024",
+    "source": "anthias",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-025",
+    "source": "alej",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-026",
+    "source": "anthias",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-027",
+    "source": "dr-bahmani",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-028",
+    "source": "dr-bahmani",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-029",
+    "source": "anthias",
+    "supports_exit": true,
+    "reason": "Position-relevant concern in replay text"
+  },
+  {
+    "window": "INC-08/usdc",
+    "id": "INC08-030",
+    "source": "chain-monitor",
+    "supports_exit": false,
+    "reason": "No position-relevant exit support (routine, reassuring, unrelated, or onchain)"
+  }
+]

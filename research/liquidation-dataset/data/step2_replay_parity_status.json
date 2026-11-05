@@ -1,0 +1,11 @@
+{
+  "source": "step2_replay_parity",
+  "status": "complete",
+  "started_at": 1793091758.3606248,
+  "finished_at": 1793091772.612996,
+  "elapsed_s": 14.252371311187744,
+  "result": {
+    "checks": 112,
+    "cases": 28
+  }
+}

@@ -1,0 +1,8 @@
+task,seconds
+DEFAULT loss diagnostics,101.40146994590759
+Loss report,0.40766286849975586
+Retrieval table build,148.6798529624939
+"Five examples, including selection",2.3136188983917236
+Whole-table and source validation,11.350698947906494
+Full-sort neighbor and CLI validation,5.004273891448975
+Summary readability migration,9.046082019805908

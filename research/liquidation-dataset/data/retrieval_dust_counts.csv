@@ -1,0 +1,5 @@
+split,dust_collateral_under_004_usd,hours,known_labels,positive_24h
+holdout,False,3265015,3228710,293467
+holdout,True,67988,67080,7071
+train,False,1425909,1376266,103435
+train,True,224590,224590,18171

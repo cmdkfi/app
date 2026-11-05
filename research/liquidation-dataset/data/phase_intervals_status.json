@@ -1,0 +1,1 @@
+{"source":"phase_intervals","started_at":1793050591.661392,"status":"failed","pid":8138,"error":"Two public endpoints failed: https://base.drpc.org: HTTP Error 429: Too Many Requests; https://base-rpc.publicnode.com: HTTP Error 403: Forbidden","finished_at":1793050666.9946759,"elapsed_s":75.3332839012146}

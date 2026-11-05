@@ -1,0 +1,8 @@
+{
+  "started_at": 1793122945.4061298,
+  "finished_at": 1793123067.4406688,
+  "elapsed_s": 122.0345389842987,
+  "bootstrap_s": 2.1016368865966797,
+  "metric_rows": 84,
+  "bootstrap_replicates": 2000
+}

@@ -1,0 +1,12 @@
+{
+  "unique_liquidation_events": 21981,
+  "hourly_rows": 11123057,
+  "borrowers": 20892,
+  "positive_6h": 107320,
+  "positive_24h": 425597,
+  "binance_rows": 49392,
+  "oracle_rows": 650099,
+  "coverage_warnings": [],
+  "verified_round_intervals": 16,
+  "verified_survivor_samples": 4545
+}

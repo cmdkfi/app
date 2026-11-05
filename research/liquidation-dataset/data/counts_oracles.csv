@@ -1,0 +1,10 @@
+chain,feed,source_kind,rounds,first_timestamp,last_timestamp
+base,BTC/USD,Base proxy,242227,1713370147,1792973003
+base,ETH/USD,Base proxy,248101,1704067135,1792972951
+base,USDC/USD Morpho,Morpho market feed,1057,1704011829,1793019211
+eth,BTC/USD,Aave source,18775,1741341239,1792974503
+eth,BTC/USD,standard,37675,1704066923,1792974551
+eth,ETH/USD,Aave source,25273,1742363591,1792973399
+eth,ETH/USD,standard,49010,1704066911,1792974803
+eth,ETH/USD Morpho,Morpho market feed,18792,1754083967,1792973447
+eth,USDC/ETH Morpho,Morpho market feed,9189,1704063203,1792986851

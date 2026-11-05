@@ -1,0 +1,494 @@
+{
+ "schema_version": "1.0",
+ "id": "CTL-02-morpho-routine-day",
+ "kind": "control",
+ "title": "Morpho Steakhouse USDC (Ethereum): routine 48 h, 5–6 May 2026",
+ "venues": [
+  "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)"
+ ],
+ "chains": [
+  "ethereum"
+ ],
+ "replay_window": {
+  "start_utc": "2026-05-05T00:00:00Z",
+  "end_utc": "2026-05-07T00:00:00Z"
+ },
+ "summary": "A quiet 48-hour window for one of the largest Morpho Ethereum USDC vaults (Steakhouse USDC, about 124–136M USDC), whose main markets lend against WBTC, cbBTC, wstETH and WETH. The curator accepted three timelocked caps on new blue-chip markets, posted a routine weETH onboarding proposal on the Morpho forum that also reminded V1 users to migrate to V2, reordered queues, and submitted a timelocked weETH cap. An allocator rebalanced liquidity every 30 minutes and hourly utilization stayed between 88% and 92%. The only alerts were an unrelated $1.4M Ekubo router exploit on Ethereum (Ekubo and Blockaid posts, ForkLog article) and a normal ~9% six-hour swing in vault deposits. A correct judge stays at low/hold throughout, with at most a brief 'elevated' read on the Ekubo alert if it cannot rule out exposure.",
+ "positions_considered": [
+  {
+   "archetype_id": "usdc_supplier_steakhouse_vault",
+   "description": "Supplies USDC to the Steakhouse USDC MetaMorpho vault on Ethereum (no debt); about $1,000 position."
+  }
+ ],
+ "ground_truth": {
+  "t_incident_start": {
+   "timestamp_utc": null,
+   "description": "No incident in this window.",
+   "item_ids": [],
+   "confidence": "high"
+  },
+  "t_first_public_signal": {
+   "timestamp_utc": null,
+   "description": "No risk signal relevant to the vault. The closest minor alert is the Ekubo incident post at 2026-05-05T20:02:42Z, which is unrelated.",
+   "item_ids": [],
+   "confidence": "high"
+  },
+  "t_point_of_no_return": {
+   "timestamp_utc": null,
+   "definition": "Not applicable: no market reached 99% utilization and the share price never fell.",
+   "item_ids": [],
+   "confidence": "high"
+  },
+  "t_protocol_first_ack": {
+   "timestamp_utc": null,
+   "description": "Not applicable.",
+   "item_ids": [],
+   "confidence": "high"
+  },
+  "other_markers": [],
+  "lead_time_minutes": {
+   "first_public_signal_to_ponr": null,
+   "incident_start_to_ponr": null,
+   "notes": "Control window; no incident."
+  },
+  "outcome_passive_holder": [
+   {
+    "archetype_id": "usdc_supplier_steakhouse_vault",
+    "outcome": "No loss. Share price rose from 1.125083 to 1.125302 (+0.019%) over 48 h. Withdrawals were available at all times, with 14–30M USDC idle in each of the two largest markets.",
+    "stuck_duration": "none",
+    "loss_estimate": "0",
+    "confidence": "high"
+   }
+  ],
+  "outcome_price_only_rule": "No trigger. There is no debt for a health-factor rule, and BTC and ETH moved within a 4% range. Any price-only rule stays silent, which is correct here.",
+  "ideal_action": [
+   {
+    "archetype_id": "usdc_supplier_steakhouse_vault",
+    "action": "hold",
+    "latest_useful_time_utc": null,
+    "rationale": "Nothing in the window threatened the vault's markets or collateral."
+   }
+  ],
+  "expected_judge_labels": [
+   {
+    "from_utc": "2026-05-05T00:00:00Z",
+    "to_utc": "2026-05-05T20:02:00Z",
+    "risk": "low",
+    "action": "hold",
+    "archetype_id": "usdc_supplier_steakhouse_vault",
+    "rationale": "Routine caps, forum post and reallocations; utilization near the 90% IRM target."
+   },
+   {
+    "from_utc": "2026-05-05T20:02:00Z",
+    "to_utc": "2026-05-05T22:00:00Z",
+    "risk": "elevated",
+    "action": "hold",
+    "archetype_id": "usdc_supplier_steakhouse_vault",
+    "rationale": "Acceptable to note an active Ethereum exploit (Ekubo) until it is clear the vault has no exposure; no action needed. 'low' is equally acceptable."
+   },
+   {
+    "from_utc": "2026-05-05T22:00:00Z",
+    "to_utc": "2026-05-07T00:00:00Z",
+    "risk": "low",
+    "action": "hold",
+    "archetype_id": "usdc_supplier_steakhouse_vault",
+    "rationale": "Ekubo is scoped to a router extension; vault deposits swing normally; share price smooth."
+   }
+  ]
+ },
+ "items": [
+  {
+   "id": "CTL02-001",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-05T00:00:00Z",
+   "timestamp_precision": "hour",
+   "timestamp_basis": "inferred",
+   "source_type": "onchain",
+   "source_url": "https://api.morpho.org/graphql",
+   "via_url": null,
+   "author": "Morpho API (historicalState, HOUR)",
+   "verbatim_text": "Steakhouse USDC totalAssets 125.61M USDC, share price 1.125083. Main markets at 00:00: WBTC/USDC (0x3a85e619) utilization 90.39%, liquidity 15.2M; cbBTC/USDC (0x64d65c9a) 90.63%, 25.4M; wstETH/USDC (0xb323495f) 90.44%, 4.3M; WETH/USDC (0x94b823e6) 89.99%, 0.4M.",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor 2026-05-05 00:00 UTC: Steakhouse USDC (Ethereum) totalAssets 125.61M USDC, share price 1.125083 (+0.002% vs 24 h earlier). Vault positions: WBTC/USDC 87.4M, cbBTC/USDC 32.2M, wstETH/USDC 3.9M, WETH/USDC 2.2M. Market utilization: WBTC/USDC 90.39% (liquidity 15.2M), cbBTC/USDC 90.63% (25.4M), wstETH/USDC 90.44% (4.3M), WETH/USDC 89.99% (0.4M).",
+   "observable_metrics": {
+    "vault_total_assets_usdc": 125610000,
+    "share_price": 1.125083,
+    "util_wbtc_usdc_pct": 90.39,
+    "util_cbbtc_usdc_pct": 90.63,
+    "util_wsteth_usdc_pct": 90.44,
+    "util_weth_usdc_pct": 89.99,
+    "liq_wbtc_usdc_m": 15.2,
+    "liq_cbbtc_usdc_m": 25.4
+   },
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 90.5,
+    "notes": "Main markets ~90% utilized (the adaptive IRM target); tens of millions of idle liquidity across markets."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": "Hourly Morpho API snapshot; vault positions from marketPosition.historicalState at 00:00."
+  },
+  {
+   "id": "CTL02-002",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-05T00:03:23Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "tx_block_time",
+   "source_type": "onchain",
+   "source_url": "https://etherscan.io/block/25025094",
+   "via_url": null,
+   "author": "Steakhouse USDC allocator 0x9e9110cf…",
+   "verbatim_text": "ReallocateWithdraw/ReallocateSupply events on Steakhouse USDC: allocator 0x9e9110cf… moved liquidity between the WBTC, cbBTC, wstETH and WETH USDC markets every ~30 minutes; 89 reallocation transactions between 2026-05-05 00:00 and 2026-05-07 00:00 UTC (typical size 10k–700k USDC, largest ~0.9M).",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor: Steakhouse USDC reallocate tx at block 25025094 (00:03:23 UTC) by allocator 0x9e9110cf…: withdraw 58,281 USDC wstETH/USDC and 22,644 WETH/USDC; supply 73,366 cbBTC/USDC and 7,556 WBTC/USDC. Same allocator repeats every ~30 min (89 reallocation txs in 48 h).",
+   "observable_metrics": {
+    "reallocation_txs_48h": 89,
+    "first_tx_block": 25025094,
+    "max_single_leg_usdc": 876047
+   },
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 90.5,
+    "notes": "Routine rebalancing keeps markets near target utilization."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": "Decoded from vault event logs (ReallocateSupply/ReallocateWithdraw) via rpc.mevblocker.io. First tx hash 0x74e03d4e5c4f…; block time from RPC."
+  },
+  {
+   "id": "CTL02-003",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-05T10:00:35Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "tx_block_time",
+   "source_type": "onchain",
+   "source_url": "https://etherscan.io/tx/0xeaee1f869f3ba1b0984b578603a3c7cec2ad4f9dd29af133736972dbb2b09804",
+   "via_url": null,
+   "author": "Steakhouse Financial (curator)",
+   "verbatim_text": "setCap: wstETH/USDC market 0x7e585a93… cap 200,000,000 USDC; cbBTC/USDC market 0xbc99de6a… cap 1,000,000,000 USDC; WBTC/USDC market 0x09dc9e7e… cap 200,000,000 USDC; each market appended to the withdraw queue. Caps were submitted on 2026-04-27 19:56:35 UTC (tx 0xf9d37d59…) and accepted after the timelock.",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor: Steakhouse USDC (Ethereum) accepted pending caps in tx 0xeaee1f86… (10:00:35 UTC): new wstETH/USDC market 0x7e585a93 cap 200M USDC, new cbBTC/USDC market 0xbc99de6a cap 1,000M USDC, new WBTC/USDC market 0x09dc9e7e cap 200M USDC; all three added to the withdraw queue. Submitted 8 days earlier (2026-04-27 19:56:35). Collateral types unchanged (BTC/ETH blue chips).",
+   "observable_metrics": {
+    "caps_accepted": 3,
+    "timelock_days_observed": 7.6
+   },
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 90.5,
+    "notes": "Cap acceptance on blue-chip collateral markets; no change to existing allocations at the moment of the tx."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": "From Morpho API adminEvents (setCap/setWithdrawQueue) and the tx hash; cap values in USDC base units / 1e6."
+  },
+  {
+   "id": "CTL02-004",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-05T10:44:36Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "post_created_at",
+   "source_type": "governance",
+   "source_url": "https://forum.morpho.org/t/weeth-collateral-prime-onboarding-proposal/2254",
+   "via_url": null,
+   "author": "Steakhouse (forum.morpho.org)",
+   "verbatim_text": "Steakhouse proposes onboarding weETH as eligible collateral for Steakhouse Prime Morpho vaults across ETH and USD lending markets. The proposal follows a full protocol review benchmarked against our internal Prime risk framework. EtherFi has delivered the governance changes required to meet the Prime threshold. As a reminder, we also suggest Steakhouse USDC (Vault V1) users to migrate to Steakhouse USDC Prime Instant (v2) via the migration tool available on our app or on the Morpho frontend.",
+   "is_paraphrase": false,
+   "is_secondhand": false,
+   "replay_text": "Steakhouse proposes onboarding weETH as eligible collateral for Steakhouse Prime Morpho vaults across ETH and USD lending markets. The proposal follows a full protocol review benchmarked against our internal Prime risk framework. EtherFi has delivered the governance changes required to meet the Prime threshold. As a reminder, we also suggest Steakhouse USDC (Vault V1) users to migrate to Steakhouse USDC Prime Instant (v2) via the migration tool available on our app or on the Morpho frontend.",
+   "observable_metrics": {},
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 90.5,
+    "notes": "Routine governance post. The V1-to-V2 migration reminder is a product migration, not a risk warning."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": "Discourse JSON created_at. Possible false-alarm trigger: the post asks V1 depositors to migrate; a judge should not read this as an exit signal. Topic has one post."
+  },
+  {
+   "id": "CTL02-005",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-05T12:00:00Z",
+   "timestamp_precision": "hour",
+   "timestamp_basis": "inferred",
+   "source_type": "onchain",
+   "source_url": "https://api.morpho.org/graphql",
+   "via_url": null,
+   "author": "Morpho API (historicalState, HOUR)",
+   "verbatim_text": "wstETH/USDC (0xb323495f) utilization 91.78%, liquidity 3.7M USDC — the highest hourly reading of any Steakhouse USDC main market in the 48 h window. WBTC/USDC 90.65%, cbBTC/USDC 90.73%, WETH/USDC 90.65%.",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor 12:00 UTC: wstETH/USDC (Steakhouse USDC market 0xb323495f) utilization 91.78% (was 90.45% at 08:00), liquidity 3.7M USDC. WBTC/USDC 90.65%, cbBTC/USDC 90.73%, WETH/USDC 90.65%. Steakhouse USDC totalAssets 127.78M, share price 1.125139.",
+   "observable_metrics": {
+    "util_wsteth_usdc_pct": 91.78,
+    "util_wbtc_usdc_pct": 90.65,
+    "util_cbbtc_usdc_pct": 90.73,
+    "util_weth_usdc_pct": 90.65,
+    "vault_total_assets_usdc": 127780000
+   },
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 91.8,
+    "notes": "Window maximum for this market; still well below 99%."
+   },
+   "signal_role": "noise",
+   "confidence": "high",
+   "notes": "Window min/max hourly utilization 2026-05-05..06: WBTC 88.59–91.21%, cbBTC 88.62–91.13%, wstETH 88.94–91.78%, WETH 88.37–91.02%."
+  },
+  {
+   "id": "CTL02-006",
+   "venue": "Ekubo (unrelated DEX)",
+   "timestamp_utc": "2026-05-05T20:02:42Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "tweet_snowflake_id",
+   "source_type": "official_x",
+   "source_url": "https://x.com/EkuboProtocol/status/2051754481465856038",
+   "via_url": "https://forklog.com/en/?p=96848",
+   "author": "@EkuboProtocol (Ekubo DEX)",
+   "verbatim_text": "There is an active security incident on Ekubo swap router contract on EVM chains only. Liquidity providers are not affected. Starknet is not affected.  We are investigating the scope of the issue, but to be safe revoke all outstanding approvals: https://t.co/9vHDLVjQWP",
+   "is_paraphrase": false,
+   "is_secondhand": false,
+   "replay_text": "There is an active security incident on Ekubo swap router contract on EVM chains only. Liquidity providers are not affected. Starknet is not affected.  We are investigating the scope of the issue, but to be safe revoke all outstanding approvals: https://t.co/9vHDLVjQWP",
+   "observable_metrics": {},
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": null,
+    "notes": "Unrelated protocol; Steakhouse USDC has no Ekubo exposure."
+   },
+   "signal_role": "noise",
+   "confidence": "high",
+   "notes": "Text from cdn.syndication.twimg.com; status ID found in the ForkLog article. Minor alert: an exploit elsewhere in DeFi on the same chain."
+  },
+  {
+   "id": "CTL02-007",
+   "venue": "Ekubo (unrelated DEX)",
+   "timestamp_utc": "2026-05-05T20:15:51Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "tweet_snowflake_id",
+   "source_type": "security_alert",
+   "source_url": "https://x.com/blockaid_/status/2051757787714118125",
+   "via_url": "https://forklog.com/en/?p=96848",
+   "author": "@blockaid_ (Blockaid)",
+   "verbatim_text": "🚨Blockaid's exploit detection system has identified an on-going exploit on an  @EkuboProtocol custom extension contract on Ethereum.   $1.4M drained so far.  Ekubo users are not at risk. Only users who have approved this specific v2 contract as a spender (any token) are at",
+   "is_paraphrase": false,
+   "is_secondhand": false,
+   "replay_text": "🚨Blockaid's exploit detection system has identified an on-going exploit on an  @EkuboProtocol custom extension contract on Ethereum.   $1.4M drained so far.  Ekubo users are not at risk. Only users who have approved this specific v2 contract as a spender (any token) are at",
+   "observable_metrics": {},
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": null,
+    "notes": "Unrelated; the vault holds no Ekubo LP or approvals."
+   },
+   "signal_role": "noise",
+   "confidence": "high",
+   "notes": "Syndication text is cut at about 280 characters (long post). DeFiLlama hacks feed lists Ekubo 2026-05-05, $1.4M, 'Token Approval Abuse'. Minor alert for the false-alarm test."
+  },
+  {
+   "id": "CTL02-008",
+   "venue": "general crypto news",
+   "timestamp_utc": "2026-05-05T21:00:00Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "article_published_meta",
+   "source_type": "news",
+   "source_url": "https://www.theblock.co/post/400110/ledger-hyperliquid-perps-trading-hardware-wallets-yield-xyz",
+   "via_url": null,
+   "author": "The Block",
+   "verbatim_text": "Ledger has tapped Yield.xyz as it begins to roll out perps trading within its wallet ecosystem, providing users access to",
+   "is_paraphrase": false,
+   "is_secondhand": false,
+   "replay_text": "Ledger has tapped Yield.xyz as it begins to roll out perps trading within its wallet ecosystem, providing users access to",
+   "observable_metrics": {},
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": null,
+    "notes": "Unrelated industry news."
+   },
+   "signal_role": "routine",
+   "confidence": "medium",
+   "notes": "datePublished 2026-05-05T17:00:00-04:00 read via WebFetch (curl blocked). Only the first ~120 characters of the lead sentence captured; headline: 'Ledger integrates Hyperliquid perps trading in its hardware wallets via Yield.xyz'."
+  },
+  {
+   "id": "CTL02-009",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-06T00:00:00Z",
+   "timestamp_precision": "hour",
+   "timestamp_basis": "inferred",
+   "source_type": "onchain",
+   "source_url": "https://api.morpho.org/graphql",
+   "via_url": null,
+   "author": "Morpho API (historicalState, HOUR)",
+   "verbatim_text": "Steakhouse USDC totalAssets 124.08M USDC at 00:00 (136.14M at 2026-05-05 18:00; net outflow about 12M in 6 h). cbBTC/USDC utilization 91.13% (window high for that market), liquidity 24.1M. Share price 1.125195, rising smoothly.",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor 2026-05-06 00:00 UTC: Steakhouse USDC totalAssets 124.08M USDC (136.14M at 18:00 the day before; -8.9% in 6 h), share price 1.125195 (no drop). cbBTC/USDC utilization 91.13%, liquidity 24.1M; WBTC/USDC 90.51%, 15.0M; wstETH/USDC 90.95%; WETH/USDC 90.92%.",
+   "observable_metrics": {
+    "vault_total_assets_usdc": 124080000,
+    "vault_total_assets_6h_change_pct": -8.9,
+    "share_price": 1.125195,
+    "util_cbbtc_usdc_pct": 91.13
+   },
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 91.1,
+    "notes": "Large deposit/withdraw swings (124–136M) are normal for this vault in the window; liquidity remained ample."
+   },
+   "signal_role": "noise",
+   "confidence": "high",
+   "notes": "Minor alert candidate: a ~9% totalAssets drop in 6 h. Over the window totalAssets ranged 124.1–136.1M and was 132.0M at 2026-05-07 00:00."
+  },
+  {
+   "id": "CTL02-010",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-06T05:13:47Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "tx_block_time",
+   "source_type": "onchain",
+   "source_url": "https://etherscan.io/tx/0x46f0e1fda7759b05fc3530ebe26eb369c416ed64dade5fed2a0d92a595bd5d65",
+   "via_url": null,
+   "author": "Steakhouse Financial (allocator)",
+   "verbatim_text": "setWithdrawQueue then setSupplyQueue (05:13:59, tx 0x6f95abb8…): queues reordered to [cbBTC, WBTC, wstETH, WETH, wstETH(new), WBTC(new), cbBTC(new), idle]. No market removed.",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor: Steakhouse USDC withdraw queue reordered (tx 0x46f0e1fd…, 05:13:47 UTC) and supply queue set (tx 0x6f95abb8…, 05:13:59 UTC): cbBTC, WBTC, wstETH, WETH, wstETH-new, WBTC-new, cbBTC-new, idle. No market removed; no cap reduced.",
+   "observable_metrics": {},
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 90.6,
+    "notes": "Queue maintenance; the same allocator reorders queues at about 05:13 UTC on many days."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": "Morpho API adminEvents. Similar queue updates at ~05:13 UTC appear on 2026-04-23, 04-24, 05-13, 05-14 and later dates (daily automation pattern)."
+  },
+  {
+   "id": "CTL02-011",
+   "venue": "Ekubo (unrelated DEX)",
+   "timestamp_utc": "2026-05-06T08:10:51Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "article_published_meta",
+   "source_type": "news",
+   "source_url": "https://forklog.com/en/?p=96848",
+   "via_url": null,
+   "author": "ForkLog",
+   "verbatim_text": "A hacker targeted a token exchange contract on EVM networks of the DeFi protocol Ekubo, as reported by the project team.",
+   "is_paraphrase": false,
+   "is_secondhand": false,
+   "replay_text": "A hacker targeted a token exchange contract on EVM networks of the DeFi protocol Ekubo, as reported by the project team.",
+   "observable_metrics": {},
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": null,
+    "notes": "Unrelated."
+   },
+   "signal_role": "noise",
+   "confidence": "high",
+   "notes": "article:published_time 2026-05-06T11:10:51+03:00. Headline: 'Hacker Exploits $1.4 Million Vulnerability in Ekubo Contract'."
+  },
+  {
+   "id": "CTL02-012",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-06T14:51:35Z",
+   "timestamp_precision": "second",
+   "timestamp_basis": "tx_block_time",
+   "source_type": "onchain",
+   "source_url": "https://etherscan.io/tx/0x20044575561f1945b5ac87b9252c17abb469150e4583031033427fce73c67318",
+   "via_url": null,
+   "author": "Steakhouse Financial (curator)",
+   "verbatim_text": "submitCap: weETH/USDC market 0x34377fc4… cap 20,000,000 USDC (pending timelock; accepted 2026-05-19 06:01:35 UTC).",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor: Steakhouse USDC submitted a pending cap of 20M USDC for a weETH/USDC market (0x34377fc4…) in tx 0x20044575… (14:51:35 UTC). Takes effect only after the vault timelock. Follows the forum proposal posted 2026-05-05 10:44 UTC.",
+   "observable_metrics": {},
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 90.5,
+    "notes": "New collateral type proposed under timelock; depositors have the timelock period to exit if they object."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": "Acceptance observed in API on 2026-05-19 06:01:35 (outside window)."
+  },
+  {
+   "id": "CTL02-013",
+   "venue": "market prices",
+   "timestamp_utc": "2026-05-06T23:00:00Z",
+   "timestamp_precision": "hour",
+   "timestamp_basis": "inferred",
+   "source_type": "onchain",
+   "source_url": "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=3600&start=2026-05-05T00:00:00Z&end=2026-05-07T00:00:00Z",
+   "via_url": null,
+   "author": "Coinbase Exchange hourly candles",
+   "verbatim_text": "BTC-USD 2026-05-05 00:00 to 2026-05-07 00:00: open 79,852, close 81,014, low 79,790, high 82,814 (range 3.8%). ETH-USD: open 2,347, close 2,329, low 2,329, high 2,424 (range 4.0%).",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Market monitor (48 h): BTC-USD open 79,852, high 82,814, low 79,790, last 81,014 (range 3.8%). ETH-USD open 2,347, high 2,424, low 2,329, last 2,329 (range 4.0%). Morpho oracles track these feeds; no collateral price gap.",
+   "observable_metrics": {
+    "btc_range_pct": 3.79,
+    "eth_range_pct": 4.05,
+    "btc_close": 81014.23,
+    "eth_close": 2329.46
+   },
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": null,
+    "notes": "Collateral prices normal; borrowers far from mass liquidation."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": "Summary of 49 hourly candles; timestamp set to the last full hour of the window."
+  },
+  {
+   "id": "CTL02-014",
+   "venue": "Morpho Steakhouse USDC vault (Ethereum, 0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB)",
+   "timestamp_utc": "2026-05-07T00:00:00Z",
+   "timestamp_precision": "hour",
+   "timestamp_basis": "inferred",
+   "source_type": "onchain",
+   "source_url": "https://api.morpho.org/graphql",
+   "via_url": null,
+   "author": "Morpho API (historicalState, HOUR)",
+   "verbatim_text": "Steakhouse USDC totalAssets 132.02M USDC, share price 1.125302 (+0.019% over 48 h). Hourly utilization over the window stayed between 88.4% and 91.8% in all four main markets.",
+   "is_paraphrase": true,
+   "is_secondhand": false,
+   "replay_text": "Chain monitor 2026-05-07 00:00 UTC: Steakhouse USDC totalAssets 132.02M USDC, share price 1.125302 (+0.019% vs 48 h ago, no drop). Positions: WBTC/USDC 86.0M, cbBTC/USDC 39.2M, WETH/USDC 3.1M, wstETH/USDC 3.5M, new markets 0.3M. All main markets 88–92% utilized.",
+   "observable_metrics": {
+    "vault_total_assets_usdc": 132020000,
+    "share_price": 1.125302,
+    "share_price_48h_change_pct": 0.019
+   },
+   "holder_state": {
+    "can_withdraw_supply": "yes",
+    "can_repay_and_withdraw_collateral": "yes",
+    "utilization_pct": 90.0,
+    "notes": "Fully liquid; nothing unusual."
+   },
+   "signal_role": "routine",
+   "confidence": "high",
+   "notes": ""
+  }
+ ],
+ "data_gaps": [
+  "No X post from Steakhouse or Morpho in the window was found; the Morpho forum is the only first-party text source.",
+  "Steakhouse USDC reallocations were read from on-chain logs; the Morpho API adminEvents list for this vault cannot page back to May 2026 (skip limit 10,000).",
+  "No CoinDesk or The Block article about Morpho itself was found in the window; general news items are used instead.",
+  "The Block publish time was read through WebFetch because curl was blocked; the lead sentence is truncated."
+ ],
+ "source_quality": "All vault and market numbers come from the Morpho GraphQL API (hourly) and on-chain logs and tx hashes, with high confidence. The forum post has an exact Discourse created_at. The Ekubo and Blockaid posts have exact snowflake times and syndication text (Blockaid's text is cut at about 280 characters). News times come from page metadata."
+}

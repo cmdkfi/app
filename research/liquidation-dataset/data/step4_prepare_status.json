@@ -1,0 +1,14 @@
+{
+  "input_hours": 11123057,
+  "within_cohort_episode_hours": 1664390,
+  "missing_state_excluded": 0,
+  "unknown_label_excluded": 702,
+  "training_horizon_crossing_excluded": 0,
+  "infinite_feature_excluded": 0,
+  "retained_hours": 1663688,
+  "rows_with_native_nan_features": 199880,
+  "started_at": 1793122699.361484,
+  "finished_at": 1793122723.9798882,
+  "elapsed_s": 24.618404150009155,
+  "protocol_sha256": "0086528608f1d957a073f7b2fc0726c4b0922d459a668b4581f6cffee4e7131d"
+}

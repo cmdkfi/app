@@ -1,0 +1,35 @@
+retrieval batch 0 rows 46816
+retrieval batch 10 rows 522383
+retrieval batch 20 rows 991112
+retrieval batch 30 rows 1468263
+retrieval batch 40 rows 1946605
+retrieval batch 50 rows 2423542
+retrieval batch 60 rows 2888915
+retrieval batch 70 rows 3364466
+retrieval batch 80 rows 3739636
+retrieval batch 90 rows 4111890
+retrieval batch 100 rows 4494326
+retrieval batch 110 rows 4968008
+{
+  "input_hours": 11123057,
+  "excluded_reconstruction_hours": 8568,
+  "screen_hours": 4983502,
+  "missing_state_screen_hours": 62838,
+  "unknown_label_hours": 86856,
+  "feature_incomplete_hours": 79953,
+  "binance_fallback_hours": 54039,
+  "episode_binance_fallback_hours": 11464,
+  "small_cohort_hours": 253913,
+  "staleness_unknown_hours": 54039,
+  "positive_24h": 422144,
+  "negative_24h": 4474502,
+  "index_eligible_hours": 4879553,
+  "positions": 20876,
+  "excluded_failed_cases": 13,
+  "excluded_failed_positions": 13,
+  "scaler_training_rows": 1587760,
+  "elapsed_s": 148.6798529624939,
+  "started_at": 1793094578.1575282,
+  "finished_at": 1793094726.8373818,
+  "bytes": 452051970
+}

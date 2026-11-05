@@ -1,0 +1,15 @@
+{
+  "screen_freshness_seconds": 1800,
+  "corroboration": "two supporting visible cited items with different source fields OR one fresh fired screen",
+  "retraction": "same-source retraction cancels that source text support, never a screen",
+  "training_pool": "scaler_train_row and outcome_matures_ts <= replay timestamp",
+  "scaling": "original frozen scaler for 2026; earlier mature-only scaler for 2025",
+  "missing": "omit absent features; no imputation or filling from older chain items",
+  "prompt": "unchanged baseline prompt, deep8k request body, thinking every step",
+  "budget_usd": 1.5,
+  "baseline_reusable_for_step3": true,
+  "decision_rule": "keep only if lead improves or control false alarms fall without worsening the other; useful exits must not fall",
+  "lead_rule": "paired per-incident first-exit leads: no later or lost exit, at least one earlier (or fewer control alarms with nonworse leads)",
+  "control_rule": "both exit and exit-or-high counts must not worsen",
+  "scoring": "raw primary per brief; agreement and historical comparisons reported separately"
+}

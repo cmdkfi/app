@@ -1,0 +1,27 @@
+{
+  "examples": 5,
+  "neighbors": 15,
+  "elapsed_s": 2.31453800201416,
+  "queries": [
+    [
+      "cbBTC stress hour",
+      403770
+    ],
+    [
+      "Base WETH dust position",
+      3602807
+    ],
+    [
+      "Ethereum WETH small cohort",
+      4738837
+    ],
+    [
+      "Ethereum wstETH cohort",
+      4846793
+    ],
+    [
+      "Binance-fallback episode",
+      1084723
+    ]
+  ]
+}

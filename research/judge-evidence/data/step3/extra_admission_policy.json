@@ -1,0 +1,5 @@
+{
+  "at": "2026-10-28T21:15:13.035903+00:00",
+  "criterion": "After all first-phase repeats return, admit the third eligible model only if committed spend plus its frozen pair forecast plus retry margin stays within $6; no quality metrics used.",
+  "retry_margin_usd": 0.25
+}

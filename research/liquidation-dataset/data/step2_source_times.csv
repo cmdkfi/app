@@ -1,0 +1,14 @@
+command,seconds
+step2_case_plan,69.075
+step2_continuation,150.277
+step2_features,14.369
+step2_market_history,18.839
+step2_minute_prices,254.517
+step2_replay_baseline,95.176
+step2_replay_holdout,74.025
+step2_replay_oracles,2.509
+step2_replay_parity,14.252
+step2_replay_select,17.771
+step2_replay_train,89.189
+step2_selected_results,2.506
+step2_tables,16.277

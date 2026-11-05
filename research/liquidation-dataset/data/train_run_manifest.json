@@ -1,0 +1,1311 @@
+{
+  "cpp_sha256": "ad7ed02c1b478f4bac59d820469242589ccc8f33586e037e505028bd90be01c1",
+  "policies": [
+    {
+      "name": "G65-45-10-5-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-10-5-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-10-10-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-10-10-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-10-20-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-10-20-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-20-5-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-20-5-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-20-10-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-20-10-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-20-20-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-20-20-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-30-5-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-30-5-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-30-10-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-30-10-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-45-30-20-60",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-45-30-20-300",
+      "act": 0.65,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-10-5-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-10-5-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-10-10-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-10-10-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-10-20-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-10-20-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-20-5-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-20-5-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-20-10-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-20-10-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-20-20-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-20-20-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-30-5-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-30-5-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-30-10-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-30-10-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-50-30-20-60",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-50-30-20-300",
+      "act": 0.65,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-10-5-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-10-5-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-10-10-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-10-10-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-10-20-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-10-20-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-20-5-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-20-5-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-20-10-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-20-10-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-20-20-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-20-20-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-30-5-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-30-5-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-30-10-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-30-10-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G65-55-30-20-60",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G65-55-30-20-300",
+      "act": 0.65,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-10-5-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-10-5-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-10-10-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-10-10-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-10-20-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-10-20-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-20-5-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-20-5-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-20-10-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-20-10-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-20-20-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-20-20-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-30-5-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-30-5-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-30-10-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-30-10-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-45-30-20-60",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-45-30-20-300",
+      "act": 0.7,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-10-5-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-10-5-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-10-10-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-10-10-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-10-20-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-10-20-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-20-5-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-20-5-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-20-10-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-20-10-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-20-20-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-20-20-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-30-5-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-30-5-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-30-10-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-30-10-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-50-30-20-60",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-50-30-20-300",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-10-5-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-10-5-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-10-10-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-10-10-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-10-20-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-10-20-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-20-5-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-20-5-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-20-10-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-20-10-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-20-20-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-20-20-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-30-5-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-30-5-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-30-10-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-30-10-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G70-55-30-20-60",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G70-55-30-20-300",
+      "act": 0.7,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-10-5-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-10-5-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-10-10-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-10-10-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-10-20-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-10-20-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-20-5-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-20-5-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-20-10-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-20-10-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-20-20-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-20-20-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-30-5-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-30-5-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-30-10-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-30-10-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-45-30-20-60",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-45-30-20-300",
+      "act": 0.75,
+      "target": 0.45,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-10-5-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-10-5-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-10-10-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-10-10-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-10-20-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-10-20-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-20-5-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-20-5-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-20-10-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-20-10-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-20-20-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-20-20-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-30-5-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-30-5-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-30-10-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-30-10-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-50-30-20-60",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-50-30-20-300",
+      "act": 0.75,
+      "target": 0.5,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-10-5-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-10-5-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-10-10-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-10-10-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-10-20-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-10-20-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.1,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-20-5-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-20-5-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-20-10-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-20-10-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-20-20-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-20-20-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.2,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-30-5-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-30-5-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.05,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-30-10-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-30-10-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.1,
+      "cooldown": 300
+    },
+    {
+      "name": "G75-55-30-20-60",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 60
+    },
+    {
+      "name": "G75-55-30-20-300",
+      "act": 0.75,
+      "target": 0.55,
+      "budget": 0.3,
+      "slice": 0.2,
+      "cooldown": 300
+    },
+    {
+      "name": "DEFAULT",
+      "act": 0.7,
+      "target": 0.5,
+      "budget": 0.2,
+      "slice": 0.25,
+      "cooldown": 120
+    }
+  ],
+  "case_ids_sha256": "e4883dc27008fbedef2f86cc9a0f8f88ab06f9ca01fa4e76d73ec6790ac13ae0",
+  "episode_definition": "three days either side, literal corridor, start APR held constant, endpoint error <=1 percent"
+}

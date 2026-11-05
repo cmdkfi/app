@@ -1,0 +1,1481 @@
+{
+  "at": "2026-10-28T21:05:34.801741+00:00",
+  "catalog_sha256": "7ee44efcb4fd505487efa1ba328a40f7cc1872480e0e493ed0f66e201c531d34",
+  "models": [
+    {
+      "model": "anthropic/claude-fable-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 10.0,
+        "output_per_million": 50.0
+      },
+      "folder": "runs/step3_discovery/86c0c8bf10aa4a0d",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.099726+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-fable-5-1",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 10.0,
+        "output_per_million": 50.0
+      },
+      "folder": "runs/step3_discovery/98ee7005cf45b532",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.100746+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-haiku-4-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 1.0,
+        "output_per_million": 5.0
+      },
+      "folder": "runs/step3_discovery/b4c00151065cd075",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.100085+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-haiku-5-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 0.1,
+        "output_per_million": 0.5
+      },
+      "folder": "runs/step3_discovery/016da3c7828e329e",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.100240+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-opus-4-6",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 5.0,
+        "output_per_million": 25.0
+      },
+      "folder": "runs/step3_discovery/82f48fe438d49194",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.100702+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-opus-4-7",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 5.0,
+        "output_per_million": 25.0
+      },
+      "folder": "runs/step3_discovery/792c5a494af94e38",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.100605+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-opus-4-8",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 5.0,
+        "output_per_million": 25.0
+      },
+      "folder": "runs/step3_discovery/cccbc1ce3042d216",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:24.453807+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-opus-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 5.0,
+        "output_per_million": 25.0
+      },
+      "folder": "runs/step3_discovery/568e0eb3a95b5113",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.450658+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-opus-5-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 4.0,
+        "output_per_million": 20.0
+      },
+      "folder": "runs/step3_discovery/cfe0652e9d685783",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.460489+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-sonnet-4-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 3.0,
+        "output_per_million": 15.0
+      },
+      "folder": "runs/step3_discovery/a2c3875497ad1594",
+      "features": [
+        "tools",
+        "structured_outputs"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.460855+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-sonnet-4-6",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 3.0,
+        "output_per_million": 15.0
+      },
+      "folder": "runs/step3_discovery/fec21a94f39632a4",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.460932+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/2cd37409a483435a",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.470991+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "anthropic/claude-sonnet-5-5",
+      "owned_by": "anthropic",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/d123610543e5f5ed",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.766025+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "black-forest-labs/FLUX.2-klein-4B",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 1.0,
+        "output_per_million": 1.0
+      },
+      "folder": "runs/step3_discovery/de63e2d3f0ade1b5",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:24.768900+00:00",
+      "suitable_text_replay": false,
+      "eligible": false,
+      "reason": "not a text chat model with 8000-token output capacity"
+    },
+    {
+      "model": "deepseek/deepseek-v3.2",
+      "owned_by": "attested 3p",
+      "rates": {
+        "input_per_million": 1.1,
+        "output_per_million": 1.1
+      },
+      "folder": "runs/step3_discovery/6c5884768b2bcd27",
+      "features": [
+        "tools",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.769816+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "owned_by": "deepseek",
+      "rates": {
+        "input_per_million": 0.3,
+        "output_per_million": 1.2
+      },
+      "folder": "runs/step3_discovery/99183a5b3b302b0d",
+      "features": [
+        "tools",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.773518+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "owned_by": "deepseek",
+      "rates": {
+        "input_per_million": 0.3,
+        "output_per_million": 1.2
+      },
+      "folder": "runs/step3_discovery/caf1ef1f3bdf5452",
+      "features": [
+        "tools",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.773969+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "google/gemini-2.5-flash",
+      "owned_by": "google",
+      "rates": {
+        "input_per_million": 0.3,
+        "output_per_million": 2.5
+      },
+      "folder": "runs/step3_discovery/cd62f9d5ea30935d",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.773322+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "google/gemini-2.5-flash-lite",
+      "owned_by": "google",
+      "rates": {
+        "input_per_million": 0.1,
+        "output_per_million": 0.4
+      },
+      "folder": "runs/step3_discovery/aa393677798a6e79",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:24.780086+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "google/gemini-2.5-pro",
+      "owned_by": "google",
+      "rates": {
+        "input_per_million": 1.25,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/962e7b87ec69a9e3",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.074827+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "owned_by": "google",
+      "rates": {
+        "input_per_million": 0.25,
+        "output_per_million": 1.5
+      },
+      "folder": "runs/step3_discovery/97279ba6f4f35431",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.075136+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "owned_by": "google",
+      "rates": {
+        "input_per_million": 1.5,
+        "output_per_million": 9.0
+      },
+      "folder": "runs/step3_discovery/8d99798a7e24690c",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.075289+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "google/gemini-3.8-flash",
+      "owned_by": "google",
+      "rates": {
+        "input_per_million": 0.75,
+        "output_per_million": 3.75
+      },
+      "folder": "runs/step3_discovery/422e5ba87859dd55",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:25.081640+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "levanto/sage-1.4",
+      "owned_by": "levanto",
+      "rates": {
+        "input_per_million": 0.07,
+        "output_per_million": 2.0
+      },
+      "folder": "runs/step3_discovery/098147dab2749090",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:25.087329+00:00",
+      "suitable_text_replay": false,
+      "eligible": false,
+      "reason": "not a text chat model with 8000-token output capacity"
+    },
+    {
+      "model": "moonshotai/kimi-k2.6",
+      "owned_by": "attested 3p",
+      "rates": {
+        "input_per_million": 0.81,
+        "output_per_million": 3.85
+      },
+      "folder": "runs/step3_discovery/4a476e7ee2c72a9b",
+      "features": [
+        "tools",
+        "structured_outputs"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.087444+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "moonshotai/kimi-k3",
+      "owned_by": "attested 3p",
+      "rates": {
+        "input_per_million": 3.3000000000000003,
+        "output_per_million": 16.5
+      },
+      "folder": "runs/step3_discovery/9e460c49820cbe4e",
+      "features": [
+        "tools",
+        "json_mode",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.089485+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "moonshotai/kimi-k3.1-pro",
+      "owned_by": "moonshotai",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/66c1aae520b7679a",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:25.373864+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-4.1",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 8.0
+      },
+      "folder": "runs/step3_discovery/c8893463e7ced420",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.388354+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-4.1-mini",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 0.4,
+        "output_per_million": 1.6
+      },
+      "folder": "runs/step3_discovery/ebd5240e5f207506",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.391030+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 1.25,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/3ada7776822f837f",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.394320+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.1",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 1.25,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/934715f8cd07600c",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.397387+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.2",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 1.75,
+        "output_per_million": 14.0
+      },
+      "folder": "runs/step3_discovery/6132e68d7f0a0599",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.399429+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.4",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 2.5,
+        "output_per_million": 15.0
+      },
+      "folder": "runs/step3_discovery/da5f158f5abee1de",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.661218+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.4-mini",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 0.75,
+        "output_per_million": 4.5
+      },
+      "folder": "runs/step3_discovery/deed65be08ae504b",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.697188+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 0.2,
+        "output_per_million": 1.25
+      },
+      "folder": "runs/step3_discovery/4b54152491039958",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.702951+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.5",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 5.0,
+        "output_per_million": 30.0
+      },
+      "folder": "runs/step3_discovery/9a8f4a62b182ff64",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.707400+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.6-luna",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 0.2,
+        "output_per_million": 1.2
+      },
+      "folder": "runs/step3_discovery/65a8fc1dec61133f",
+      "features": [
+        "tools",
+        "json_mode",
+        "structured_outputs",
+        "logprobs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.709805+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5.6-sol",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 4.0,
+        "output_per_million": 20.0
+      },
+      "folder": "runs/step3_discovery/0510680735d3c79a",
+      "features": [
+        "tools",
+        "json_mode",
+        "structured_outputs",
+        "logprobs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.728150+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5-mini",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 0.25,
+        "output_per_million": 2.0
+      },
+      "folder": "runs/step3_discovery/020751dc92eb7ffd",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.945045+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-5-nano",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 0.05,
+        "output_per_million": 0.4
+      },
+      "folder": "runs/step3_discovery/6c69beeb53ebc183",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.984026+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-6.1-sol",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/0f7beea535abe0d6",
+      "features": [
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.986925+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-6-astra",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 10.0,
+        "output_per_million": 50.0
+      },
+      "folder": "runs/step3_discovery/5553b7ca5f3e748a",
+      "features": [
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.991327+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 0.1,
+        "output_per_million": 0.5
+      },
+      "folder": "runs/step3_discovery/e5d076977e951607",
+      "features": [
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:25.998718+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/gpt-6-sol",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 10.0
+      },
+      "folder": "runs/step3_discovery/3b5ea6fdfa94bc08",
+      "features": [
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.030279+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/o3",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 8.0
+      },
+      "folder": "runs/step3_discovery/f61f191f9b55480b",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.232681+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/o3-mini",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 1.1,
+        "output_per_million": 4.4
+      },
+      "folder": "runs/step3_discovery/5fb87f8a5f00f33b",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.268615+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/o4-mini",
+      "owned_by": "openai",
+      "rates": {
+        "input_per_million": 1.1,
+        "output_per_million": 4.4
+      },
+      "folder": "runs/step3_discovery/4d9331f93efc2208",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.271636+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "openai/privacy-filter",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.01,
+        "output_per_million": 0.0
+      },
+      "folder": "runs/step3_discovery/592e91e4c864c5ca",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:26.275517+00:00",
+      "suitable_text_replay": false,
+      "eligible": false,
+      "reason": "not a text chat model with 8000-token output capacity"
+    },
+    {
+      "model": "openai/whisper-large-v3",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.01,
+        "output_per_million": 0.01
+      },
+      "folder": "runs/step3_discovery/5e95ce6ec98d8539",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:26.275642+00:00",
+      "suitable_text_replay": false,
+      "eligible": false,
+      "reason": "not a text chat model with 8000-token output capacity"
+    },
+    {
+      "model": "qwen/qwen3.5-397b-a17b",
+      "owned_by": "attested 3p",
+      "rates": {
+        "input_per_million": 0.5,
+        "output_per_million": 3.3000000000000003
+      },
+      "folder": "runs/step3_discovery/f421d02b292a0110",
+      "features": [
+        "tools",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.275733+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "Qwen/Qwen3.6-35B-A3B-FP8",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.17,
+        "output_per_million": 1.1
+      },
+      "folder": "runs/step3_discovery/302f9ec5dc799cce",
+      "features": [
+        "tools",
+        "json_mode",
+        "structured_outputs",
+        "logprobs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.278869+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 200,
+      "attestation": {
+        "candidates": [
+          {
+            "signing_address": "0xfdbd7952498b333206f360d71d97a1e0961e8ddf",
+            "signing_algo": "ecdsa",
+            "quote_version": 4,
+            "quote_bytes": 5006,
+            "nonce_echo": true,
+            "quote_nonce": true,
+            "address_bound": true,
+            "debug_bit": 0,
+            "passes": true
+          }
+        ],
+        "passes": true
+      },
+      "usage": {
+        "prompt_tokens": 15,
+        "total_tokens": 79,
+        "completion_tokens": 64,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 65,
+        "completion_tokens_details": {
+          "reasoning_tokens": 65
+        }
+      },
+      "latency_s": 2.212999458075501,
+      "finish_reason": "length",
+      "req_sha256": "7a823e62ac4288214f290e090d4e40634915c23cedb00f3db9a1d0e8f47bf93e",
+      "resp_sha256": "955385c60a9f3e408a9fd1e1cac10005f0ebed9ba0c61b4aa079f0236a11ad74",
+      "signature": {
+        "kind": "provider_tee",
+        "text_match": true,
+        "matching_preflight_reports": 1,
+        "eip191_verified": false,
+        "signing_address": "0xfdbd7952498b333206f360d71d97a1e0961e8ddf",
+        "passed": false
+      },
+      "eligible": false,
+      "reason": "no verified provider_tee signature bound to preflight"
+    },
+    {
+      "model": "qwen/qwen3.7-max",
+      "owned_by": "qwen",
+      "rates": {
+        "input_per_million": 2.8000000000000003,
+        "output_per_million": 7.5
+      },
+      "folder": "runs/step3_discovery/8f40c485247b74fc",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.347628+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "Qwen/Qwen3.8-27B",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.04,
+        "output_per_million": 1.35
+      },
+      "folder": "runs/step3_discovery/cd680c8d5b395e74",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.538063+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 200,
+      "attestation": {
+        "candidates": [
+          {
+            "signing_address": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+            "signing_algo": "ecdsa",
+            "quote_version": 4,
+            "quote_bytes": 5006,
+            "nonce_echo": true,
+            "quote_nonce": true,
+            "address_bound": true,
+            "debug_bit": 0,
+            "passes": true
+          }
+        ],
+        "passes": true
+      },
+      "usage": {
+        "prompt_tokens": 57,
+        "total_tokens": 85,
+        "completion_tokens": 28,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 25,
+        "completion_tokens_details": {
+          "reasoning_tokens": 25
+        }
+      },
+      "latency_s": 1.4766450829338282,
+      "finish_reason": "stop",
+      "req_sha256": "f59c7c167b7ec6b918037dfafdf9fa6c50de98667a1a6316d2bdd23f161cfc18",
+      "resp_sha256": "c9e9c028ac316a9a85f253161f93ee0fb5111de8f344f4dff56a2e94001cb3de",
+      "signature": {
+        "kind": "provider_tee",
+        "text_match": true,
+        "matching_preflight_reports": 1,
+        "eip191_verified": false,
+        "signing_address": "0x835ab53d20294ef795906dff21ae4c045336aa26",
+        "passed": false
+      },
+      "eligible": false,
+      "reason": "no verified provider_tee signature bound to preflight"
+    },
+    {
+      "model": "Qwen/Qwen3-Embedding-0.6B",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.01,
+        "output_per_million": 0.01
+      },
+      "folder": "runs/step3_discovery/caa978c0b35471f1",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:26.552971+00:00",
+      "suitable_text_replay": false,
+      "eligible": false,
+      "reason": "not a text chat model with 8000-token output capacity"
+    },
+    {
+      "model": "Qwen/Qwen3-Reranker-0.6B",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.01,
+        "output_per_million": 0.01
+      },
+      "folder": "runs/step3_discovery/b848663c50f907ef",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:26.553057+00:00",
+      "suitable_text_replay": false,
+      "eligible": false,
+      "reason": "not a text chat model with 8000-token output capacity"
+    },
+    {
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.15,
+        "output_per_million": 0.55
+      },
+      "folder": "runs/step3_discovery/ed879cf821a00117",
+      "features": [
+        "structured_outputs",
+        "logprobs"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.553137+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 200,
+      "attestation": {
+        "candidates": [
+          {
+            "signing_address": "0x2665cce942fa427ef30d87f4b0bff67fb7645462",
+            "signing_algo": "ecdsa",
+            "quote_version": 4,
+            "quote_bytes": 5006,
+            "nonce_echo": true,
+            "quote_nonce": true,
+            "address_bound": true,
+            "debug_bit": 0,
+            "passes": true
+          }
+        ],
+        "passes": true
+      },
+      "usage": {
+        "prompt_tokens": 13,
+        "total_tokens": 15,
+        "completion_tokens": 2
+      },
+      "latency_s": 1.0956505000358447,
+      "finish_reason": "stop",
+      "req_sha256": "eb61690facc192ade71c3f9b3d1a982bf4404023397f96c73c3e115dad0e23ae",
+      "resp_sha256": "5014ec21558d0f34bd23e0ad47f25adabd259410c637e8ff3d9f3a36de0418e5",
+      "signature": {
+        "kind": "provider_tee",
+        "text_match": true,
+        "matching_preflight_reports": 1,
+        "eip191_verified": false,
+        "signing_address": "0x2665cce942fa427ef30d87f4b0bff67fb7645462",
+        "passed": false
+      },
+      "eligible": false,
+      "reason": "no verified provider_tee signature bound to preflight"
+    },
+    {
+      "model": "typesafe/jev-1.13",
+      "owned_by": "typesafe",
+      "rates": {
+        "input_per_million": 0.042,
+        "output_per_million": 0.0
+      },
+      "folder": "runs/step3_discovery/b0fe36aded90d454",
+      "features": [],
+      "checked_utc": "2026-10-28T21:05:26.560778+00:00",
+      "suitable_text_replay": false,
+      "eligible": false,
+      "reason": "not a text chat model with 8000-token output capacity"
+    },
+    {
+      "model": "x-ai/grok-4.6",
+      "owned_by": "x-ai",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 6.0
+      },
+      "folder": "runs/step3_discovery/1bb208f033c7ce0f",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning",
+        "logprobs"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.560862+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "x-ai/grok-4.7",
+      "owned_by": "x-ai",
+      "rates": {
+        "input_per_million": 2.0,
+        "output_per_million": 6.0
+      },
+      "folder": "runs/step3_discovery/5d9fc1a7243d6881",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "json_mode",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.565018+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "z-ai/glm-5.3",
+      "owned_by": "attested 3p",
+      "rates": {
+        "input_per_million": 1.8,
+        "output_per_million": 5.75
+      },
+      "folder": "runs/step3_discovery/0691ed45b103d0df",
+      "features": [
+        "tools",
+        "reasoning"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.634635+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 503,
+      "attestation": {
+        "candidates": [],
+        "passes": false
+      },
+      "eligible": false,
+      "reason": "no usable nonce/address-bound NEAR model attestation"
+    },
+    {
+      "model": "z-ai/glm-5.3-flash",
+      "owned_by": "nearai",
+      "rates": {
+        "input_per_million": 0.08,
+        "output_per_million": 0.5
+      },
+      "folder": "runs/step3_discovery/26f56e65693b0c6f",
+      "features": [
+        "tools",
+        "structured_outputs",
+        "reasoning",
+        "json_mode"
+      ],
+      "checked_utc": "2026-10-28T21:05:26.883201+00:00",
+      "suitable_text_replay": true,
+      "attestation_http": 200,
+      "attestation": {
+        "candidates": [
+          {
+            "signing_address": "0x3b753b4406613c5e70ae640508632b600424fa0c",
+            "signing_algo": "ecdsa",
+            "quote_version": 4,
+            "quote_bytes": 5010,
+            "nonce_echo": true,
+            "quote_nonce": true,
+            "address_bound": true,
+            "debug_bit": 0,
+            "passes": true
+          }
+        ],
+        "passes": true
+      },
+      "usage": {
+        "prompt_tokens": 17,
+        "total_tokens": 49,
+        "completion_tokens": 32,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 30,
+        "completion_tokens_details": {
+          "reasoning_tokens": 30
+        }
+      },
+      "latency_s": 2.1506122080609202,
+      "finish_reason": "stop",
+      "req_sha256": "73cba5e163de22e9bf719c9476d1672b01ad07bb7429ebe2eb1fdd9a86e349d7",
+      "resp_sha256": "64f73128f99ef6dc416ea0a695ea330fa80c8f2d1b865d160aeac315661837d4",
+      "signature": {
+        "kind": "provider_tee",
+        "text_match": true,
+        "matching_preflight_reports": 1,
+        "eip191_verified": false,
+        "signing_address": "0x3b753b4406613c5e70ae640508632b600424fa0c",
+        "passed": false
+      },
+      "eligible": false,
+      "reason": "no verified provider_tee signature bound to preflight"
+    }
+  ],
+  "scope": "attestation availability, nonce/address binding and response EIP-191 signature; no DCAP or GPU trust-chain verification"
+}

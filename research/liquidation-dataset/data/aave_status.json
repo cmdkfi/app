@@ -1,0 +1,1 @@
+{"source":"aave","started_at":1793042568.5333529,"status":"failed","pid":99000,"error":"Two public endpoints failed: https://rpc.mevblocker.io: HTTP Error 429: Too Many Requests; https://rpc.flashbots.net: {'jsonrpc': '2.0', 'error': {'code': 4444, 'message': 'pruned history unavailable'}, 'id': 1}","finished_at":1793042579.88688,"elapsed_s":11.353527069091797}

@@ -1,0 +1,11 @@
+{
+  "all_passed": true,
+  "hours_checked": 1663688,
+  "observed_labels_recomputed": 1663688,
+  "serialized_model_predictions_checked": 1001,
+  "primary_ranking_rows": 853968,
+  "bootstrap_draws_expanded": 5,
+  "bootstrap_replicates": 2000,
+  "size_headlines_reconciled": 12,
+  "elapsed_s": 9.195369958877563
+}

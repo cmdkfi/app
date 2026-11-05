@@ -1,0 +1,12 @@
+{
+  "source": "step2_tables",
+  "status": "complete",
+  "started_at": 1793092857.654596,
+  "finished_at": 1793092873.931477,
+  "elapsed_s": 16.27688193321228,
+  "result": {
+    "headline_rows": 4,
+    "per_asset_rows": 8,
+    "unsaved_case_policy_rows": 2254
+  }
+}

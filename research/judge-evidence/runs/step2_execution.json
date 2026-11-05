@@ -1,0 +1,22 @@
+{
+  "sessions": [
+    {
+      "started_utc": "2026-10-28T09:51:49.056969+00:00",
+      "parallel": 24,
+      "scheduled": 582,
+      "attempt": 1,
+      "transport": "curl HTTP/2, secret via stdin config",
+      "timeout_s": 1200,
+      "max_tries": 3,
+      "authorization": "User: Step 2, contemporaneous clean baseline plus retrieval, cap $1.50",
+      "resumed_from_returned_calls": 0,
+      "finished_utc": "2026-10-28T10:20:06.611121+00:00",
+      "elapsed_s": 1697.55391220795,
+      "stopped": false,
+      "returned_this_session": 582,
+      "request_errors": 3,
+      "terminal_failures": [],
+      "budget_exhausted": false
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "model": "z-ai/glm-5.3-flash",
+  "mode": "deep8k",
+  "prompt_sha256": "00da2e295c64fb9615255acd2d2952559f82a846d3f0c8812931c97ac84d74ad",
+  "tasks_sha256": "b5d70eefec019fbb84ccb9b0c2579dad79cf374263fbcd4b3a256884b5a22b62",
+  "calls_sha256": "71fa5d2e15865fbec459a0bb9496db2d1a128fe045428b38dfa9443859230457",
+  "policy_sha256": "9231ea6730ccf6b7292619881aa65932c9846a1f91207a242aebc2c0741e1797",
+  "steps": 291,
+  "complete": true,
+  "instruction": "Reuse these measured clean J2 responses for Step 3; no baseline inference needed."
+}

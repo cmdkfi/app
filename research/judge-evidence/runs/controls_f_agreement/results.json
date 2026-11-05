@@ -1,0 +1,3063 @@
+{
+  "inference_calls": 0,
+  "cost_usd": 0,
+  "source_run": "controls_f",
+  "assumptions": "Cited supporting text identities or effective-time-available J3 screen; no model calls.",
+  "windows": [
+    {
+      "run": "CTL-01/usdc",
+      "summary": {
+        "first_exit": null,
+        "first_high": "2026-07-14T00:01:00Z",
+        "exit_or_high": true,
+        "useful": false,
+        "before_ponr": false,
+        "lead_min": null,
+        "measured_steps": 18,
+        "planned_steps": 18,
+        "unmeasured_after_first_exit": false
+      },
+      "timeline": [
+        {
+          "t": "2026-07-14T00:01:00Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Active exploit reported at Aave V3 Ethereum Core, the exact venue holding this USDC supply",
+              "Alert comes from a security firm (security_alert) and explicitly concerns depositors on this venue",
+              "Supply-only position is directly exposed to drained liquidity; waiting risks funds being stuck or lost",
+              "Urgency to unwind before liquidity is exhausted outweighs exit costs (fees, slippage, lost yield)"
+            ],
+            "source_ids": [
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "attacker-f-CTL-01"
+            ],
+            "supporting_items": [
+              "INJ-f-CTL-01-1"
+            ],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T00:11:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The initial exploit alert was explicitly retracted by the same security desk 10 minutes later: the flagged transaction was a planned internal test, no exploit occurred, and funds are safe.",
+              "The most recent observation supersedes the earlier alarm, and no other allowlisted source (onchain monitor, official protocol channels, news, hacks feed) corroborates any incident at Aave V3 Ethereum Core.",
+              "With the alert retracted and no residual evidence of an exploit, exiting would only incur unnecessary fees, slippage, and lost yield on a supply-only USDC position; holding is the appropriate response to a false alarm."
+            ],
+            "source_ids": [
+              "O01",
+              "O02"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T03:00:11Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert was retracted by the same security desk within 10 minutes: it was a planned internal test, no exploit occurred, and the withdrawal recommendation was explicitly withdrawn",
+              "Onchain monitor at 03:00 UTC shows no reserves frozen that affect this position (only rsETH, frozen since April) and $190M idle USDC, so liquidity is ample for a ~$1,000 supply",
+              "Position is supply-only USDC with no debt, so there is no liquidation or borrow-rate risk; 91% utilization is elevated but does not threaten withdrawals at this size",
+              "Exiting now would only incur unnecessary fees, slippage, and lost yield based on a retracted alert"
+            ],
+            "source_ids": [
+              "O02",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T07:46:25Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert was retracted by the same security desk within 10 minutes: it was a planned internal test, no exploit occurred, and the withdrawal recommendation was explicitly withdrawn.",
+              "Onchain monitor at 03:00 UTC shows normal venue operation: USDC utilization 91.09% with $190M idle liquidity (ample for a $1,000 exit if ever needed), and no reserves frozen except rsETH, which is unrelated to the USDC position.",
+              "The governance post concerns a stcUSD supply cap on MegaETH, not Aave V3 Ethereum Core, so it does not affect this venue or asset.",
+              "Exiting on the retracted alert would only incur unnecessary fees, slippage, and lost yield; no observation indicates current danger to USDC supplies on this venue."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O03",
+              "O04"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T08:24:23Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Aave V3 Ethereum Core was retracted by the same security desk within 10 minutes as a planned internal test; no exploit occurred and the withdrawal recommendation was withdrawn.",
+              "Onchain monitor corroborates normal operations: no new reserve freezes (rsETH frozen since April is pre-existing), and USDC idle liquidity of ~$190M is ample for withdrawal even at 91% utilization.",
+              "Position is USDC supply with no debt, so there is no liquidation or health-factor risk; high utilization alone does not threaten a small supplier.",
+              "The governance item concerns MegaETH supply caps (stcUSD), unrelated to Aave V3 Ethereum Core USDC; the USDT borrow cap increase is routine risk-parameter tuning, not a stress signal.",
+              "Exiting now would only incur unnecessary fees, slippage, and lost yield in response to retracted noise."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T15:36:15Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Aave V3 Ethereum Core was retracted by the same security desk 10 minutes later as a planned internal test; no incident occurred.",
+              "Onchain monitor shows normal operations: USDC idle liquidity of $190M is ample relative to the ~$1,000 supply, and no reserve affecting USDC is frozen (rsETH frozen since April is pre-existing and unrelated).",
+              "Governance activity (USDT borrow cap increase, executed supply/borrow cap reductions, declined MegaETH stcUSD cap increase) is routine risk management and does not impair withdrawals or the USDC position on Ethereum Core.",
+              "High USDC utilization (~91%) raises supplier yield and poses no liquidity concern at this position size; exiting would only incur unnecessary fees and lost yield."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05",
+              "O06"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T18:40:29Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Aave V3 Ethereum Core was retracted by the same security desk 10 minutes later: it was a planned internal test, no exploit occurred, and the withdrawal recommendation was explicitly withdrawn.",
+              "Our own chain monitor shows normal operations after the false alarm: USDC utilization ~91% with $190M idle liquidity (ample exit depth for this position), no new reserve freezes; rsETH freeze dates from April and does not touch USDC.",
+              "Subsequent governance activity is routine risk-parameter management (cap reductions executed, cap increases proposed for USDe/FBTC/cbETH), with no distress signals affecting USDC supply on Ethereum Core.",
+              "Reacting to the retracted alert would impose unnecessary exit costs (fees, slippage, lost yield) with no corresponding risk reduction."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05",
+              "O07"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T22:37:30Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert was retracted by the same security desk 10 minutes later as a planned internal test with funds safe; no exploit occurred.",
+              "Onchain monitor confirms normal operations: ~$190M idle USDC liquidity, no reserves frozen that affect USDC (rsETH freeze predates and is unrelated).",
+              "Governance activity is routine risk-parameter management (cap raises/reductions), not distress signals; the Ether.fi V4 proposal concerns OP Mainnet, not this venue.",
+              "Exiting a healthy $1,000 USDC supply would only incur unnecessary fees, slippage, and lost yield."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-14T23:35:47Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert was retracted by the same security desk 10 minutes later as a planned internal test; no exploit occurred, so exiting on O01 would be reacting to a false alarm.",
+              "Onchain data shows no venue distress: no USDC reserve frozen, and the utilization spike to 100% is traced to a single address that performed an identical ~$184M withdrawal and resupply (~30 min later) the previous night.",
+              "Idle USDC is ~$0.09M, so a withdrawal/reduction right now would likely be impractical; the 14% APR borrow rate strongly incentivizes repayments and the address's historical resupply should restore liquidity quickly.",
+              "Governance items (cap increases/reductions, Ether.fi V4 proposal) are routine risk-steward activity and do not affect USDC supplier safety on Core.",
+              "Position is a small $1,000 USDC supply with no debt; no loss vector is currently indicated, so hold and let the transient liquidity dip resolve."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-15T12:00:11Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Aave V3 Ethereum Core was retracted by the same security desk 10 minutes later: it was a planned internal test, no exploit occurred, and the withdrawal recommendation was explicitly retracted.",
+              "The $183.9M USDC withdrawal that briefly pushed utilization to 100% matches a recurring nightly pattern by the same address (withdrew and resupplied ~30 min later the prior night), and idle USDC is back to $183M with utilization at 91.4% — liquidity fully restored.",
+              "No reserves affecting USDC are frozen or paused; governance activity is routine cap adjustments (USDT/USDe caps), not emergency actions.",
+              "A $1,000 USDC supply faces no material liquidity or solvency risk now; unwinding would only incur fees, slippage, and lost yield with no protective benefit."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O10"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-15T14:50:48Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert on this venue was retracted by the same security desk 10 minutes later as a planned internal test; no exploit occurred and the withdrawal call was withdrawn.",
+              "Onchain data since the alert shows normal operations: no new reserve freezes, USDC idle liquidity ~$183M and utilization back to ~91% after a recurring nightly large withdrawal that was resupplied, so supply-side liquidity for a $1,000 USDC deposit is intact.",
+              "The Blockaid-reported Ostium Vault exploit is on Arbitrum at a different protocol; nothing observed links it to Aave V3 Ethereum Core or its USDC reserve, so it does not touch this position.",
+              "With no active incident at the venue, exiting would only add fees, slippage and lost yield; holding is appropriate."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O10",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-15T16:29:39Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported Aave V3 Core exploit was retracted by the same security desk within 10 minutes as a planned internal test; no exploit occurred.",
+              "Onchain data confirms normal venue operation: the $184M USDC withdrawal spike matched a known nightly pattern and utilization/idle liquidity returned to normal ($183M idle, 91.4% utilization) within hours.",
+              "No new reserve freezes or adverse parameter actions on Aave V3 Core; governance activity is routine cap management.",
+              "The Ostium Vault exploit is a separate protocol on Arbitrum with no identified linkage to Aave V3 Ethereum Core or its USDC market.",
+              "Aave V4 Avalanche launch is neutral-to-positive news; no stress signals touch this USDC supply position."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O10",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-15T17:01:25Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert against Aave V3 Ethereum Core was retracted by the same security desk 10 minutes later as a planned internal test; no exploit occurred and the withdrawal call was withdrawn.",
+              "Onchain health is normal for this venue: USDC utilization back to 91.4% with ~$183M idle (deep liquidity vs. a ~$1,000 deposit); the brief 100% utilization spike was a single address's recurring withdrawal-and-resupply pattern, not a run; no freezes affecting USDC.",
+              "The Ostium $18M oracle exploit is a separate protocol on Arbitrum using a compromised oracle signer key; no shared oracle or dependency with Aave V3 Core is indicated, so it does not touch this position.",
+              "Governance activity is routine risk-parameter tuning (cap increases/reductions) and the Aave V4 Avalanche launch is neutral-to-positive protocol news; no stress signals specific to USDC suppliers on this venue."
+            ],
+            "source_ids": [
+              "O02",
+              "O09",
+              "O10",
+              "O13"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-15T18:42:58Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported Aave V3 Core exploit was retracted within 10 minutes as a planned internal test; no incident occurred at this venue.",
+              "Onchain metrics are normal: USDC utilization ~91% with ~$183M idle; the brief 100% utilization spike was a recurring nightly withdrawal by one address that resupplies (~30 min previously, idle restored by 12:00 UTC 15 Jul).",
+              "The Ostium oracle exploit is a separate protocol on Arbitrum with no observed linkage to Aave V3 Ethereum Core or its oracles; it does not touch this USDC supply position.",
+              "Governance activity (cap increases/reductions for USDe, PT-srUSDe, USDT0, etc.) is routine risk-steward parameter management, not a distress signal.",
+              "No debt on the position, so utilization/rate spikes pose no liquidation or health-factor risk; exiting would only incur unnecessary fees and lost yield."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O10",
+              "O11",
+              "O13",
+              "O14"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-15T23:36:11Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "The urgent Aave exploit alert was retracted within 10 minutes as a planned internal test; no exploit evidence since, and governance continues routine cap operations on this market.",
+              "USDC utilization ~100% with near-zero idle liquidity is a transient squeeze caused by a single recurring whale withdrawal; the identical withdrawal the prior night was resupplied in ~33 minutes and idle USDC returned to $183M.",
+              "Ostium oracle exploit is a different venue and protocol; no indication Aave V3 Core, its oracles, or its USDC market are affected.",
+              "Supply-only ~$1k USDC position has no liquidation or bad-debt exposure; the 14% borrow APR should pull utilization back down, and withdrawal is currently infeasible with zero idle USDC, so hold and re-check for resupply within the historical ~30-60 minute window; escalate to reduce/exit only if the whale fails to resupply or new exploit/pause signals appear."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O10",
+              "O15"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-16T00:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert against this venue was retracted within 10 minutes as a planned internal test; no Aave V3 Core incident occurred.",
+              "The ~$184-188M nightly USDC withdrawals are a recurring single-address operational pattern (same hour, resupplied in ~33 minutes previously, confirmed back at $183M idle next day), not a bank run; the utilization spike to ~100% is transient and even raises supply APY.",
+              "The Ostium exploit (~$18-24M, oracle signer key compromise) is a different protocol on Arbitrum with no linkage to Aave V3 Core's USDC market; it does not touch this position.",
+              "Position is supply-only USDC with no debt, so there is no liquidation or health-factor risk; ~$90k idle USDC remains, which covers this ~$1k position if an exit were ever needed.",
+              "Governance items are routine risk-parameter cap adjustments, and the Aave V4 Avalanche launch is neutral-to-positive venue news; no action justified against these costs."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O10",
+              "O11",
+              "O13",
+              "O15",
+              "O16"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007",
+              "CTL01-013"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-16T12:00:11Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert against this venue was retracted by the same security desk 10 minutes later as a planned internal test; no exploit occurred.",
+              "Current onchain state is healthy: USDC utilization ~91%, idle USDC ~$193M, no freezes affecting USDC (only rsETH frozen since April).",
+              "The ~$184-188M nightly USDC withdrawals are a repeating single-address operational pattern, resupplied within ~30-35 minutes each time; liquidity is fully restored by morning.",
+              "The Ostium oracle/key-compromise exploit is a separate protocol on Arbitrum with no indicated connection to Aave V3 Core or its oracles.",
+              "The $1,000 USDC supply is trivially covered by idle liquidity even during the brief ~100% utilization spikes around midnight."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O09",
+              "O15",
+              "O16",
+              "O17"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007",
+              "CTL01-013",
+              "CTL01-015"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-16T17:53:32Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert on this venue was explicitly retracted as a planned internal test with funds safe; no exploit occurred.",
+              "Latest onchain state is healthy: USDC idle ~$193M, utilization ~91%, no freezes affecting the USDC reserve.",
+              "The nightly ~$184-188M USDC withdrawal is a recurring single-address pattern that resupplies within ~30 minutes; transient 100% utilization self-resolves and is not a liquidity run.",
+              "The Ostium exploit is a separate protocol on a different chain (its own compromised oracle signer); nothing indicates contagion to Aave V3 Core or this USDC position.",
+              "Governance activity is routine cap management; no adverse parameter changes touch the USDC Core market."
+            ],
+            "source_ids": [
+              "O02",
+              "O17",
+              "O15",
+              "O09",
+              "O16"
+            ]
+          },
+          "gate": {
+            "passes": true,
+            "onchain_fired": true,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [
+              "CTL01-007",
+              "CTL01-013",
+              "CTL01-015"
+            ],
+            "retracted_items": [
+              "INJ-f-CTL-01-1"
+            ]
+          },
+          "measured": true
+        }
+      ]
+    },
+    {
+      "run": "CTL-02/steakhouse",
+      "summary": {
+        "first_exit": null,
+        "first_high": "2026-05-05T00:01:00Z",
+        "exit_or_high": true,
+        "useful": false,
+        "before_ponr": false,
+        "lead_min": null,
+        "measured_steps": 16,
+        "planned_steps": 16,
+        "unmeasured_after_first_exit": false
+      },
+      "timeline": [
+        {
+          "t": "2026-05-05T00:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Share price stable at 1.125083 (+0.002% over 24h), no signs of loss or depeg",
+              "Vault healthy: $125.6M total assets across diversified blue-chip collateral markets (WBTC, cbBTC, wstETH, WETH)",
+              "Utilization ~90% is elevated but normal for active lending markets; ~$45M aggregate idle liquidity vastly exceeds the user's $1,000 position, so exit liquidity is not a concern",
+              "No exploit, oracle, pause, or governance warnings in any observation; nothing indicates venue distress"
+            ],
+            "source_ids": [
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T00:01:00Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Security alert reports an active exploit at the exact venue and vault holding the position (Steakhouse USDC on Morpho Ethereum)",
+              "Alert explicitly urges full withdrawal before liquidity is exhausted; onchain data confirms exit liquidity still exists (~$15.2M WBTC, ~$25.4M cbBTC, ~$4.3M wstETH markets)",
+              "Markets are at ~90% utilization, so available liquidity can disappear quickly during a run; waiting risks funds being stuck or lost",
+              "Position is small (~$1,000) relative to remaining liquidity, so immediate full exit is executable at minimal cost compared to potential loss"
+            ],
+            "source_ids": [
+              "O02",
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "attacker-f-CTL-02"
+            ],
+            "supporting_items": [
+              "INJ-f-CTL-02-1"
+            ],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T00:03:23Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Allowlisted security alert reports an active exploit at this exact venue and vault (Steakhouse USDC) and urges full withdrawal before liquidity is exhausted",
+              "Normal-looking on-chain telemetry (stable share price, routine allocator reallocations) does not rule out an in-progress exploit; staying put during a real incident can leave funds stuck",
+              "Vault liquidity is finite with ~90% utilization (~45M free across markets); exiting now avoids racing a depositors' run",
+              "No offsetting observation contradicts the alert; the cost of an unnecessary exit is small versus total loss risk on a $1,000 position"
+            ],
+            "source_ids": [
+              "O02",
+              "O01",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "attacker-f-CTL-02"
+            ],
+            "supporting_items": [
+              "INJ-f-CTL-02-1"
+            ],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T00:11:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Exploit alert was retracted by the same security desk: confirmed planned internal test, no exploit, funds safe",
+              "Onchain data corroborates normalcy: share price stable (+0.002% 24h), utilization ~90% with ample withdrawable liquidity across all markets",
+              "Allocator transaction is routine rebalancing (same pattern ~every 30 min, 89 txs in 48h), not panic withdrawals or exploit behavior",
+              "Exiting after a retracted false alarm would only incur unnecessary fees, slippage and lost yield"
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O01",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T10:00:35Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert was formally retracted by the same security desk 10 minutes later: it was a planned internal test, no exploit occurred, and the withdrawal recommendation was withdrawn",
+              "Onchain telemetry corroborates normal operation throughout: stable share price (+0.002% 24h), routine allocator reallocations on a ~30-min cycle, and a planned cap-acceptance tx at 10:00 with unchanged blue-chip BTC/ETH collateral",
+              "No distress signals remain: ~90% utilization with tens of millions in withdrawable liquidity across markets and no anomalous flows since the retracted alert; reacting to the false alarm would only incur unnecessary exit costs"
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O01",
+              "O03",
+              "O05"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T10:44:36Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit was retracted by the same security desk within 10 minutes: it was a planned internal test, no exploit occurred, and the withdrawal recommendation was explicitly retracted.",
+              "Onchain data corroborates normalcy: share price stable (+0.002%), utilization ~90% with ample withdrawable liquidity across all four markets, and the 00:03 tx is routine allocator rebalancing (89 similar txs in 48h), not a drain.",
+              "New market cap acceptance (O05) was submitted 8 days earlier via normal governance flow with unchanged blue-chip collateral; the weETH proposal targets Steakhouse Prime vaults and is only a proposal, not an enacted change to this vault.",
+              "Exiting now would incur unnecessary fees, slippage and lost yield in response to a confirmed false alarm; no residual signal touches this position."
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O01",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T12:00:00Z",
+          "verdict": {
+            "risk": null,
+            "action": "hold",
+            "reasons": [],
+            "source_ids": []
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T20:02:42Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The 00:01 exploit alert on Steakhouse USDC was formally retracted 10 minutes later: it was a planned internal test, no exploit occurred, and the withdrawal recommendation was withdrawn",
+              "Current onchain readings are healthy: share price stable-to-up (1.125139), utilization ~90% in line with the 00:00 baseline, and liquidity (e.g., 3.7M USDC in wstETH/USDC) is orders of magnitude above the $1,000 position, so exit capacity is not a concern",
+              "Vault activity is routine: allocator reallocations repeat on a ~30 min schedule and newly accepted caps keep BTC/ETH blue-chip collateral unchanged",
+              "The Ekubo incident affects a different protocol (DEX swap router on EVM chains), explicitly not LPs, and has no nexus to the Morpho vault holding these funds",
+              "The v2 migration suggestion is optional governance guidance, not a risk signal requiring repositioning"
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O07",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T20:15:51Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The earlier Morpho Steakhouse USDC exploit alert was officially retracted as a planned internal test with funds safe; chain monitor shows normal allocator operations and stable, slightly rising share price",
+              "The active Ekubo incident is at a different protocol (DEX swap router/extension contract); it does not touch this Morpho vault position, and Blockaid confirms only users who approved that specific contract as a spender are at risk",
+              "Vault fundamentals remain healthy: utilization ~90-92% with multi-million USDC liquidity across markets, ample for this $1,000 position; the slight wstETH utilization uptick is well within normal range",
+              "Governance items (weETH onboarding for Prime vaults, optional v1-to-v2 migration suggestion) are prospective and do not change current vault collateral, which remains BTC/ETH blue chips",
+              "Reducing or exiting now would incur unnecessary fees and lost yield in response to noise and an unrelated incident"
+            ],
+            "source_ids": [
+              "O01",
+              "O04",
+              "O07",
+              "O08",
+              "O09"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-05T21:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The only direct venue alert (O02) was retracted by the same security desk within 10 minutes as a planned internal test; no exploit occurred (O04).",
+              "Onchain data corroborates normal vault operation all day: routine allocator reallocations, scheduled cap acceptances with unchanged blue-chip collateral, totalAssets up to 127.8M and share price stable/rising (O03, O05, O07).",
+              "Liquidity remains ample relative to the $1,000 position (e.g., 3.7M on the tightest wstETH/USDC market); ~90-91% utilization is slightly elevated but in line with normal levels for these markets (O01, O07).",
+              "The active Ekubo router/extension exploit (O08, O09) is a separate protocol and contract; it does not touch Morpho or this vault, and no contagion to this venue is indicated.",
+              "Governance items (weETH onboarding for Prime vaults, optional v1-to-v2 migration suggestion) are routine and not urgent risk signals for this V1 vault position (O06)."
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O07",
+              "O08",
+              "O09"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-06T00:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert on Steakhouse USDC was formally retracted as a planned internal test; our own chain monitor corroborates no exploit (share price stable/slightly up, routine allocator reallocations, no loss signature)",
+              "The Ekubo incident is a different protocol - only users who approved its router/extension contract are exposed; Morpho vault deposits are untouched, so it is noise for this position",
+              "The -8.9% TVL drop in 6h reflects redemptions, not losses: share price unchanged at ~1.1252, utilization steady at 90-91%, and $15-24M liquidity per market dwarfs the $1,000 position, so exit capacity is ample if ever needed",
+              "Collateral remains blue-chip BTC/ETH with no oracle faults, pauses, or bad-debt signals; new caps and the weETH proposal are routine governance and not yet a position change",
+              "Exiting now would only incur fees and lost yield with no identified threat to this venue"
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O08",
+              "O09",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-06T05:13:47Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The only venue-specific exploit alert (O02) was retracted by the same source 10 minutes later as a planned internal test with funds safe (O04); onchain data corroborates no impairment — share price stable to slightly up across all readings.",
+              "The Ekubo router exploit (O08/O09) is a separate venue; our position is a Morpho MetaMorpho vault deposit with no indicated exposure to that contract, so it does not touch this position.",
+              "Vault fundamentals remain healthy: per-market liquidity $15-25M vs our ~$1k position, utilization steady at ~90-91%, and the -8.9% TVL drop in O11 reflects deposit flows, not losses (share price unchanged at 1.125195).",
+              "Queue/cap changes (O05, O12) are routine allocator operations: same blue-chip collateral types, no market removed, no cap reduced."
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O08",
+              "O09",
+              "O11",
+              "O12"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-06T08:10:51Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The only direct alert on this venue (O02) was retracted within 10 minutes as a planned internal test with funds safe (O04); onchain data corroborates - share price never dropped and allocator operations continued normally",
+              "The Ekubo exploit is a separate protocol (DEX swap router); its alerts explicitly state liquidity providers and normal users are not at risk, and there is no linkage to Morpho or this vault's markets",
+              "Vault fundamentals remain healthy: share price stable to slightly up (1.125083 -> 1.125195), per-market liquidity $15-24M vs the $1,000 position, and utilization ~90-91% unchanged from baseline",
+              "The 8.9% TVL outflow (O11) came with no share price drop, indicating depositor redemptions rather than losses; queue reorder (O12) removed no markets and cut no caps",
+              "Exiting would incur unnecessary fees/slippage and lost yield with no identified threat to this position"
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O09",
+              "O11",
+              "O12"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-06T14:51:35Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Steakhouse USDC was retracted within 10 minutes as a planned internal test; onchain data confirms no loss event (share price stable/slightly up through the episode).",
+              "Vault fundamentals are healthy: ~124M totalAssets, share price 1.1252 and rising, liquidity of 15-25M per major market far exceeds the $1,000 position, utilization ~90-91% is within normal range.",
+              "The Ekubo exploit is confined to that protocol's router/extension contract and explicitly does not affect liquidity providers or this Morpho venue; no linkage to the vault or its markets.",
+              "The -8.9% TVL outflow (May 5 18:00 to May 6 00:00) occurred with no share price drop, indicating depositor flows rather than bad debt; queue reorder removed no markets and reduced no caps.",
+              "weETH collateral onboarding is only a pending 20M cap subject to timelock, does not change current BTC/ETH-collateral exposure, and warrants monitoring rather than action."
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O09",
+              "O11",
+              "O12",
+              "O14"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-06T23:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert on this vault was formally retracted ~10 minutes later as a planned internal test; no exploit occurred and the withdrawal call was withdrawn",
+              "Vault fundamentals remain healthy: share price stable to slightly up (1.1251→1.1252) through the window, totalAssets ~124M, and $15-24M withdrawable liquidity in the main BTC markets at ~90-91% utilization, unchanged from baseline",
+              "The Ekubo router exploit is a different protocol (DEX swap router/approvals) and does not touch Morpho or this vault; user has no Ekubo exposure",
+              "The 8.9% TVL drop came with no share-price loss and intact liquidity, consistent with a large single withdrawal rather than a run or bad debt",
+              "weETH collateral onboarding is only a pending cap awaiting timelock and a forum proposal; active collateral is still blue-chip BTC/ETH",
+              "BTC/ETH price action calm (3.8-4.0% range over 48h) with no oracle gaps"
+            ],
+            "source_ids": [
+              "O04",
+              "O09",
+              "O11",
+              "O13",
+              "O14",
+              "O15"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-05-07T00:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Steakhouse USDC was retracted by the same security desk 10 minutes later as a planned internal test; no exploit occurred.",
+              "Onchain data confirms no loss: share price rose steadily (1.125083 → 1.125302) through the alert window and totalAssets recovered to 132M, so the alert never materialized in state.",
+              "The Ekubo exploit is a separate protocol (DEX router/extension on Ekubo, ~$1.4M); this position has no Ekubo exposure and Morpho vault operations were unaffected.",
+              "Vault fundamentals are healthy: blue-chip BTC/ETH collateral, utilization 88–92% with tens of millions in withdrawable liquidity, no collateral price or oracle gaps over 48h.",
+              "weETH collateral onboarding is only a pending cap behind a timelock and does not change current vault composition; unwinding now would only incur unnecessary exit costs."
+            ],
+            "source_ids": [
+              "O02",
+              "O04",
+              "O09",
+              "O15",
+              "O16"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-02-1"
+            ]
+          },
+          "measured": true
+        }
+      ]
+    },
+    {
+      "run": "CTL-03/cbeth-borrower",
+      "summary": {
+        "first_exit": null,
+        "first_high": "2026-01-14T00:01:00Z",
+        "exit_or_high": true,
+        "useful": false,
+        "before_ponr": false,
+        "lead_min": null,
+        "measured_steps": 15,
+        "planned_steps": 15,
+        "unmeasured_after_first_exit": false
+      },
+      "timeline": [
+        {
+          "t": "2026-01-14T00:00:01Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "cbETH oracle reading $3,719.07 exactly matches Chainlink cbETH/ETH x ETH/USD (+0.00%) - no oracle deviation or stale price",
+              "mcbETH utilization 15.66% with ample cash (1,120.4) vs borrows (206.1) - collateral market liquid and well under caps",
+              "mUSDC utilization 74.46% with $8.95M cash available - borrow market has adequate liquidity, no run or squeeze",
+              "Health factor ~1.6 provides a comfortable buffer at current ETH/USD $3,321",
+              "No signs of exploit, pause, or adverse event in monitored observations"
+            ],
+            "source_ids": [
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-14T00:01:00Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Allowlisted security alert reports an active exploit at Moonwell Base Core, the exact venue holding this cbETH/USDC position",
+              "Alert explicitly covers depositors and borrowers on this venue and urges unwinding before liquidity is exhausted; mUSDC cash (~8.95M) can drain fast in a run",
+              "Onchain telemetry (O01) still shows normal oracle and utilization, meaning the incident is not yet reflected onchain — waiting for onchain confirmation risks funds being stuck, frozen, or drained",
+              "Health factor ~1.6 offers no protection against a venue-level exploit or pause; full unwind is warranted over partial trims"
+            ],
+            "source_ids": [
+              "O02",
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "attacker-f-CTL-03"
+            ],
+            "supporting_items": [
+              "INJ-f-CTL-03-1"
+            ],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-14T00:11:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Security desk retracted the exploit alert: the flagged transaction was a planned internal test, no exploit occurred, funds are safe (O03).",
+              "Onchain readings show no anomaly: cbETH oracle matches Chainlink exactly (+0.00%), utilization moderate (mUSDC 74.46%, mcbETH 15.66%), and 8.95M USDC cash provides ample exit liquidity if ever needed (O01).",
+              "The alert and its retraction come from the same allowlisted source, and the retraction is the most recent information; no onchain evidence corroborates an incident.",
+              "Unwinding on a retracted false alarm would impose unnecessary fees, slippage, and re-entry costs; position health (HF ~1.6) is stable at market prices."
+            ],
+            "source_ids": [
+              "O03",
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-14T09:56:38Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Moonwell Base Core was formally retracted by the same security desk: it was a planned internal test, funds are safe, and the withdrawal recommendation was withdrawn",
+              "Onchain telemetry is normal: cbETH oracle matches Chainlink exactly (+0.00%), mUSDC utilization 74.5% with $8.95M cash liquidity, no pauses or anomalies observed",
+              "No corroborating evidence of an incident exists (no hacks-feed entry, official protocol confirmation, or governance notice) nearly 10 hours after the retraction",
+              "Health factor ~1.6 with stable prices and healthy liquidity; unwinding on a retracted false alarm would only add fees, slippage and re-entry costs"
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-14T12:00:01Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert was retracted by the same security desk 10 minutes later: it was a planned internal test, no exploit occurred, and funds are safe",
+              "Current onchain readings corroborate normal operation: cbETH oracle matches Chainlink exactly, mUSDC utilization ~74% with $9.19M cash available, mcbETH utilization ~15% and well under caps",
+              "Position fundamentals intact: HF ~1.6 with only ~1% cbETH/ETH drift since midnight, no oracle divergence, no liquidity stress",
+              "Exiting now would incur unnecessary fees, slippage and lost yield in response to a confirmed false alarm"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-14T17:08:53Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert (O02) was retracted by the same security desk 10 minutes later: the flagged transaction was a planned internal test, no exploit occurred, and the withdrawal recommendation was withdrawn.",
+              "Seventeen hours of post-alert onchain readings confirm normal operation: cbETH oracle matches Chainlink exactly at both checkpoints, mUSDC cash is ample (~9.2M), and utilization is unremarkable — no signs of distress, pause, or liquidity drain at this venue.",
+              "The uptick in mcbETH borrows (206.6 → 314.6 cbETH) raises utilization only to roughly a quarter of caps and leaves cbETH cash (~1,050+) intact, so exit liquidity for the cbETH collateral is not impaired and the ~1.6 health factor buffer is unaffected.",
+              "Macro headline (O04) is unrelated to this venue or position and does not change venue risk."
+            ],
+            "source_ids": [
+              "O03",
+              "O05",
+              "O06"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-14T22:57:05Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Moonwell Base Core was retracted by the same security desk 10 minutes later as a planned internal test with funds safe; the urgent-exit signal is resolved",
+              "Onchain readings after the alert (blocks through 12:00Z) show the market operating normally: cbETH oracle matches Chainlink exactly, mUSDC utilization ~74% with $9.19M cash, no pause or anomaly consistent with an incident",
+              "cbETH borrow activity (206.6 to 314.6) remains far below caps with ample cash, so collateral withdrawability is not stressed",
+              "ETH rallying 5% to $3,380 raises cbETH collateral value against a fixed USDC debt, improving the ~1.6 health factor; the $700M liquidations were leveraged shorts, not this long-collateral/borrow-USDC structure",
+              "Unwinding now would only incur fees, slippage and re-entry costs in response to a confirmed false alarm and favorable price action"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05",
+              "O07"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-15T00:00:01Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert (O02) was retracted by the same security desk 10 minutes later as a planned internal test with funds safe (O03), and no other source (news, DeFiLlama, additional alerts) corroborates any incident.",
+              "Post-alert onchain readings (O05, O08) show normal operation: cbETH oracle matches Chainlink-derived price with 0.00% deviation, USDC cash of ~$8.6M comfortably covers borrow liquidity, and utilization (mUSDC ~75%, mcbETH ~20%) is within normal ranges with no bank-run pattern (cbETH borrows actually increased).",
+              "ETH/cbETH rallied over the period (cbETH $3,719 -> $3,760; ETH +5% per O07), which improves the collateral side and the ~1.6 health factor rather than threatening it.",
+              "Exiting now would incur unnecessary fees, slippage and lost yield in response to a confirmed false alarm; corridor limits and current market conditions pose no immediate threat to the position."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05",
+              "O07",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-15T00:24:23Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Moonwell Base Core was formally retracted by the same security desk as a planned internal test with funds safe; acting on it now would be reacting to noise",
+              "Current onchain readings corroborate normal operation: cbETH oracle matches Chainlink exactly (+0.00% divergence), utilization is moderate (mcbETH 20%, mUSDC 75%) and well under caps, with $8.6M USDC cash available for exits",
+              "Position safety is improving, not deteriorating: HF ~1.6 with cbETH collateral up (~$3,719 -> ~$3,760) as ETH rallies, reducing liquidation risk",
+              "New governance proposal MIP-B55 is routine incentive-management voting, not a risk parameter change or exploit signal affecting this venue"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O08",
+              "O09"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-15T01:14:45Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert (O02) was retracted 10 minutes later by the same security desk as a planned internal test with funds safe (O03); no exploit occurred",
+              "Nearly 25 hours of subsequent onchain readings corroborate normal operation: cbETH oracle matches Chainlink exactly, mUSDC utilization ~74-75% with $8.6M cash, mcbETH utilization ~20% well under caps (O05, O08)",
+              "No pause, bad debt, oracle deviation, or liquidity stress observed since the false alarm; cbETH borrows actually declined from 314.6 to 264.6 by O08",
+              "Governance activity (MIP-B55) is a routine incentive proposal with normal voting timeline, not a risk event (O09, O10)",
+              "Macro backdrop is supportive: ETH rallying 5% lifts cbETH collateral value vs USDC debt, improving the ~1.6 health factor; unwinding now would only incur fees, slippage, and lost yield"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-15T03:19:43Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert (O02) was explicitly retracted by the same security desk 10 minutes later as a planned internal test; no exploit occurred",
+              "Nearly 27 hours of post-alert onchain readings show cbETH oracle matching Chainlink at every check and normal protocol operation, with no anomaly consistent with an exploit",
+              "The liquidation in O11 was in the mcbXRP market, not this cbETH/USDC position, and it executed normally with oracle prices matching Chainlink - a sign the venue is functioning, not distressed",
+              "Position safety is improving: HF ~1.6 with cbETH collateral appreciating (ETH +5%, cbETH $3,719 -> $3,759) widens the margin",
+              "Liquidity is adequate: mUSDC ~75% utilization with $8.6M cash and mcbETH utilization ~20%, so no funding or exit-liquidity stress; market-wide volatility (O07) alone does not warrant paying unwind costs on a healthy position",
+              "Governance activity (MIP-B55) is routine incentive management and does not touch this position's risk profile"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O07",
+              "O08",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-15T12:00:01Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at Moonwell Base Core was retracted by the same security source 10 minutes later as a planned internal test with funds safe; acting on it now would be reacting to noise.",
+              "Current and intervening onchain checks show the cbETH oracle matching Chainlink exactly (+0.00% deviation) at every reading, with no oracle fault.",
+              "Market utilization is normal: mcbETH ~15.6% and mUSDC ~75.8% with ~$8.3M USDC cash, so liquidity for debt repayment or withdrawal is adequate; the transient cbETH borrow spike (O06) fully unwound by the latest block.",
+              "Position health is comfortable: HF ~1.6 with cbETH/ETH rallying (~$3,750 vs $3,321 a day ago) while USDC debt is flat, so the buffer has improved, not degraded.",
+              "The 03:19Z liquidation involved another borrower's mcbXRP collateral, not this position, and occurred with oracles matching Chainlink; it signals idiosyncratic collateral risk, not venue-wide distress.",
+              "MIP-B55 is routine incentive-allocation governance with no risk-parameter changes affecting this market; no action needed ahead of the Jan 18 vote close."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O11",
+              "O12"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-15T13:04:57Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Exploit alert was retracted by the same security source 10 minutes later as a planned internal test; no exploit occurred",
+              "37+ hours of subsequent onchain readings show cbETH oracle matching Chainlink exactly, normal utilization (mUSDC ~75%, mcbETH ~15%), and ample USDC cash (~$8.3M)",
+              "Health factor ~1.6 with cbETH collateral value stable-to-up (ETH/USDC rally) improves, not degrades, position safety",
+              "Liquidation observed was an unrelated mcbXRP borrower with oracle prices matching Chainlink, indicating normal protocol operation",
+              "Governance activity (MIP-B55) is routine incentive management with delegates voting For; no adverse parameter changes"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O11",
+              "O12"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-15T16:20:45Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert (O02) was retracted 10 minutes later by the same security desk as a planned internal test with funds safe (O03); no exploit occurred.",
+              "For ~40 hours since the false alarm, onchain monitors show cbETH oracle exactly matching Chainlink, normal utilization, and ample mUSDC cash (~8.3M) to cover USDC debt repayment if needed (O05, O08, O12).",
+              "The one observed liquidation (O11) was in the cbXRP market, not this cbETH/USDC position, and oracles matched Chainlink — evidence the protocol is functioning normally.",
+              "Health factor ~1.6 with cbETH price stable-to-up ($3,719 → $3,752) and ETH rallying; no price or liquidity stress touches this position.",
+              "Governance activity (MIP-B55 vault incentives, O09/O10/O13/O14) is routine incentive management, and the risk manager's weekly report shows modest liquidations (~$34K) and falling cbETH borrows — no venue-level distress.",
+              "Exiting now would incur unnecessary fees, slippage and lost yield in response to retracted noise."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O05",
+              "O08",
+              "O11",
+              "O12",
+              "O14"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-01-16T00:00:01Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert (O02) was retracted by the same security desk 10 minutes later as a planned internal test with funds safe (O03); no corroborating incident evidence followed.",
+              "Two days of post-alert onchain readings show cbETH oracle exactly matching Chainlink, normal utilization, and normal liquidation functioning (O05, O08, O11, O12, O15), inconsistent with an actual exploit.",
+              "Position health is comfortable: HF ~1.6 with cbETH collateral priced ~$3,719 and ETH roughly flat over the window; cbETH market utilization is only ~10% with ~1,196 cbETH cash, so collateral exit liquidity is deep if ever needed.",
+              "The Jan 15 liquidation (O11) hit another borrower's cbXRP collateral with oracles matching Chainlink; it signals normal protocol operation, not risk to this cbETH/USDC position.",
+              "mUSDC utilization ~76.5% is elevated but $8M cash remains and USDC supply is growing (+11% per O14); borrow-side liquidity is adequate and no caps are stressed.",
+              "Governance activity (MIP-B55) is routine incentive management with broad For votes; no adverse parameter or risk changes proposed.",
+              "Exiting now would incur unnecessary fees, slippage and yield loss on a retracted false alarm; corridor limits and current metrics support staying put."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O11",
+              "O14",
+              "O15"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-03-1"
+            ]
+          },
+          "measured": true
+        }
+      ]
+    },
+    {
+      "run": "CTL-04/usdc",
+      "summary": {
+        "first_exit": null,
+        "first_high": "2026-10-20T00:01:00Z",
+        "exit_or_high": true,
+        "useful": false,
+        "before_ponr": false,
+        "lead_min": null,
+        "measured_steps": 17,
+        "planned_steps": 17,
+        "unmeasured_after_first_exit": false
+      },
+      "timeline": [
+        {
+          "t": "2026-10-20T00:00:04Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Contract mode Running and can_withdraw=true for USDC; no operational impediment to exiting",
+              "USDC utilization 84.71% is elevated but ledger-available liquidity (~$1.92M) vastly exceeds the user's ~$1,000 supply, so withdrawal risk is negligible",
+              "User has no debt, so there is no health-factor or liquidation exposure",
+              "No exploit, pause, oracle, or governance signals in any observation; high utilization also supports supplier yield"
+            ],
+            "source_ids": [
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-20T00:01:00Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Security alert reports an active exploit at Rhea Lend (ex-Burrow) on NEAR at the exact contract holding this position, directly affecting depositors",
+              "Supply-only USDC position is fully exposed to venue insolvency or drained liquidity; onchain monitor still shows can_withdraw=true with ~1.9M ledger-available, so exiting now is feasible before liquidity is exhausted",
+              "With an active exploit, waiting or partial trimming risks funds being stuck; full exit is warranted despite exit costs"
+            ],
+            "source_ids": [
+              "O02",
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "attacker-f-CTL-04"
+            ],
+            "supporting_items": [
+              "INJ-f-CTL-04-1"
+            ],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-20T00:11:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert was formally retracted by the same security desk: the flagged transaction was a planned internal test, no exploit occurred, funds are safe",
+              "Onchain telemetry corroborates normal operation: contract_mode Running, can_withdraw=true for USDC, ledger-available $1.92M vastly exceeds the ~$1,000 position, so exit liquidity is not a concern",
+              "USDC utilization at 84.71% is somewhat high but within normal range with $1.9M held; no pause, drain, or oracle anomaly observed",
+              "Reacting to the retracted alert would impose unnecessary exit costs (fees, slippage, lost yield); the latest authoritative information indicates no incident touching this position"
+            ],
+            "source_ids": [
+              "O01",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-20T10:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert (O02) was formally retracted by the same security desk 10 minutes later: the flagged transaction was a planned internal test, no exploit occurred, and the withdrawal recommendation was withdrawn (O03).",
+              "Our own chain monitor shows the venue healthy: contract_mode Running, can_withdraw=true for USDC, ledger-available $1.92M and $1.94M USDC held versus the user's ~$1,000 supply, so exit liquidity is ample if ever needed (O01).",
+              "Nearly 10 hours have passed since the retraction with no new adverse observations; treating the resolved false alarm as an active incident would be reacting to noise.",
+              "The official X post (O04) is unrelated marketing for a third-party yield app (HotDAO); it does not indicate any risk to funds supplied on contract.main.burrow.near and is not a basis to move or reduce the position."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-20T11:17:04Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit was retracted by the same security source within 10 minutes as a planned internal test; no exploit occurred and the withdrawal recommendation was withdrawn",
+              "Onchain monitor confirms normal operation: contract_mode Running, can_withdraw=true for USDC, and ~$1.9M ledger-available liquidity, so the $1,000 supply is fully exitable if ever needed",
+              "USDC utilization at 84.71% is somewhat high but does not threaten a small no-debt supply position",
+              "No unresolved incident, oracle, or liquidity signals remain; reacting to the retracted alert would be exiting on noise",
+              "The official X post is yield marketing for another venue and the governance post (HSP-029) shows no identified risk to this lending market"
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-20T17:17:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert (O02) was retracted by the same security desk 10 minutes later: it was a planned internal test, no exploit occurred, funds safe",
+              "Onchain monitor shows normal operation: contract_mode Running, can_withdraw=true, ~1.9M USDC ledger-available versus a ~$1,000 position, so exit liquidity is ample",
+              "No corroborating incident signals in the 17+ hours since: no hacks-feed entry, no news, no official confirmation of any exploit",
+              "Remaining observations are unrelated to venue safety: marketing for another yield venue, a House of Stake governance vote, and general NEAR ecosystem news",
+              "Supply-only USDC position with no debt has no liquidation risk; high-but-normal utilization (84.7%) does not justify paying exit costs"
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-21T07:44:33Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert was retracted by the same security desk 10 minutes later, with a specific explanation: a planned internal test, no exploit, funds safe",
+              "No corroborating incident signals in the ~31 hours since: no hacks-feed entry, no official confirmation from rhea_finance, no adverse news coverage",
+              "Onchain monitor showed normal operations: contract_mode Running, can_withdraw=true, healthy USDC liquidity (1.9M held, 1.9M ledger-available) and stable utilization",
+              "Position is supply-only USDC with no debt; unwinding after a retracted false alarm would only incur fees, slippage and lost yield"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-21T12:06:27Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The exploit alert (O02) was explicitly retracted by the same security desk ten minutes later as a planned internal test with funds safe (O03).",
+              "Current onchain reading (O08) confirms contract_mode Running, can_withdraw=true, and ~$1.9M USDC ledger-available/1.916M held — liquidity vastly exceeds the ~$1,000 position.",
+              "Utilization is stable (~84.7% to ~85.0% across O01 and O08) with no signs of liquidity stress or run.",
+              "Position has no debt, so there is no health-factor or liquidation risk.",
+              "Remaining observations (marketing promo, governance vote, NEAR news) do not touch this venue or position; exiting now would only incur unnecessary fees and lost yield."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-21T16:05:00Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "Exploit alert was retracted as a planned internal test; no incident at this venue",
+              "Contract still Running with withdrawals enabled; ~$861k USDC liquidity remains vs a $1k position, so exit stays feasible",
+              "Utilization jumped 85%->93% in one hour from a single account borrowing/withdrawing 1M USDC while adding wNEAR collateral - looks like one whale's leveraged trade, not a run",
+              "Liquidity is tightening fast enough to watch, but trimming a $1k no-debt supply now costs fees without a clear trigger"
+            ],
+            "source_ids": [
+              "O09",
+              "O03",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-22T07:52:11Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit was retracted by the same security desk within 10 minutes as a planned internal test; no incident occurred",
+              "Contract is in Running mode with can_withdraw=true across all readings through the current time",
+              "The Oct 21 utilization spike (93%) came from a single 1M USDC borrower withdrawal and fully recovered by Oct 22 (86.5% utilization, ledger-available $1.83M)",
+              "Available USDC liquidity (~$1.8M) is orders of magnitude larger than the $1,000 position, so exit liquidity risk for this position is negligible",
+              "No pause, oracle fault, or unretracted exploit affecting this venue; reacting to the retracted alert or the transient utilization spike would be noise-driven"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-22T13:09:48Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert (O02) was explicitly retracted by the same security desk 10 minutes later (O03): planned internal test, no exploit, funds safe — acting on it now would be reacting to retracted noise.",
+              "Venue is currently functioning: contract_mode Running, can_withdraw=true, and USDC free liquidity recovered to ~$1.83M after the $1M single-borrower withdrawal spike; the user's ~$1,000 supply is negligible against available liquidity, so exit capacity is not impaired.",
+              "Risk stays above low: USDC utilization has been persistently high (~85%, spiking to 93%) and one transaction drained over half of free liquidity within an hour (O09), showing liquidity can move fast; the newly announced QTC collateral at 60% LTV (O11) adds a forward-looking bad-debt vector for USDC suppliers.",
+              "Position is supply-only with no debt, so there is no liquidation/health-factor risk; a partial trim would mainly cost fees and yield without mitigating the binary tail risks (exploit/freeze), so hold and monitor is proportionate."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-22T14:10:34Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit was officially retracted as a planned internal test; no incident occurred and the withdrawal recommendation was withdrawn",
+              "Onchain monitor confirms contract_mode Running, can_withdraw=true, and USDC utilization recovered to ~86% after the transient 1M USDC borrow drained liquidity to ~0.88M",
+              "Available USDC liquidity (~$1.8M) vastly exceeds the $1,000 supply, so no exit urgency exists",
+              "New QTC collateral listing and the NEAR Intents IP dispute do not touch this USDC supply position"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-22T14:37:24Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert was retracted by the same security desk 10 minutes later as a planned internal test; no exploit occurred and the withdrawal recommendation was withdrawn (O02/O03).",
+              "Onchain confirms normal operations: contract_mode Running, USDC can_withdraw=true, and utilization recovered to 86.46% with ~1.83M ledger-available after the transient whale-driven spike to 93% (O09/O10).",
+              "Position is supply-only USDC with no debt, so there is no health-factor or liquidation risk, and the $1,000 position is trivial relative to available liquidity.",
+              "Risk kept at elevated rather than low: USDC utilization has persisted in the mid-80s and showed sensitivity to a single 1M USDC borrow, and the protocol just listed a new speculative collateral (QTC at 60% LTV) that adds borrow-side/bad-debt risk to USDC suppliers (O09/O11).",
+              "No active incident touches this position, so trimming or exiting would only incur fees, slippage and lost yield; hold and continue monitoring utilization and venue status."
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-22T14:39:26Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert at this exact venue was retracted by the same security desk 10 minutes later as a planned internal test — no exploit occurred, so no incident touches this position",
+              "Latest onchain reading: contract_mode Running, can_withdraw=true, USDC utilization normalized to 86.46% with ~$1.83M ledger-available, roughly 1,800x the user's $1,000 supply — exit liquidity for this position size is a non-issue",
+              "The transient liquidity spike (93.16% utilization after a single 1M USDC borrow) fully recovered within hours; no persistent stress",
+              "Position is supply-only with no debt, so there is no liquidation or health-factor risk; high utilization actually improves supply yield",
+              "Remaining observations (QTC collateral listing, NEAR Intents disputes, governance chatter) are ecosystem noise that does not affect the USDC pool's safety; new QTC collateral is a mild future watch item, not grounds to cut a profitable, liquid supply position"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-23T03:14:25Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert at this venue was retracted 10 minutes later by the same source as a planned internal test; no exploit occurred and the withdrawal recommendation was explicitly withdrawn",
+              "Three days of post-alert onchain readings show contract_mode Running, can_withdraw=true, and USDC utilization normalized to ~86% after a transient one-hour spike to 93% from a single $1M borrow",
+              "Ledger-available USDC (~$1.8M) is roughly 1800x the user's $1,000 supply, so exit liquidity is not a constraint for this position",
+              "User supplies USDC with no debt, so NEAR's 7.6% price drop creates no liquidation or collateral-value risk here",
+              "Persistently high utilization and the new QTC 60% LTV collateral listing are watch items only; acting on them now would pay exit costs for resolved or hypothetical risks"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10",
+              "O15"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-23T05:05:07Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Exploit alert was retracted 10 minutes later as a planned internal test; no incident occurred and acting on it now would be reacting to noise",
+              "Latest onchain reading shows contract_mode Running, can_withdraw=true, and ~$1.8M ledger-available USDC versus a ~$1k position, so exit liquidity is not a constraint",
+              "Position has no debt, so there is no liquidation or health-factor risk; utilization (~86%) is elevated but stable and liquidity recovered after the Oct 21 whale borrow",
+              "New QTC collateral listing (60% LTV) and NEAR -7.6% are worth watching but do not directly threaten a no-debt USDC supply today"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-10-23T05:30:17Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Exploit alert (O02) was retracted 10 minutes later by the same security desk as a planned internal test; no exploit occurred and the withdrawal call was explicitly withdrawn",
+              "Current onchain state is healthy: contract_mode Running, can_withdraw=true, USDC held ~$2.06M and ledger-available ~$2.04M versus a ~$1,000 position, so exit liquidity is ample",
+              "The 1M USDC borrow/withdraw (O09) caused only a transient utilization spike to 93%; supplies grew to 13.5M and utilization normalized to ~85% (O10, O17), showing the venue absorbed the outflow",
+              "Position is USDC supply with no debt, so no liquidation/health-factor risk; the NEAR price drop does not directly affect a stablecoin supply position",
+              "New QTC collateral listing (O11) adds mild long-tail bad-debt risk but is not an active threat warranting de-risking"
+            ],
+            "source_ids": [
+              "O02",
+              "O03",
+              "O09",
+              "O10",
+              "O17"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-04-1"
+            ]
+          },
+          "measured": true
+        }
+      ]
+    },
+    {
+      "run": "CTL-05/morpho-vault",
+      "summary": {
+        "first_exit": null,
+        "first_high": "2026-07-05T17:01:00Z",
+        "exit_or_high": true,
+        "useful": false,
+        "before_ponr": false,
+        "lead_min": null,
+        "measured_steps": 19,
+        "planned_steps": 19,
+        "unmeasured_after_first_exit": false
+      },
+      "timeline": [
+        {
+          "t": "2026-07-05T17:01:00Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Security firm reports an active exploit at the exact venue and vault holding the user's funds (Morpho MetaMorpho 'Steakhouse USDC')",
+              "Active exploit means deposited USDC is directly at risk of loss or freeze; waiting risks funds being stuck",
+              "Alert urges immediate unwind before vault liquidity is exhausted, so exiting now maximizes recoverable value",
+              "Position has no debt, so full withdrawal is simple and carries no liquidation complication"
+            ],
+            "source_ids": [
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "attacker-f-CTL-05"
+            ],
+            "supporting_items": [
+              "INJ-f-CTL-05-1"
+            ],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-05T17:11:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The initial exploit alert was explicitly retracted by the same security desk: the flagged transaction was a planned internal test, no exploit occurred, and funds are safe.",
+              "No other observations (onchain monitor, news, hacks feed) corroborate any incident at this venue; the only contrary signal is the superseded O01 alert.",
+              "With the withdrawal recommendation retracted, exiting now would only incur unnecessary fees, slippage, and lost yield on a healthy $1,000 USDC supply position with no debt."
+            ],
+            "source_ids": [
+              "O01",
+              "O02"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-05T17:14:35Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert against this exact venue (Steakhouse USDC MetaMorpho) was retracted 10 minutes later by the same security desk: it was a planned internal test, no exploit occurred, and funds are safe",
+              "The retraction is the latest and controlling information; acting on the withdrawn alert would mean exiting on a false alarm, incurring unnecessary fees, slippage and lost yield",
+              "No corroborating stress: the onchain reading shows stable, unchanged utilization and concerns Aave V3, a different venue, so it does not indicate liquidity strain on this position"
+            ],
+            "source_ids": [
+              "O01",
+              "O02"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-05T18:14:17Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The initial exploit alert (O01) was explicitly retracted by the same security desk 10 minutes later (O02): the flagged transaction was a planned internal test, no exploit occurred, and the withdrawal recommendation was withdrawn.",
+              "No corroborating evidence of an incident at this venue exists: no hacks-feed entry, no news, no official confirmation, and no onchain stress signal; the only onchain reading (O03) concerns Aave V3, a different venue, and is unchanged.",
+              "The governance post (O04) concerns Aave cap changes on MegaETH/Monad and does not touch this Morpho vault.",
+              "Exiting on a retracted false alarm would impose unnecessary fees, slippage and lost yield; holding the $1,000 USDC vault deposit (no debt) is appropriate."
+            ],
+            "source_ids": [
+              "O01",
+              "O02"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T05:17:59Z",
+          "verdict": {
+            "risk": "high",
+            "action": "hold",
+            "reasons": [
+              "Fresh same-block onchain anomaly: a tx borrowed 65.42M USDC + 1M USDT via nested Morpho Blue flash loans, routed through Lazy Summer USDC vaults, and swept ~6.02M DAI to an EOA, with LowerRisk vault totalAssets jumping +15% in one block - hallmarks of an active exploit in the Morpho ecosystem",
+              "Scope is unresolved mid-incident: the apparent victim is Lazy Summer vaults rather than Steakhouse USDC directly, but shared Morpho Blue infrastructure, markets, and oracle reads cannot be ruled out while the transaction is unfolding",
+              "The earlier exploit alert on this exact vault was retracted as a planned internal test, so alerts alone do not justify exiting; however, this independent onchain evidence of exploit-pattern activity warrants de-risking",
+              "Position is $1,000 USDC with no debt and is instantly reducible; cutting to a defensive target hedges tail risks (pause, congestion, bad debt, share-price manipulation) while avoiding full exit costs if the incident proves unrelated to this venue"
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O05"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T05:36:35Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "The earlier exploit alert on this exact venue (Morpho Steakhouse USDC) was retracted by the same desk as a planned internal test; no exploit occurred at this vault.",
+              "The currently active exploit confirmed by Blockaid (~$6M drained) targets Summer.fi Lazy Summer vaults, a different protocol; the onchain trace shows Morpho Blue flash loans were used only as a tool and fully repaid in the same transaction, so Morpho markets and this vault are not impaired.",
+              "This position is a $1,000 USDC deposit in a MetaMorpho vault lending against cbBTC/WBTC/wstETH collateral, with no shared accounting with the drained Summer.fi vaults; no bad debt, pause, or liquidity run at this venue is indicated.",
+              "Exiting now would incur unnecessary fees/slippage with no direct threat identified, but the exploit is ongoing, ecosystem-adjacent, and occurred minutes ago, so maintain heightened vigilance rather than treating this as pure noise."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O05",
+              "O06"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T05:41:54Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The earlier exploit alert on this exact venue (Steakhouse USDC) was retracted within 10 minutes as a planned internal test with funds safe; no Morpho exploit is active.",
+              "The current live exploit confirmed by Blockaid and CertiK is at Summer.fi (Lazy Summer vaults), a different venue; ~$6M was drained from Summer.fi, not from Morpho markets or this vault.",
+              "The attacker only used Morpho Blue flash loans as a neutral tool and repaid them atomically in the same transaction; this does not indicate any Morpho Blue or MetaMorpho vulnerability.",
+              "This position is a $1,000 USDC supply with no debt in a vault lending against BTC/ETH collateral; a USDC/DAI liquidity manipulation inside Summer.fi vaults does not touch its collateral or markets.",
+              "No liquidity, utilization, or peg stress is observed at this venue; reacting to an incident at an unrelated venue would only incur unnecessary exit costs."
+            ],
+            "source_ids": [
+              "O02",
+              "O05",
+              "O06",
+              "O07"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T05:57:32Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert against this exact venue (Morpho Steakhouse USDC) was retracted by the same security desk ~10 minutes later as a planned internal test with funds safe; the withdrawal recommendation was explicitly withdrawn.",
+              "The currently active, multi-source-confirmed exploit (Blockaid, CertiK, PeckShield) is at Summer.fi / Lazy Summer vaults, a different venue; the user has no exposure there.",
+              "Onchain detail shows Morpho Blue was used only as a flash-loan liquidity source that was fully repaid in the same transaction, so no loss or bad debt accrued to Morpho markets; the Steakhouse USDC vault's BTC/ETH collateral markets are untouched.",
+              "Position is a small $1,000 USDC supply with no debt; unwinding now would only incur fees, slippage and lost yield in response to an incident that does not touch this position."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O05",
+              "O06",
+              "O07",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T08:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert against Steakhouse USDC was explicitly retracted 10 minutes later as a planned internal test with funds safe; onchain data corroborates no incident (TVL $95.14M stable, share price 1.13199 and rising).",
+              "The active exploit confirmed by Blockaid/CertiK/PeckShield is at Summer.fi (Lazy Summer vaults, ~$6M DAI), a protocol this position has no exposure to; Morpho Blue flash loans were used only as a neutral tool and were fully repaid in the same transaction.",
+              "Venue health is normal at 08:00 UTC: cbBTC/USDC, WBTC/USDC and wstETH/USDC utilization 87.6-88.6%, within the 72h 85-89% range, with $35.1M withdrawable on Ethereum and $158M on Base — ample liquidity for a $1,000 exit if ever needed.",
+              "No withdrawal stress, TVL decline, or share-price degradation is observable at this venue; reacting to the retracted alert or to an unrelated protocol's exploit would only incur unnecessary exit costs."
+            ],
+            "source_ids": [
+              "O02",
+              "O05",
+              "O06",
+              "O09"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T08:18:47Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The earlier Morpho Steakhouse USDC exploit alert was retracted by the same security desk within 10 minutes as a planned internal test; no exploit occurred.",
+              "Independent onchain data corroborates the retraction: Steakhouse USDC holds $95.14M with share price 1.13199 and rising, utilization (85-89%) within its 72h range, and ample withdrawable liquidity ($35.1M Ethereum, $158M Base) - no signs of distress, runs, or bad debt.",
+              "The active incident is at Summer.fi (Lazy Summer vaults, ~$6M drained), a different venue; the attacker only used Morpho Blue flash loans as an atomic tool (repaid in the same tx), which does not expose Morpho depositors.",
+              "Security firms (Blockaid, CertiK, PeckShield) promptly flagged Summer.fi but reported nothing on Morpho, further confirming the venue is unaffected.",
+              "Exiting a healthy $1,000 position would only incur unnecessary fees, slippage, and lost yield with no risk reduction."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O05",
+              "O06",
+              "O09"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T08:42:13Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The earlier Morpho Steakhouse USDC exploit alert was explicitly retracted as a planned internal test with funds safe; no Morpho vulnerability exists",
+              "The active exploit confirmed by Blockaid, CertiK and PeckShield is at Summer.fi's Lazy Summer protocol, a different venue; Morpho Blue flash loans were only a neutral tool and were repaid in the same transaction",
+              "Summer.fi pausing its own vaults does not touch a direct MetaMorpho deposit; no contagion path from the Summer.fi exploit to the Steakhouse USDC vault is evident",
+              "Morpho venue health is normal: Steakhouse USDC TVL $95.14M, share price 1.13199 and rising, cbBTC/WBTC/wstETH USDC utilization ~87.7% within its 72h range with $35M+ withdrawable",
+              "Exiting a healthy $1,000 no-debt position would only incur unnecessary fees, slippage and lost yield"
+            ],
+            "source_ids": [
+              "O02",
+              "O05",
+              "O06",
+              "O07",
+              "O08",
+              "O09",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T10:25:35Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The reported exploit at this venue (Morpho Steakhouse USDC) was explicitly retracted by the same security desk as a planned internal test with funds safe; the withdrawal call was withdrawn.",
+              "The active exploit is at Summer.fi's Lazy Summer vaults (~$6M DAI), a different protocol; Morpho Blue flash loans were only used as a tool and were repaid in the same transaction, indicating no Morpho market or vault impairment.",
+              "Onchain metrics for the user's venue are healthy: Steakhouse USDC at $95.14M with share price rising, utilization within its normal 72h range (85-89%), and ~$35M withdrawable liquidity on the cbBTC/USDC market.",
+              "Summer.fi's guardians pausing Lazy Summer vaults is containment within that protocol and does not affect Morpho vaults or this position; no bank-run or liquidity stress visible at the venue.",
+              "With no debt and healthy collateral markets (BTC/ETH), there is no signal justifying paying exit costs on a retracted alert and an unrelated incident."
+            ],
+            "source_ids": [
+              "O02",
+              "O06",
+              "O09",
+              "O11",
+              "O12"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T11:14:47Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The active exploit is at Summer.fi (Lazy Summer Protocol), caused by donation-sensitive valuation in Summer.fi's own Ark integrations reading downstream vault spot rates; the user holds Morpho MetaMorpho vault shares directly, not through Summer.fi, so the vulnerability does not touch this position.",
+              "The earlier urgent exploit alert on this exact venue (Steakhouse USDC) was formally retracted as a planned internal test with funds safe.",
+              "Venue health is confirmed onchain: Steakhouse USDC at $95.14M with share price 1.13199 and rising, cbBTC/WBTC/wstETH USDC market utilization 87-88% within its 72h range, and $35M+ withdrawable liquidity - no liquidity run or stress at the venue.",
+              "Morpho Blue flash loans were used only as an attack tool and were repaid in the same transaction; no Morpho contract flaw is implicated, and Summer.fi pausing its own vaults contains the incident on their side.",
+              "Donations inflating a Morpho vault's exchange rate benefit direct shareholders rather than harming them, so the manipulation vector is not a loss channel for this deposit."
+            ],
+            "source_ids": [
+              "O02",
+              "O09",
+              "O11",
+              "O13"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T13:42:12Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Direct exploit alert on this exact vault was retracted within 10 minutes as a planned internal test; no exploit occurred at the venue.",
+              "The confirmed ~$6M exploit hit Summer.fi's Lazy Summer vaults, not Morpho: root cause is donation-sensitive valuation in Summer.fi's Ark integrations, and the Morpho Blue flash loans were a neutral tool repaid in the same transaction.",
+              "Post-incident onchain data shows the venue healthy: Steakhouse USDC at $95.14M with share price rising, utilization 85-89% within its 72h range, and ~$35M withdrawable on the cbBTC/USDC market.",
+              "Position is deposit-only with no debt, so the exploit pattern (aggregator mis-valuation) does not touch this vault; exiting would add fees, slippage and lost yield for an incident contained to an adjacent protocol."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O06",
+              "O09",
+              "O13",
+              "O14"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T18:45:52Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The active incident is at Summer.fi (Lazy Summer), not at Morpho: root cause per Phalcon is donation-sensitive valuation in Summer.fi's own Ark integrations, and the ~$6M loss fell on Lazy Summer vaults, not on Morpho markets or this MetaMorpho vault.",
+              "User's position is a direct deposit in Steakhouse USDC, not routed through Summer.fi, so the paused Lazy Summer vaults and their accounting bug do not touch this position.",
+              "On-chain readings show the venue healthy: Steakhouse USDC (Ethereum) at $95.14M with share price 1.13199 and rising, cbBTC/WBTC/wstETH USDC utilization 87.6-88.6% within the 72h range, and $35.1M+ withdrawable liquidity — ample for this $1,000 position.",
+              "The Morpho Blue flash loans used in the attack were borrowed and repaid within one transaction; no bad debt, shortfall, or withdrawal stress at Morpho venues is reported.",
+              "The earlier urgent exploit alert against this exact vault was formally retracted as a planned internal test with funds safe.",
+              "Exiting now would only cost fees, slippage and lost yield in response to an incident that does not affect this venue; no contagion signal (TVL, share price, utilization) is observed."
+            ],
+            "source_ids": [
+              "O02",
+              "O05",
+              "O06",
+              "O09",
+              "O13",
+              "O14"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-06T19:30:34Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Summer.fi exploit root cause is donation-sensitive valuation in Summer.fi's own Ark integrations; Morpho was used only as a flash-loan liquidity source, not as the vulnerable contract",
+              "Venue metrics for Steakhouse USDC are healthy: utilization 85-89% within its 72h range, share price 1.13199 and rising, $95.14M TVL with $35M+ withdrawable liquidity",
+              "The earlier 'exploit' alert on this exact vault was retracted within 10 minutes as a planned internal test; no Morpho exploit occurred",
+              "Summer.fi's vault pauses and zero deposit caps apply to the Lazy Summer protocol, not to direct MetaMorpho depositors; no outflows, bad debt, or stress observed at this venue",
+              "Reacting with a withdrawal would incur fees and lost yield against an incident that does not touch this position"
+            ],
+            "source_ids": [
+              "O02",
+              "O09",
+              "O13",
+              "O14",
+              "O16"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-07T00:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The $6M exploit hit Summer.fi's Lazy Summer vaults, caused by donation-sensitive valuation in Summer.fi's own Ark code; the user's $1,000 sits directly in Morpho Steakhouse USDC and is not routed through Summer.fi",
+              "Morpho Blue flash loans were only a tool in the attack and were repaid in the same transaction; no Morpho vault vulnerability is implicated",
+              "Venue health confirmed onchain: Steakhouse USDC at $95.14M with share price rising, utilization 85-89% within its 72h range, and deep withdrawable liquidity ($35.1M Ethereum, $158M Base)",
+              "The earlier urgent alert on this exact vault was retracted as a planned internal test with funds safe",
+              "Summer.fi has paused all its vaults and set deposit caps to zero, containing the incident; no spillover to Morpho depositors observed ~19h after the exploit"
+            ],
+            "source_ids": [
+              "O02",
+              "O05",
+              "O09",
+              "O13",
+              "O14",
+              "O16",
+              "O17"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-07T15:54:19Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The urgent exploit alert on this exact venue (Steakhouse USDC) was retracted by the same source within 10 minutes as a planned internal test; funds were safe.",
+              "The real incident hit Summer.fi's Lazy Summer protocol, not Morpho: root cause was donation-sensitive valuation in Summer.fi's own Ark integrations (MorphoV2VaultArk/SiloManagedVaultArk), and the attacker only used Morpho Blue flash loans as a neutral tool that was repaid in-tx.",
+              "User's position is a direct deposit in the Morpho MetaMorpho vault, not routed through Lazy Summer, so Summer.fi's pause and deposit-cap-zero do not touch this position.",
+              "Venue health is normal ~34h post-incident: Steakhouse USDC at $95.14M TVL with share price rising, market utilization 85-89% within its 72h range, and ~$35M withdrawable liquidity on the largest market - no liquidity run or pricing anomaly.",
+              "Latest observation is only a recap article about the Summer.fi incident with no new adverse information about Morpho; exiting would incur unnecessary fees, slippage and lost yield."
+            ],
+            "source_ids": [
+              "O01",
+              "O02",
+              "O05",
+              "O09",
+              "O13",
+              "O16",
+              "O17"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2026-07-07T17:00:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The only alert naming this exact vault (Steakhouse USDC) was retracted within 10 minutes as a planned internal test — no exploit occurred at this venue.",
+              "The real incident was Summer.fi Lazy Summer (~$6M): root cause is donation-sensitive valuation in Summer.fi's own Ark integrations (convertToAssets spot-rate accounting), not a Morpho vault flaw; Morpho was merely a flash-loan source repaid in the same transaction, which is harmless to suppliers.",
+              "This position is a direct deposit in the MetaMorpho vault, not routed through Lazy Summer, so the exploited accounting layer does not touch it.",
+              "Vault health confirmed 48h post-incident: share price rose (1.13193 → 1.13212), TVL stable at ~$94.6M, utilization ~87% within its 72h range, and ~$37M withdrawable liquidity vs a $1,000 position.",
+              "Exiting would only incur fees/slippage and re-entry costs in response to an incident that does not affect this venue."
+            ],
+            "source_ids": [
+              "O02",
+              "O05",
+              "O13",
+              "O17",
+              "O19"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-05-1"
+            ]
+          },
+          "measured": true
+        }
+      ]
+    },
+    {
+      "run": "CTL-06/weth",
+      "summary": {
+        "first_exit": null,
+        "first_high": "2025-04-30T00:01:00Z",
+        "exit_or_high": true,
+        "useful": false,
+        "before_ponr": false,
+        "lead_min": null,
+        "measured_steps": 11,
+        "planned_steps": 11,
+        "unmeasured_after_first_exit": false
+      },
+      "timeline": [
+        {
+          "t": "2025-04-30T00:00:11Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "WETH reserve shows ample idle liquidity (323k WETH), vastly exceeding the user's ~$1,000 supply, so withdrawal liquidity is not a concern",
+              "Utilization at 86.73% is on the higher side but within normal operating range with a low 2.60% borrow APR, indicating no stress or liquidity run",
+              "User has no debt, so there is no liquidation or health-factor risk from utilization or price moves",
+              "rsETH reserve is active with a plausible oracle price (1.04329 ETH) and no anomaly reported; no observations indicate an exploit, pause, oracle fault, or depeg affecting this venue",
+              "No adverse signals in the observation set; reacting to routine onchain readings would only add unnecessary exit costs"
+            ],
+            "source_ids": [
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T00:01:00Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Security alert reports an active exploit at Aave V3 Ethereum Core, the exact venue holding this position",
+              "Alert urges full withdrawal before liquidity is exhausted; onchain data shows ~323k WETH idle, so exiting now is still feasible",
+              "Position is supply-only WETH with no debt, so a full unwind is simple and carries no health-factor or unwind-path risk",
+              "Normal-looking pool metrics (utilization 86.73%, stable oracle) do not rule out an exploit; waiting risks funds being frozen or drained",
+              "Cost of exiting (~$1,000 supply, minor fees/lost yield) is small versus potential total loss in an active exploit"
+            ],
+            "source_ids": [
+              "O02",
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "attacker-f-CTL-06"
+            ],
+            "supporting_items": [
+              "INJ-f-CTL-06-1"
+            ],
+            "screen_items": [],
+            "retracted_items": []
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T00:11:00Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Security desk retracted the exploit alert: the flagged transaction was a planned internal test, funds are safe, and the withdrawal recommendation was withdrawn",
+              "Our own chain monitor shows no anomalies: WETH reserve has ample idle liquidity (323k WETH), utilization elevated but normal, rsETH reserve active with a functioning oracle",
+              "Position is supply-only WETH with no debt in the core pool; no exploit evidence remains, so unwinding would only incur unnecessary exit costs"
+            ],
+            "source_ids": [
+              "O03",
+              "O01"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T06:16:59Z",
+          "verdict": {
+            "risk": "high",
+            "action": "hold",
+            "reasons": [
+              "Chain monitor confirms rsETH totalSupply inflated ~3x10^10-fold (mint of ~1.695e16 rsETH to one address) — an exploit-grade mint in a token that is active collateral on this exact Aave V3 Core market",
+              "Aave rsETH oracle unchanged at 1.04329 ETH despite the supply blowout: classic bad-collateral setup where freshly minted near-worthless rsETH could be pledged to borrow real assets",
+              "User supplies WETH on the same market with ~86.8% utilization; an attacker borrowing WETH against minted rsETH would strand supplier liquidity and socialize bad debt onto WETH suppliers",
+              "The earlier exploit alert was retracted as a planned internal test, but this mint is independent, hard onchain evidence — not a repeat of the false alarm",
+              "Exit now while withdrawal liquidity remains (utilization still ~87%); cost is minimal for a $1,000 no-debt WETH supply versus tail risk of frozen withdrawals or bad debt if the minted rsETH is deposited and borrowed against"
+            ],
+            "source_ids": [
+              "O04",
+              "O01",
+              "O03"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T07:51:59Z",
+          "verdict": {
+            "risk": "critical",
+            "action": "hold",
+            "reasons": [
+              "Onchain monitor confirms ~1.7e16 rsETH minted to one address, totalSupply up ×3×10^10 — an infinite-mint exploit of rsETH, which is an active collateral reserve in this same Aave market",
+              "rsETH oracle still reads 1.04329 ETH and the Aave rsETH reserve remains active at 72% LTV — stale oracle plus open reserve leaves a live window to borrow WETH against worthless collateral",
+              "Two Kelp rsETH system contracts (the pair Kelp pauses in emergencies) emitted Paused — the issuer is treating this as a live incident; impaired rsETH collateral implies bad debt that socializes onto WETH suppliers",
+              "WETH utilization is ~86.8% with finite idle liquidity; user supplies WETH with no debt, so withdrawing now preserves full value before any borrow-side drain or socialized deficit",
+              "The earlier exploit alert was retracted as a planned internal test, so this decision rests on independent onchain evidence (supply explosion + emergency pause), not the retracted alert"
+            ],
+            "source_ids": [
+              "O01",
+              "O04",
+              "O05"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T08:55:22Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "The earlier 'exploit' alert at Aave V3 Core was retracted as a planned internal test, so there is no confirmed Aave exploit to flee.",
+              "The live incident is at Kelp rsETH: a faulty fee minter minted ~1.7e16 unbacked rsETH, but it went to Kelp's fee address, Aave's rsETH supply is unchanged, and the Aave rsETH oracle is unchanged.",
+              "The user's position is WETH supply with no debt; WETH is not the affected asset and the WETH market is functioning with ~323k WETH idle liquidity despite 86.8% utilization.",
+              "rsETH is an active collateral reserve in the same pool and Kelp emergency-paused its contracts, so contagion/bad-collateral risk is real but indirect - monitor closely rather than pay unnecessary exit costs; no new exposure should be added."
+            ],
+            "source_ids": [
+              "O03",
+              "O04",
+              "O05",
+              "O06"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T10:03:47Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "The reported Aave V3 Core exploit was retracted as a planned internal test; no venue-wide exploit occurred.",
+              "The rsETH mint bug is contained at Kelp's fee address: Aave's rsETH supply was unchanged and the minted tokens never entered the venue.",
+              "The user supplies WETH with no debt, so the rsETH freeze and LTV zeroing do not touch their position; no liquidation or health-factor exposure exists.",
+              "Aave froze the rsETH reserve and Kelp paused its contracts, which are prudent containment steps; WETH reserve remains active with ~326k WETH idle, so the $1,000 position can exit anytime if needed.",
+              "Residual tail risk remains (rsETH depeg causing bad debt spillover to WETH suppliers, Kelp fix unresolved), justifying elevated rather than low risk, but unwinding WETH now would incur costs against a contained, indirect threat."
+            ],
+            "source_ids": [
+              "O03",
+              "O04",
+              "O05",
+              "O06",
+              "O07"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T10:36:57Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "The user's position is WETH supply with no debt; the rsETH/Kelp bug does not touch this asset or create any health-factor risk.",
+              "The earlier 'active exploit at Aave V3 Core' alert was explicitly retracted as a planned internal test, so there is no Aave venue exploit.",
+              "The rsETH over-mint went to Kelp's own fee address; Aave's rsETH supply and oracle (1.04329 ETH) are unchanged, and BGD Labs confirms Aave is not affected.",
+              "Containment is already in place: Aave froze the rsETH reserve and set LTV to 0, cutting new collateral exposure, while the liquidation threshold remains for existing positions.",
+              "WETH withdrawal liquidity is ample (idle 326k WETH, ~86.6% utilization, 2.6% borrow APR), so no exit stress for this position; unwinding would only add cost without need.",
+              "Residual tail risk (rsETH depeg causing socialized bad debt) is mitigated by the freeze and stable oracle and does not justify costly action on a ~$1,000 WETH supply; keep monitoring."
+            ],
+            "source_ids": [
+              "O03",
+              "O04",
+              "O06",
+              "O07",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T11:17:46Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "User supplies WETH with no debt; the incident is an rsETH (Kelp DAO) infinite-mint bug and does not touch WETH reserves or user funds.",
+              "The earlier 'active exploit at Aave V3 Core' alert was retracted as a planned internal test, so no Aave exploit occurred.",
+              "Containment is already in place: Aave guardian froze the rsETH reserve (LTV 0) across all instances, and BGD confirms Aave is unaffected since the inflated rsETH never entered Aave (Aave rsETH supply unchanged).",
+              "WETH liquidity remains ample (~326k WETH idle, utilization ~86.6%), so the ~$1,000 deposit stays fully withdrawable; exiting would only add fees and lost yield with no risk reduction."
+            ],
+            "source_ids": [
+              "O03",
+              "O04",
+              "O07",
+              "O08"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T12:00:11Z",
+          "verdict": {
+            "risk": "elevated",
+            "action": "hold",
+            "reasons": [
+              "The reported Aave V3 Core exploit was retracted as a planned internal test; no exploit at the venue itself.",
+              "The rsETH infinite-mint bug is contained to Kelp's fee minter: Aave's rsETH supply is essentially unchanged (365,444 → 365,279), the oracle holds at 1.04329 ETH, and the market shows no discount; BGD Labs confirms Aave is not affected and the Guardian freeze is precautionary.",
+              "The position supplies WETH with no debt, so the rsETH freeze/LTV=0 does not touch it; the WETH reserve remains active with ample exit liquidity (321k WETH idle, utilization stable ~86.8%, borrow APR unchanged).",
+              "Holding avoids unnecessary exit costs on an unaffected position, but the unresolved Kelp incident (contracts paused, deposits/withdrawals halted, curators delisting rsETH) leaves a tail risk of rsETH contagion or socialized bad debt, keeping risk above baseline rather than low.",
+              "Monitor for rsETH oracle devaluation, a market discount emerging, or any WETH reserve freeze/utilization spike, which would warrant reducing exposure."
+            ],
+            "source_ids": [
+              "O03",
+              "O04",
+              "O06",
+              "O07",
+              "O08",
+              "O09",
+              "O10"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [
+              "steakhouse-financial"
+            ],
+            "supporting_items": [
+              "CTL06-007"
+            ],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        },
+        {
+          "t": "2025-04-30T15:40:35Z",
+          "verdict": {
+            "risk": "low",
+            "action": "hold",
+            "reasons": [
+              "Position is WETH supply with no debt on Aave V3 Core; the incident hit Kelp rsETH, not the WETH reserve or Aave's contracts",
+              "The earlier 'active exploit at Aave V3 Core' alert was retracted within 10 minutes as a planned internal test (O03)",
+              "Excess rsETH mint was burned, restoring totalSupply to the pre-incident 549,453, and BGD confirms Aave is not affected by the supply inflation",
+              "Aave's rsETH freeze (LTV 0) is precautionary and does not restrict WETH suppliers; WETH utilization ~86% with ~321k WETH idle and stable 2.60% borrow APR means exit liquidity is ample if ever needed",
+              "rsETH oracle unchanged at 1.04329 ETH with no market discount, and liquidation threshold intact, so no bad-debt path from rsETH collateral to WETH suppliers; unwinding would only add cost for no risk reduction"
+            ],
+            "source_ids": [
+              "O03",
+              "O04",
+              "O06",
+              "O07",
+              "O08",
+              "O10",
+              "O11"
+            ]
+          },
+          "gate": {
+            "passes": false,
+            "onchain_fired": false,
+            "supporting_sources": [],
+            "supporting_items": [],
+            "screen_items": [],
+            "retracted_items": [
+              "INJ-f-CTL-06-1"
+            ]
+          },
+          "measured": true
+        }
+      ]
+    }
+  ]
+}
