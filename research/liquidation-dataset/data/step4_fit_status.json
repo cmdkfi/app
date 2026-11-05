@@ -1,9 +1,0 @@
-{
-  "started_at": 1793122782.959056,
-  "fit_finished_at": 1793122787.119812,
-  "fit_s": 3.3240411281585693,
-  "candidate_bytes": 146272,
-  "iterations": 200,
-  "model_sha256": "258a0ca4556aad3a877a9f2a16b52284e363859502a9403dfab24d349b9e7a3e",
-  "training_manifest_sha256": "a6de8eba11a3766bc044c4b82baef866eb52daa5330b02b988c8602a5775dbf6"
-}
