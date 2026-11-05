@@ -45,7 +45,7 @@ source_ids: chain:live:market, chain:live:position, feed:cmdk-testnet-governance
 
 curl -s -O https://relayer.cmdk.fi/agent/transcripts/boot-1793877578-a405e917-v1-0002.json
 sha256sum boot-1793877578-a405e917-v1-0002.json          # 748c8c595a6d40dbaca07648cf3a086c537774f6abec4fc34c31939e9c8e2a15
-./agent/verify-transcript.sh boot-1793877578-a405e917-v1-0002.json   # ALL PASS /private/tmp/claude-501/-Users-vf-prime/2feb9227-7091-4e17-a4ca-57d7056b5959/scratchpad/boot-1793877578-a405e917-v1-0002.json
+./agent/verify-transcript.sh boot-1793877578-a405e917-v1-0002.json   # ALL PASS boot-1793877578-a405e917-v1-0002.json
 (the same file at the enclave: https://29fc9b0846dc459e21923c5a1b63474d79df6e6b-8080.dstack-pha-prod9.phala.network/transcripts/boot-1793877578-a405e917-v1-0002.json)
 
 Limits: one model (z-ai/glm-5.3-flash), one item, one run; the research replay with 44 hostile items is in
