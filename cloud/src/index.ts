@@ -21,7 +21,9 @@
 //   GET  /state   the stored state;  PUT /state {"live": {...}, "demo": {...}} replaces the rebalancer's state
 //   GET  /funding the auto-funding: cap, NEAR sent in the last 24 h, the last 50 funding events
 // Agent evidence, open, GET only (the agent's evidence endpoint, agent/src/serve.rs, at AGENT_EVIDENCE_URL):
-//   GET /agent/vaults -> <AGENT_EVIDENCE_URL>/vaults,  GET /agent/ (or /agent) -> <AGENT_EVIDENCE_URL>/
+//   GET /agent/vaults -> <AGENT_EVIDENCE_URL>/vaults,  GET /agent/ (or /agent) -> <AGENT_EVIDENCE_URL>/,
+//   GET /agent/transcripts -> /transcripts (index), GET /agent/transcripts/<name> -> /transcripts/<name> (5 Nov: public
+//   transcripts; <name> must match TRANSCRIPT_NAME, anything else is 404 here and never reaches the agent)
 //        the agent's JSON as it is, with this Worker's CORS; one read of the enclave per path per 10 s (kept in the
 //        Durable Object's memory); 503 {"ok": false, "error": "agent evidence url not set"} while the URL is empty
 // Cron "*/10 * * * *": one round (live, then demo), unless paused; then, paused or not, the agent's funding: when
@@ -50,7 +52,15 @@ const OPEN_POST = new Set(['/owner-call', '/create-vault']);
 const GATED_POST = new Set(['/fund-agent']);
 const ADMIN = new Set(['/rebalance', '/pause', '/resume', '/timer', '/runs', '/state', '/funding']);
 // the agent's evidence endpoint (agent/src/serve.rs), proxied read-only: Worker path -> the agent's path
-const AGENT_GET = new Map([['/agent', '/'], ['/agent/', '/'], ['/agent/vaults', '/vaults']]);
+const AGENT_GET = new Map([['/agent', '/'], ['/agent/', '/'], ['/agent/vaults', '/vaults'], ['/agent/transcripts', '/transcripts']]);
+// A transcript file name as the agent writes it: boot-<unix>-<8 hex>-v<n>[-twin]-<loop 4 digits>.json (agent/src/main.rs)
+const TRANSCRIPT_NAME = /^boot-[0-9]+-[0-9a-f]{8}-v[0-9]+(-twin)?-[0-9]{4}\.json$/;
+function agentRoute(path: string): string | undefined {
+	const fixed = AGENT_GET.get(path);
+	if (fixed !== undefined) return fixed;
+	const t = path.match(/^\/agent\/transcripts\/([^/]+)$/);
+	return t && TRANSCRIPT_NAME.test(t[1]) ? `/transcripts/${t[1]}` : undefined;
+}
 const EVIDENCE_TTL_MS = 10_000;
 const EVIDENCE_TIMEOUT_MS = 10_000;
 const RUNS_KEPT = 5000;
@@ -254,7 +264,11 @@ export class CmdkBackend extends Container<Bindings> {
 			this.evidenceReads.set(key, p);
 		}
 		const e = await p;
-		if (e.status !== 502) this.evidence.set(key, e);
+		if (e.status !== 502) {
+			// transcripts are many distinct paths: drop expired answers before the map grows past a few hundred
+			if (this.evidence.size >= 256) for (const [k, v] of this.evidence) if (now - v.at >= EVIDENCE_TTL_MS) this.evidence.delete(k);
+			this.evidence.set(key, e);
+		}
 		return { ...e, age: 0 };
 	}
 
@@ -495,7 +509,7 @@ export default {
 		const path = url.pathname.replace(/^\/relayer(?=\/)/, '');
 		const method = request.method;
 		const cors = corsHeaders(request, env);
-		const agentPath = AGENT_GET.get(path);
+		const agentPath = agentRoute(path);
 		if (agentPath !== undefined) {
 			if (method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 			if (method !== 'GET') return json(405, { ok: false, error: 'GET only' }, { ...cors, Allow: 'GET, OPTIONS' });
