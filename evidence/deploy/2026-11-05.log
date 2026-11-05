@@ -86,3 +86,23 @@ signature 0x033106efa7693052c8f3a12660ca1856bff5d846c7b18adf01f990141e1d993f68ee
 {"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":9,"expiry":1793890800}
 signature 0x44dc1db2095735714145768f1ea9bfca0a6faad3b1a29c121f0618c6c964fef53a19757ff2701f3937c7c0b083173b6bba6bc66d8c706e4fc3030c751da1c4021b
 {"ok":true,"near_tx":"HwPHtEK4xWtdzMQZKbNzvG7ntNkKrokNsdLaZeBnLQk2","error":null,"receipts":[{"hash":"0x7cb2bddc23ab0d3da5681a209a885cad92cdd86063b82737ba860e34c216019a","status":1}]}
+2026-11-05T16:17:01Z between scenes: owner close on demo for v1 and v2 (after gap; both liquidated, 0 debt, 0.000102 WETH collateral left)
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v1.factory.prime-measure-1792736012.testnet","method":"close","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585"},"nonce":11,"expiry":1793896025}
+signature 0x66bae4cf26f7991ac7bd2ee85d958c81c463e824ad063ca44a03bf1d710652cb7a7569a70db12e5baf0ef356432f476cf162fda3f27aa35bdc192c8c335fec0a1c
+{"ok":true,"near_tx":"4jAJ9DzGfBWBxR3kYxFYRSKLMvKtVMGwykQmAizC2WT5","error":null,"receipts":[{"hash":"0x77980f2e359ad3972d2a3d1ac4816520c894035abd8c3643be51e23a068210c9","status":1}]}
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"close","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585"},"nonce":10,"expiry":1793896046}
+signature 0xdddec91d93aa8fabb37b08345a9b992c41f1f331e9b0edc40a831c38266417ba650fcec9fd6d9d759fbee6e97902fcf567c6e5dad3ddfbd3f2b6f3956b11d7581b
+{"ok":true,"near_tx":"8MBEcmDYghz7Jyqoz4qb9TkWdUabgtTuqnrdaKd8MS1e","error":null,"receipts":[{"hash":"0x4c90cd80a47a36367cf9ae73048b8b681fd2287b3a6e63d474d78c7ca47733e2","status":1}]}
+2026-11-05T16:17:43Z between scenes: wallet close on demo (after gap)
+  scenes-close-demo-wallet-2: tx 0x14638120d1256719fa90964db7fabf0cacbacf4e10b42d9b2e6b4258a1357e9d status 1 gas 113756, fee 682536000177 wei (L2 682536000000 + L1 177)
+2026-11-05T16:24:03Z between scenes (after gap): price reset to 2256.30 (live Chainlink level); WETH top-ups to 0.002 at v1 and v2; wallet re-open at 50%
+  scenes-weth-v1-c: tx 0xb0bbd6a326d9d42bf254e3d51eed593af6ba060eec5f434e802e0a28905f3604 status 1 gas 34245, fee 205470000163 wei (L2 205470000000 + L1 163)
+  scenes-weth-v2-c: tx 0xec84dfba2621bc81cd984e9eb59f073130d54c55aa135a7a8a3ed2a502987198 status 1 gas 34245, fee 205470000163 wei (L2 205470000000 + L1 163)
+  scenes-open-demo-wallet-3: tx 0x78f3a0d5291d8ba7a0fe469c542495a2163a9e6b547d793b6aaaf3f279680d90 status 1 gas 205714, fee 1234284000186 wei (L2 1234284000000 + L1 186)
+2026-11-05T16:24:11Z between scenes: v1 and v2 re-open demo 0.002 WETH at 50% (before the whipsaw scene)
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v1.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":12,"expiry":1793896454}
+signature 0x3f6004a43720616ef99dee70391ca9de5f089cce196efdb0dfe7e1e647cbd2b612313027f483c27f78e7859c5c4da28e74c61e598ade04f795e402501611600c1c
+{"ok":true,"near_tx":"AuAEPcxijdPPmAUVkdYWDpA489xcRZorW6UTc1xdEH3x","error":null,"receipts":[{"hash":"0x1fe5915b7783af9b1c988c84a6d3e3fa632c561c8dedd315f9e70ed119714e09","status":1}]}
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":11,"expiry":1793896475}
+signature 0x03c98c2d93282731130d5c18b40a9e70032d0f90cfada190993a28a7794a7648782644c0920e419823a53fa88adddaaa8e1a47e92e410def7994e6f0f5189f741c
+{"ok":true,"near_tx":"FzMyAQdz3dEDyWCkazDtzp9GHgm75oD9ZUns1aftmEVG","error":null,"receipts":[{"hash":"0x6a8fc355afc30baf51ae7e516088a8d0eea3aa225b9bd8dee996a7f258fcc52b","status":1}]}
