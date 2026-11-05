@@ -51,3 +51,19 @@ after close: position(supplyShares,borrowShares,collateral) 0 0 0 ; v2 WETH 2000
 signature 0x15fa9a8a8f5872231b9eb1ca6850de3b77b09622bd01b36ce43c62fada8fc7c579344bf11851795710f13e94b48fc06a1dd82633e608f0943d0b8e73875fb34c1b
 {"ok":true,"near_tx":"GK1ghXTtLfv1WgDtvPuXu35ju9koc9mpjkWW5FPy6u6","error":null,"receipts":[{"hash":"0x431aefa81689bd54a8d6e83faf27ab87731c7fc9e8e9492b057de25bc40c94cf","status":1}]}
 2026-11-05T11:47:13Z owner wallet WETH after: 40168475624793891; v2 WETH: 0
+2026-11-05T12:07:11Z scenes prerequisites: 0.002 WETH to v1's address, 0.002 WETH to v2's address, the test wallet opens its own demo position (0.002 WETH, 50%)
+  scenes-weth-v1: tx 0x4531c870894a10f68bd4f9db7d05bafd6145af2640addae26b9fe858d39f08e5 status 1 gas 51321, fee 307926000170 wei (L2 307926000000 + L1 170)
+  scenes-weth-v2: tx 0x6f6e51749293252d77d639848491f6a356cc6c516957a964865f172a26cd38ec status 1 gas 51321, fee 307926000170 wei (L2 307926000000 + L1 170)
+  scenes-open-demo-wallet: tx 0x62741effcbdd320f79b7716f691088d85ae7e6a3799e59f1460453fa04279815 status 1 gas 205714, fee 1234284000194 wei (L2 1234284000000 + L1 194)
+2026-11-05T12:07:40Z scenes: v2 setup demo (approve dUSDC, corridor; no measurement: v2 is the unprotected twin)
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"setup","args":{"markets":[{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","approve":true,"authorize":false,"corridor":{"target":"500000000000000000","act":"700000000000000000","floor":"300000000000000000","sell_budget":"200000000000000000","migrate_allowed":true,"exit_allowed":true}}]},"nonce":6,"expiry":1793881063}
+signature 0xf1e9bad2880080893040dfb4f99100fb6ea715c5f5b99977e7ad948a15ddbe83105d8a8cb96fbb54d2503a10e6e5dea1740fc01dae2726a78c716fb26fba92801c
+{"ok":true,"near_tx":"49GDmjkaAbjB4pQHEEapdW7nemhFFPMBEqLrot5QQ7qU","error":null,"receipts":[{"hash":"0x2976bcaf6d595b041e49068e4f17fcc1910065764b99d08d7be441689cf3f791","status":1},{"hash":"0x26374b6434dc97f86e9bdf2ede88418a74916b19131ad0151f8aba224fdaa79a","status":1},{"hash":"0x64fdc752526cab398231afc38003e48ee596658d13eb2bb3a855a58305fce439","status":1}]}
+2026-11-05T12:08:02Z scenes: v2 open demo 0.002 WETH at 50%
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":7,"expiry":1793881086}
+signature 0x2643419061506daeb5b8ac71cc07ec656b3c52671726661be5d8b04432c181bf7a080cf5378e3d7177e62d3499b5df0636bde2c8ce9d2f775f032f04bf51691d1c
+{"ok":true,"near_tx":"GrzCPJs2XV5YhDNDyDdCy7HstSXiiz84UutWVQpdGtbv","error":null,"receipts":[{"hash":"0xe5b815585c8325b705252dfdcab731a1ec8a7cd47768d6025b22196f53d26986","status":1}]}
+2026-11-05T12:08:24Z scenes: v1 open demo 0.002 WETH at 50% (the AI twin; the live agent watches v1's demo market)
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v1.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":8,"expiry":1793881107}
+signature 0xa6484e0c3ba2d230b62a7fb8e1149285f97a6a13db0eb927aca98ac79a4be7ed45224153b156445cd0556b8adc784f0738535ab9f0fe5bf5b270589c4b663e821b
+{"ok":true,"near_tx":"J5911fHyaff1uV8xnHkcBh3Zi5PRN6PnxsLgUxheSiuw","error":null,"receipts":[{"hash":"0xc6385e5a58bc7ec291153d8c9ec2caa85be00b7426428699d6cf4800cc410142","status":1}]}
