@@ -106,3 +106,6 @@ signature 0x3f6004a43720616ef99dee70391ca9de5f089cce196efdb0dfe7e1e647cbd2b61231
 {"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":11,"expiry":1793896475}
 signature 0x03c98c2d93282731130d5c18b40a9e70032d0f90cfada190993a28a7794a7648782644c0920e419823a53fa88adddaaa8e1a47e92e410def7994e6f0f5189f741c
 {"ok":true,"near_tx":"FzMyAQdz3dEDyWCkazDtzp9GHgm75oD9ZUns1aftmEVG","error":null,"receipts":[{"hash":"0x6a8fc355afc30baf51ae7e516088a8d0eea3aa225b9bd8dee996a7f258fcc52b","status":1}]}
+2026-11-05T19:37:13Z scenes done (gradual-crash, gap, whipsaw, venue-stress): rebalancer state uploaded, timer resumed
+{"live_band":{"token_id":83749,"lo":198332,"hi":198532},"demo_tokens":[84725,84726]}
+{"ok":true,"paused":false}
