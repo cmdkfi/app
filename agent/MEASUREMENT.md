@@ -202,13 +202,13 @@ The vault checks which code runs, not who runs it. To run the published agent un
    - file and image timestamps from `SOURCE_DATE_EPOCH`.
    Compare your image ID with the published image's: `docker pull <image>@sha256:<digest>` then
    `docker image inspect -f '{{.Id}}' <image>@sha256:<digest>`. The ID is the config digest, independent of how the
-   registry compresses layers. **Status (5 Nov): reproducible on the founder's Mac** (Docker Desktop 27.4.0, buildx
-   v0.19.2), for commit `407847d` (the 8d521de code, Dockerfile on pinned packages): `REPRODUCIBLE image
-   sha256:e4325d0196aa9af8c542f3b4d8255436626284990a64b3f42837d79b7d631852 SOURCE_DATE_EPOCH=1793856467`, binary
-   sha256 `917a280c024696fdc6c34a92a5fd8e77a90f80214575dc5c4de47726d38684af`, 89.8 MB (89,842,375 bytes), 275 s for
-   the two builds; pushed as `ghcr.io/cmdkfi/agent:407847d`, registry digest
-   `sha256:5440598059c9f971c4d23e8198b4b094bc7aceaa1767006d7db5a11890c4bf11` (anonymous `imagetools inspect --raw`:
-   config digest = the image ID above). Earlier: commit `db6aaf8` (3 Nov) gave image `e515fa15…`, registry digest
+   registry compresses layers. **Status (5 Nov, second image of the day): reproducible on the founder's Mac** (Docker Desktop 27.4.0, buildx
+   v0.19.2), for commit `fd0272f` (public transcripts, cmdk name): `REPRODUCIBLE image
+   sha256:01027505f3873dc6fff86ffac5819bb28dc45dcbc8760fdc929ed4474c0a6eb3 SOURCE_DATE_EPOCH=1793876743`, binary
+   sha256 `68e898a7cd8915010f1acdf9bf737cdcff18d36f72610e7fa74323818d19f5b3`, 89.8 MB (89,752,199 bytes); pushed as
+   `ghcr.io/cmdkfi/agent:fd0272f`, registry digest `sha256:479f98f394bc3a146574d5c325b0ab881521c17eaa10ec131aa4fb9cc2518f34`
+   (anonymous `imagetools inspect --raw`: config digest = the image ID above). Earlier the same day: commit `407847d`
+   (boot key check, pinned Debian packages) gave image `e4325d01…`, registry digest `54405980…`, binary `917a280c…`. Earlier: commit `db6aaf8` (3 Nov) gave image `e515fa15…`, registry digest
    `984f0c0b…`, the first image the vault approved. The builder must be on the `docker-container` driver (`build.sh` creates `cmdk-repro` on
    `moby/buildkit@sha256:c5f8862f…`, BuildKit v0.34.2). On the `docker` driver with the classic image store the
    daemon's exporter ignored `rewrite-timestamp`: the two images had identical file bytes, but the directories COPY
@@ -218,12 +218,12 @@ The vault checks which code runs, not who runs it. To run the published agent un
 
    **Push and pin our image (Friday, in this order, from `agent/`):**
    ```
-   ./build.sh                                   # REPRODUCIBLE image sha256:e4325d01… (rebuild only if src changed)
-   docker tag cmdk-agent:repro-1 ghcr.io/cmdkfi/agent:407847d
+   ./build.sh                                   # REPRODUCIBLE image sha256:01027505… (rebuild only if src changed)
+   docker tag cmdk-agent:repro-1 ghcr.io/cmdkfi/agent:fd0272f
    gh auth status                               # fffilimonov active, scopes include write:packages
    gh auth token | docker login ghcr.io -u fffilimonov --password-stdin
-   docker push ghcr.io/cmdkfi/agent:407847d
-   docker buildx imagetools inspect ghcr.io/cmdkfi/agent:407847d      # "Digest: sha256:<registry digest>"
+   docker push ghcr.io/cmdkfi/agent:fd0272f
+   docker buildx imagetools inspect ghcr.io/cmdkfi/agent:fd0272f      # "Digest: sha256:<registry digest>"
    ```
    Set the package public: github.com/orgs/cmdkfi/packages/container/agent/settings, "Change visibility", Public
    (a new GHCR package is private). Then:
@@ -231,9 +231,9 @@ The vault checks which code runs, not who runs it. To run the published agent un
    sed -i '' 's/REPLACE_WITH_THE_DIGEST_BUILD_SH_PRINTS/<registry digest hex>/' docker-compose.yml docker-compose.live.yml
    sed -i '' 's/REPLACE_WITH_THE_FACTORY_ACCOUNT/factory.prime-measure-1792736012.testnet/' docker-compose.yml docker-compose.live.yml   # the --factory argument is measured too
    docker logout ghcr.io                        # the checks below run anonymously, as the CVM pulls
-   docker buildx imagetools inspect --raw ghcr.io/cmdkfi/agent@sha256:<registry digest hex>   # config digest sha256:e4325d01…
+   docker buildx imagetools inspect --raw ghcr.io/cmdkfi/agent@sha256:<registry digest hex>   # config digest sha256:01027505…
    docker pull ghcr.io/cmdkfi/agent@sha256:<registry digest hex>
-   docker image inspect -f '{{.Id}}' ghcr.io/cmdkfi/agent@sha256:<registry digest hex>        # sha256:e4325d01…
+   docker image inspect -f '{{.Id}}' ghcr.io/cmdkfi/agent@sha256:<registry digest hex>        # sha256:01027505…
    git add docker-compose.yml docker-compose.live.yml && git commit   # the pin commit
    ```
    The `--raw` line reads the config digest from the registry itself; the pull can be satisfied from the local copy,
