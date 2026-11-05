@@ -54,7 +54,7 @@ const ADMIN = new Set(['/rebalance', '/pause', '/resume', '/timer', '/runs', '/s
 // the agent's evidence endpoint (agent/src/serve.rs), proxied read-only: Worker path -> the agent's path
 const AGENT_GET = new Map([['/agent', '/'], ['/agent/', '/'], ['/agent/vaults', '/vaults'], ['/agent/transcripts', '/transcripts']]);
 // A transcript file name as the agent writes it: boot-<unix>-<8 hex>-v<n>[-twin]-<loop 4 digits>.json (agent/src/main.rs)
-const TRANSCRIPT_NAME = /^boot-[0-9]+-[0-9a-f]{8}-v[0-9]+(-twin)?-[0-9]{4}\.json$/;
+const TRANSCRIPT_NAME = /^boot-[0-9]{1,12}-[0-9a-f]{8}-(v|vault)[0-9]{1,6}(-twin)?-[0-9]{4,6}\.json$/; // = agent/src/serve.rs transcript_name
 function agentRoute(path: string): string | undefined {
 	const fixed = AGENT_GET.get(path);
 	if (fixed !== undefined) return fixed;

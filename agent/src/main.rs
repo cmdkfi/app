@@ -750,7 +750,8 @@ async fn tick(ctx: Arc<Ctx>, v: Arc<VaultCtx>, st: Arc<Mutex<State>>, n: u64) {
     tr["next_recheck_utc"] = json!(iso(st.next_recheck));
     tr["seconds"] = json!(tl.elapsed().as_secs_f64());
     let name = format!("transcripts/{}-{tag}{}-{loops:04}.json", ctx.boot_id, if ctx.a.mode.twin() { "-twin" } else { "" });
-    // private (build item 38): written to the evidence volume only; the public log gets its hash and size.
+    // not printed (build item 38): written to the evidence volume, the public log gets its hash and size; served
+    // publicly by serve.rs at GET /transcripts/<name> in the build (decided 5 Nov), private in the production release.
     // A transcript that cannot be written is reported, never fatal (build item 49).
     match serde_json::to_string_pretty(&tr).map_err(anyhow::Error::from).and_then(|t| tee::save_private(&ctx.a.evidence, &name, t.as_bytes())) {
         Ok((h, len)) => println!("RESULT transcript vault={tag} loop={loops} {name} sha256={h} bytes={len} seconds={:.1}", tl.elapsed().as_secs_f64()),
@@ -1132,7 +1133,7 @@ async fn main() -> Result<()> {
         boot.measurement = Some(b.measurement.clone());
         if let Some(addr) = &a.evidence_http {
             match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone(), board.clone()) {
-                Ok(l) => println!("RESULT evidence_http listening={l} (GET /, GET /vaults, GET /evidence/<file>; measurement evidence and the watched vaults only, transcripts are not served)"),
+                Ok(l) => println!("RESULT evidence_http listening={l} (GET /, GET /vaults, GET /evidence/<file>, GET /transcripts, GET /transcripts/<name>; measurement evidence, the watched vaults and every transcript on the evidence volume)"),
                 Err(e) => println!("RESULT evidence_http not started on {addr}: {e}"),
             }
         }
@@ -1145,7 +1146,7 @@ async fn main() -> Result<()> {
         println!("RESULT no TEE: no measurement, so every vault of the source is watched read-only and none is registered");
         if let Some(addr) = &a.evidence_http {
             match serve::spawn(addr, a.evidence.clone(), boot_id.clone(), a.operator.clone(), board.clone()) {
-                Ok(l) => println!("RESULT evidence_http listening={l} (no TEE: no measurement files; GET /vaults lists the watched vaults; transcripts are not served)"),
+                Ok(l) => println!("RESULT evidence_http listening={l} (no TEE: no measurement files; GET /vaults lists the watched vaults; GET /transcripts lists every transcript on the evidence volume, GET /transcripts/<name> serves one)"),
                 Err(e) => println!("RESULT evidence_http not started on {addr}: {e}"),
             }
         }

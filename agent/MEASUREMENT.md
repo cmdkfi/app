@@ -114,25 +114,36 @@ GET /vaults                   -> the watched vaults: slot, tag, account, Base ad
                                  expiry, ticks, last tick (unix seconds)
 GET /evidence/<name>          -> the file (only the five names above, registration-<tag>.json,
                                  reregistration-<tag>-<n>.json)
+GET /transcripts              -> index of every transcript on the evidence volume (all boots, all vaults), sorted by
+                                 name: name, bytes, sha256, boot, vault (the tag), twin, loop, path
+GET /transcripts/<name>       -> the transcript as written, Content-Type application/json
 ```
 
 A vault's tag is `v<n>` for the factory's vault n (`v3` = `v3.<factory>`), `vault<n>` for the n-th `--vault`.
 
 On Phala the port is reached through the CVM's gateway URL for port 8080 (the dashboard lists it; the form is
-`<app-id>-8080.<gateway domain>`, not yet observed in our runs). Without it, `scripts/p3_evidence.py <log> <out>`
+`<app-id>-8080.<gateway domain>`; observed 4 Nov: `https://29fc9b0846dc459e21923c5a1b63474d79df6e6b-8080.dstack-pha-prod9.phala.network`, kept in `cloud/wrangler.jsonc` as `AGENT_EVIDENCE_URL`). Without it, `scripts/p3_evidence.py <log> <out>`
 rebuilds the same files from `phala logs` and checks every SHA-256.
 
-Private (transcripts): one JSON file per decision loop and vault in `evidence/transcripts/`
-(`<boot>-<tag>-<n>.json`; the file's `vault` field names the account), never printed and never served. The public
-log gets one line per transcript: `RESULT transcript vault=<tag> loop=<n> <name> sha256=<hex> bytes=<n>`. The team
-reads its own transcripts from the volume (for the team's demo vault, where they may be published, with hashes).
+Transcripts (public in the build, decided 5 Nov): one JSON file per decision loop and vault in
+`evidence/transcripts/`, `<boot>-<tag>[-twin]-<loop>.json` (boot `boot-<unix seconds>-<first 8 hex of the agent's
+implicit account>`, loop at least four digits; the file's `vault` field names the account). They are not printed to
+the log, which gets one line per transcript: `RESULT transcript vault=<tag> loop=<n> <name> sha256=<hex> bytes=<n>`.
+They are served by the routes above so that the hackathon judges can verify them: a transcript holds nothing that is
+not public already (position and LTV are on chain, feed items are public, the system prompt is in this repository)
+except the model's reasoning text. `GET /transcripts/<name>` serves a name only when it matches
+`^boot-[0-9]{1,12}-[0-9a-f]{8}-(v|vault)[0-9]{1,6}(-twin)?-[0-9]{4,6}\.json$`, and the file path is built only from
+such a name (no `/`, no `..`); anything else is 404. The index reads the volume at each request, so it lists earlier
+boots' transcripts too, and its `sha256` equals the `RESULT transcript` line's. Making transcripts private to the
+vault's owner (an owner-signed read) or not serving them is a production-release item (README, hardening roadmap).
 Check a transcript's judge call offline with `./verify-transcript.sh <transcript.json>` (request and response
-SHA-256, the `provider_tee` signed text, the EIP-191 signer against the attested address, TCB status); on the
+SHA-256, the `provider_tee` signed text, the EIP-191 signer against the attested address, TCB status; it cannot
+re-verify the model's own TDX quote from a transcript and trusts the attestation verdict the agent recorded); on the
 prototype's CVM transcript in `testdata/transcripts/` it prints `ALL PASS`.
 
 Key check (4 Nov). Outside the twin modes, when a NEAR AI key is set, the agent calls NEAR AI's
 `POST https://cloud-api.near.ai/v1/check_api_key` once at boot (15 s timeout) and prints one public line, so a spent
-or invalid key is visible without reading the private transcripts:
+or invalid key is visible without reading the transcripts:
 
 ```
 RESULT nearai_key http=200 valid=true api_key_id=<id> seconds=<s>

@@ -2,7 +2,8 @@
 //! report_data is its public key followed by 32 zero bytes. At startup the agent writes into the evidence volume
 //! what a third party needs to rebuild the measurement (measurement H): the guest agent's `app_compose` and
 //! `vm_config`, the quote and the event log; and prints each file with its SHA-256 to the (public) log. Measurement
-//! evidence is public (printed and served by `serve.rs`); transcripts are private (`save_private`, item 38).
+//! evidence is public (printed and served by `serve.rs`); transcripts are not printed (`save_private`, item 38) and are
+//! served by `serve.rs` (public in the build, decided 5 Nov; private to the vault's owner in the production release).
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use dstack_sdk::dstack_client::DstackClient;
@@ -42,8 +43,8 @@ pub fn save_evidence(dir: &Path, name: &str, bytes: &[u8]) -> Result<String> {
     Ok(h)
 }
 
-/// Writes `name` into `dir` without printing its content (build item 38): transcripts are private to the vault's
-/// owner, so the public log gets only one line per file, with its SHA-256 and byte count (printed by the caller).
+/// Writes `name` into `dir` without printing its content (build item 38): the public log gets only one line per
+/// transcript, with its SHA-256 and byte count (printed by the caller); `serve.rs` serves transcripts (5 Nov).
 pub fn save_private(dir: &Path, name: &str, bytes: &[u8]) -> Result<(String, usize)> {
     let path = dir.join(name);
     if let Some(p) = path.parent() {
