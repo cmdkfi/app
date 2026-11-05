@@ -7,7 +7,7 @@ Reads the test wallet key from ~/.config/prime/base_sepolia_eoa.json (never prin
 Addresses from $DEPLOYMENTS: deployments/testnet.json (default) or the old flat executor/deployments.json.
 
   rebalance_pool.py --market live [--tolerance 0.0025] [--max-cost-usdc 6] [--reserve-usdc 8] [--band-usdc 10] [--remint] [--dry-run]
-  rebalance_pool.py --market demo [--set-price 1600] [--tolerance 0.0025] [--remint] [--dry-run]
+  rebalance_pool.py --market demo [--set-price 1600 [--max-step 0.019]] [--tolerance 0.0025] [--remint] [--dry-run]
   rebalance_pool.py --market live|demo --status        reads only: tick, oracle, gap, our band, wallet, L1 fee, repair cost
   rebalance_pool.py --market live|demo --close-bands [--dry-run]   burn and collect all our positions on the pool, clear state
 
@@ -29,8 +29,9 @@ demo: WETH(token0)/dUSDC(token1) 0.01% pool from the deployments, MockOracle as 
         buy     a small WETH-only band just above the price (for openFromStables).
       A move: burn sell and buy bands, swap through the anchor to the oracle with the price limit, mint both again.
       --set-price USD moves the pool and the MockOracle together in steps of at most 1.9% (the test wallet owns the
-      oracle). On the last step the bands are minted at the new pool price before the oracle is set, so a sale the
-      new price triggers meets the bands and not the anchor alone (results.md item 42). State: state/demo.json.
+      oracle); --max-step F (a fraction, default 0.019) changes that limit, e.g. 1 for the gap scene's one-move drop
+      (scripts/SCENES.md). On the last step the bands are minted at the new pool price before the oracle is set, so
+      a sale the new price triggers meets the bands and not the anchor alone (results.md item 42). State: state/demo.json.
       The guard applies when a repair spends WETH; dUSDC is minted. --set-price moves are not guarded.
 
 Exit codes: 0 done, 1 error, 3 refused by the budget guard, 4 another run holds the lock.
@@ -458,12 +459,13 @@ def move_demo_price(m, me, a, st):
     for side in ('sell', 'buy'):
         if side in st: burn(side, st[side]['token_id'], me, a.dry_run); del st[side]; m.save(st)
     target = int(round(a.set_price * 1e6)) * 10 ** 18
+    step = a.max_step                       # DEMO_STEP unless --max-step is given (gap scene: one move)
     o = int(call(MOCK_ORACLE, 'price()(uint256)')[0])
     if a.dry_run: _, _, sq0, tick0, liq0 = m.read(); walked = 0; n = 0
     while o != target:
         up = target > o
-        last = abs(target / o - 1) <= DEMO_STEP
-        nxt = target if last else int(o * (1 + DEMO_STEP)) if up else int(o * (1 - DEMO_STEP))
+        last = abs(target / o - 1) <= step
+        nxt = target if last else int(o * (1 + step)) if up else int(o * (1 - step))
         plan = None
         if a.dry_run:                       # the walk from the pool as it is to this step, less the steps before
             tin, tout, cum, _, crossed = walk(m, sq0, tick0, liq0, m.sqrt_x96(nxt), burnt)
@@ -602,10 +604,13 @@ def main():
                     'default: all USDC above --reserve-usdc + --max-cost-usdc')
     ap.add_argument('--remint', action='store_true')
     ap.add_argument('--set-price', type=float, help='demo only: MockOracle price in USD per ETH, set first')
+    ap.add_argument('--max-step', type=float, default=DEMO_STEP, help='with --set-price: largest move per step as a fraction '
+                    '(default %(default)s, under the agent\'s 2%% gap screen); 1 allows any drop in one move (the gap scene)')
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--status', action='store_true', help='read only: print the state and the repair cost, send nothing')
     ap.add_argument('--close-bands', action='store_true', help='burn and collect all our positions on the pool, clear the state file')
     a = ap.parse_args(); _, me = key()
+    if not 0 < a.max_step <= 1: raise SystemExit('--max-step must be in (0, 1], got %s' % a.max_step)
     if a.status: a.dry_run = True
     chain = int(subprocess.run([CAST, 'chain-id', '--rpc-url', RPC], capture_output=True, text=True, check=True).stdout.strip())
     if chain != CHAIN_ID: raise SystemExit('chain id %d is not Base Sepolia (%d): testnet only' % (chain, CHAIN_ID))
