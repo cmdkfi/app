@@ -59,6 +59,16 @@ fn a32(s: &str) -> [u8; 32] {
 fn cast() -> String {
     format!("{}/.foundry/bin/cast", std::env::var("HOME").unwrap())
 }
+/// A wasm built by `cargo near build` (see "Build first" above); a missing file names itself and the build commands.
+fn wasm(path: &str) -> Vec<u8> {
+    std::fs::read(path).unwrap_or_else(|e| {
+        panic!(
+            "cannot read {path} ({e}); build the three wasms first, in vault/: (cd mock-signer && cargo near build \
+             non-reproducible-wasm) && cargo near build non-reproducible-wasm && (cd factory && cargo near build \
+             non-reproducible-wasm)"
+        )
+    })
+}
 
 /// A throwaway EVM wallet: an encrypted keystore in a temp dir, used only through `cast wallet sign`.
 struct Wallet {
@@ -142,11 +152,11 @@ impl Drop for Env {
 
 async fn setup(tag: &str) -> Result<Env> {
     let worker = near_workspaces::sandbox().await?;
-    let signer = worker.dev_deploy(&std::fs::read("mock-signer/target/near/cmdk_mock_signer.wasm")?).await?;
+    let signer = worker.dev_deploy(&wasm("mock-signer/target/near/cmdk_mock_signer.wasm")).await?;
     let root = worker.root_account()?;
     let vault_acct =
         root.create_subaccount("vault").initial_balance(NearToken::from_near(30)).transact().await?.into_result()?;
-    let vault = vault_acct.deploy(&std::fs::read("target/near/cmdk_vault.wasm")?).await?.into_result()?;
+    let vault = vault_acct.deploy(&wasm("target/near/cmdk_vault.wasm")).await?.into_result()?;
     let base: String = signer.view("derived_address").args_json(json!({"predecessor": vault.id(), "path": PATH})).await?.json()?;
     let dir = std::env::temp_dir().join(format!("cmdk-vault-sandbox-{tag}-{}", std::process::id()));
     std::fs::create_dir_all(&dir)?;
@@ -1328,13 +1338,13 @@ async fn factory() -> Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     // 1. The vault code as a Global Contract by hash.
-    let code_hash = publish_global(&worker, &root, std::fs::read("target/near/cmdk_vault.wasm")?).await?;
+    let code_hash = publish_global(&worker, &root, wasm("target/near/cmdk_vault.wasm")).await?;
 
     // 2. Mock signer, factory, init, then the factory's only key is deleted.
-    let signer = worker.dev_deploy(&std::fs::read("mock-signer/target/near/cmdk_mock_signer.wasm")?).await?;
+    let signer = worker.dev_deploy(&wasm("mock-signer/target/near/cmdk_mock_signer.wasm")).await?;
     let fac = root.create_subaccount("factory").initial_balance(NearToken::from_near(10)).transact().await?;
     let fac = fac.into_result()?;
-    let factory = fac.deploy(&std::fs::read("factory/target/near/cmdk_factory.wasm")?).await?.into_result()?;
+    let factory = fac.deploy(&wasm("factory/target/near/cmdk_factory.wasm")).await?.into_result()?;
     // DEPLOY.md step 2's check (the code is served under its hash) ran inside `publish_global`.
     let hash58 = near_sdk::bs58::encode(code_hash).into_string();
     let r = factory
@@ -1475,7 +1485,7 @@ async fn factory() -> Result<()> {
     // 7. The signer call fails (a second factory whose `signer` has no contract): the deposit goes back to the
     // caller and no account is created.
     let f2 = root.create_subaccount("factory2").initial_balance(NearToken::from_near(5)).transact().await?;
-    let f2 = f2.into_result()?.deploy(&std::fs::read("factory/target/near/cmdk_factory.wasm")?).await?.into_result()?;
+    let f2 = f2.into_result()?.deploy(&wasm("factory/target/near/cmdk_factory.wasm")).await?.into_result()?;
     let args = json!({"code_hash": hash58, "signer": relayer.id(), "path": FACTORY_PATH, "morpho": MORPHO});
     let r = f2.call("init").args_json(args).transact().await?;
     assert!(r.is_success(), "{:?}", r.into_result().err());

@@ -49,6 +49,9 @@ COMMIT=$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo "not a git
 DIRTY=$(git -C "$ROOT" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$MODE" = reproducible-wasm ]; then
+  # cargo near walks up from vault/ to the outermost git repository (up to $HOME) and builds a clone of that one
+  OUTER=$(cd "$ROOT/.." && GIT_CEILING_DIRECTORIES=${HOME:-} git rev-parse --show-toplevel 2>/dev/null || true)
+  [ -z "$OUTER" ] || die "this checkout is nested inside the git repository $OUTER, which cargo near would build instead; check out the commit in a directory outside any other git repository"
   MISSING=""
   docker info >/dev/null 2>&1 || MISSING="$MISSING
   - a running Docker daemon (docker info failed)"
