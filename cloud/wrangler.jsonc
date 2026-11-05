@@ -12,7 +12,7 @@
   "triggers": { "crons": ["*/10 * * * *"] },
   "vars": {
     // the app origins allowed by CORS (comma separated)
-    "ALLOWED_ORIGINS": "https://cmdk.fi,http://localhost:5173",
+    "ALLOWED_ORIGINS": "https://cmdk.fi,https://testnet.cmdk.fi,http://localhost:5173",
     // relayer.py serve --factory: vault/factory/DEPLOY.md's factory.$ACCOUNT. The account is created on Friday
     // (DEPLOY.md 7a, recorded in 7c); until it exists the relayer runs, /health says "factory_exists": false and
     // /create-vault answers 503 (cloud/front.py)
