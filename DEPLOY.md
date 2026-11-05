@@ -25,8 +25,18 @@ Base Sepolia (chain 84532) and NEAR testnet. Nothing here touches mainnet.
   `G1Q5ksFhGbgPTN4A2DuvgraYmsbRpfwb78B547gAKXWq`, published for 78.31 NEAR (tx `8PsReqwVUKeWqFbgN2DXTYtQM5PvRD9mZP2BYbRoFJng`);
   factory `factory.prime-measure-1792736012.testnet`, keys deleted; vault `v1.factory.prime-measure-1792736012.testnet`,
   Base address `0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb`, `setup` (7 receipts) and `open` on live (LTV
-  499999892050639305) done through the relayer. Wallet after step 7: 0.4776 ETH, 0.0343 WETH, 27.16 USDC. Step 8
-  waits for F's image push (same day); steps 9–11 follow it. The "Known gaps" at the end were closed on 3 Nov.
+  499999892050639305) done through the relayer. Wallet after step 7: 0.4776 ETH, 0.0343 WETH, 27.16 USDC. Steps 8–10
+  ran the same day (C pushed the image itself): image `ghcr.io/cmdkfi/agent@sha256:984f0c0b…` (commit `db6aaf8`), CVM
+  `187ed31e…` / app id `29fc9b08…` on Phala (tdx.small, dstack-0.5.12), measurement approved on v1 (compose hash
+  `0d6e07a2…`), agent registered, `AGENT_EVIDENCE_URL` set in the Worker; protect-live scene: owner act 45 % (tx
+  `7qYYFd3j…`), the agent's protective reduce in the next tick repaid 3.849781 USDC and sold 0.001664 WETH, LTV 0.49967 →
+  0.40015 (`evidence/protect-live.txt`, `evidence/deploy/2026-11-04*`). **5 Nov:** image rebuilt for commit `407847d`
+  (boot-time `check_api_key` line; Dockerfile on pinned Debian packages after the `snapshot.debian.org` outage of 4 Nov),
+  pushed as `@sha256:54405980…`, CVM updated in place (same app id and gateway URL), new compose hash `6dc680d4…`
+  approved (NEAR tx `BDBaYmHCNwpEMjFimPaAXyzrGAMv8CpG6cXVJqA18942`), new agent account funded by `/fund-agent` (0.16 NEAR,
+  created with the quiet path), boot line `RESULT nearai_key http=200 valid=true`, registered on v1 at 05:41 UTC (NEAR tx
+  `GyV7A726jDGyFPgJZU5dnVzDx5u65ucA3QTCteHJ9J4d`, 0.0116 NEAR burnt, key valid to 12 Nov; `evidence/deploy/2026-11-05.log`).
+  Step 11 (screening rehearsal) waits for the judges' README decision. The "Known gaps" at the end were closed on 3 Nov.
 
 ## Budget (Base Sepolia test wallet)
 
