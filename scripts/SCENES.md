@@ -96,7 +96,7 @@ re-centred.
 ## Commands
 
 ```sh
-cd /Users/vf/cmdk/app
+# from the repository root
 python3 -I scripts/test_scene.py                                        # unit tests, no network
 python3 -I scripts/scene.py status                                      # reads only
 python3 -I scripts/scene.py run --scene gap --dry-run                   # reads only: plan, projection, one step of rebalance_pool's dry-run
@@ -149,4 +149,138 @@ transaction hash and the notes. It states numbers only, with no comparative word
 - **The AI twin is observed only.** Its decisions (`RESULT decision` lines) are in the enclave log and its transcripts, served from the evidence endpoint (README step 8); `scene.py` does not read them.
 - **Interest accrues during a scene**, so debt rises slightly between readings. Projections in `--dry-run` ignore interest and assume a fill at the oracle; the executor fills at most 1% worse.
 - **One liquidator, ours.** It runs only at step boundaries and has no competition.
-- **The venue stress scene (live market, README step 10's last sentence) is not part of `scene.py`.**
+- **The venue stress scene (live market, README step 10's last sentence) is not part of `scene.py`;** it is `scripts/venue_stress.py`, below.
+
+# Venue stress on the live market (README step 10, last sentence)
+
+`scripts/venue_stress.py` makes the live market's utilization go above the agent's 95% screen and records what the
+live agent does with vault v1's live position. Testnet only (Base Sepolia, chain id 84532; any other chain is
+refused). The test wallet signs every transaction through `rebalance_pool.send`, under `rebalance_pool.lock()`.
+The output is `evidence/scenes/venue-stress.json` and `venue-stress.md`.
+
+| Position | Address | Role |
+|---|---|---|
+| `v1` | vault v1's Base address `0xb3ccd0ad…e6fb` (`near.vault_base_address`) | borrower on live; the live enclave agent watches it, the script only reads it |
+| `wallet` | the test wallet `0x0B7Ed66f…0d25` | lender on live and backup; the scene's borrower on live |
+
+## What the agent's code does (agent/src/logic.rs, executor/src/Executor.sol)
+
+1. The screen `utilization_above_95pct` fires on a market whose utilization (borrowed / supplied, both accrued to
+   the block) is above 0.95. A new screen starts a judge call.
+2. Only `leave_market` naming `live` leads to a migrate. The code then picks the destination: same loan and collateral
+   token, same executor in the vault's state, corridor in force with migrate allowed, no fired screen on it, its feeds
+   fresh, free liquidity above 0, and LTV after the move at or below its act line. `fraction` is 1e18 when the
+   destination's free liquidity covers the debt plus 1% (`migrate_fraction`), so the run requires that. The vault's
+   corridor must allow migrate and `movesInWindow(v1)` must be below 2.
+3. With no qualifying destination and exit allowed on live (it is), `leave_market` becomes `exit` on live, a sale
+   of collateral. `reduce_light` or `reduce_to_target` lead to a `Reduced` event; `hold` leads to nothing. The
+   script records whichever happens.
+4. `Executor.migrate` checks the destination's feeds (`_requireFresh`: ETH/USD at most 1,200 s old, USDC/USD at most
+   86,400 s), moves the shares and the collateral with a Morpho flash loan, and reverts unless the destination's
+   collateral rose by exactly the collateral moved and its debt by at most the debt moved + 1 unit. It emits
+   `Migrated(caller, from, to, fraction, debtMoved, collateralMoved)`.
+
+## Commands
+
+```sh
+# from the repository root
+python3 -I scripts/test_venue_stress.py                                 # unit tests, no network
+python3 -I scripts/venue_stress.py status                               # reads only
+python3 -I scripts/venue_stress.py run --dry-run                        # reads only: plan, sizing, preconditions, the `before` reading
+python3 -I scripts/venue_stress.py run 2>&1 | tee -a ~/.local/state/cmdk/scene-venue-stress.log
+python3 -I scripts/venue_stress.py unwind --dry-run                     # reads only
+python3 -I scripts/venue_stress.py unwind                               # after FAILED: repay the wallet's borrow, withdraw its collateral
+```
+
+Options of `run`: `--borrow-keep-units N` (default 100000, 0.10 USDC left free), `--collateral-ltv F` (default 0.5),
+`--timeout-s S` (default 1800), `--poll-s P` (default 15), `--out-dir` (default `evidence/scenes`). `status` takes the
+first two, to print the borrow a run would make. Exit codes: 0 done, 1 failed after something was sent (the files
+hold what was recorded; the last line names the `unwind` command), 2 refused before anything was sent, 4 the
+rebalancer lock is held (a crash scene or a rebalancer run is sending).
+
+**Before a run:** no crash scene may be running, and the container's timer must be paused as in "Timer pause and
+rebalancer state" above: the timer, `scene.py` and this script share the wallet's nonce. The lock covers the Mac
+only. `status` must print `preconditions: all hold`.
+
+## What `run` does
+
+1. **Preconditions** (a refusal sends nothing): Base Sepolia; v1 has debt on live; backup free liquidity at least
+   v1's debt plus 1%; v1's corridors on live and backup set, not closed for the agent, migrate allowed;
+   `movesInWindow(v1)` below 2; backup's feeds fresh; backup's utilization not above 0.95; v1's LTV after the move
+   at or below backup's act line; the borrow positive; the wallet's free WETH at least the collateral; the wallet has
+   no live position yet (else `unwind` first); no `venue-stress.json` in the output directory.
+2. **Sizing.** borrow = live free liquidity (supply − borrowed) − `--borrow-keep-units`; collateral = the borrow's value
+   at the live oracle ÷ `--collateral-ltv`, rounded up to the wei. With 5.270284 USDC free on 5 Nov: borrow 5.170284
+   USDC, collateral 0.004554570 WETH at 2,270.37 USD, utilization 0.5946 → 0.9923.
+3. **`before`** at the latest block, after the lock; `GET https://relayer.cmdk.fi/agent/transcripts` (the index).
+4. **Wallet transactions:** WETH `approve(Morpho, collateral)`, Morpho `supplyCollateral(live, collateral, wallet, 0x)`,
+   then free liquidity is read again and Morpho `borrow(live, borrow, 0, wallet, wallet)` (the borrow is lowered if
+   the free liquidity fell; a note says so). `after_borrow` is read at the borrow's block.
+5. **Wait for the agent.** Every `--poll-s`: the block, live utilization and borrow APR, v1 on live and backup, and
+   the executor's `Migrated`, `Reduced` and `Exited` events with caller v1 since the start block, one line per poll.
+   The wait ends at a `Migrated`, at v1's live borrow shares 0, or at `--timeout-s`. A failed poll is printed and
+   the next poll reads again.
+6. **`after`** at the block of the agent's migrate (or exit on live), else the latest reading at timeout. The
+   comparison sums v1's collateral and debt over live and backup. For an action in block N, "before" is block N−1
+   with interest accrued to block N's time, so only the action differs; the `Migrated` event's debt and collateral
+   are recorded next to it. Collateral must be identical; debt equal up to 1 unit. The observed difference is
+   recorded either way. Without an action, "before" is the `after_borrow` reading and the difference includes interest.
+7. **Transcripts.** The index again; each name not in the first index is downloaded from
+   `https://relayer.cmdk.fi/agent/transcripts/<name>` (urllib, 20 s timeout). A failed fetch is a note.
+8. **Unwind** (also `unwind` on its own): USDC `approve(Morpho, debt × 1.01 + 1)`, Morpho
+   `repay(live, 0, all borrow shares, wallet, 0x)` (by shares, so the debt clears exactly), Morpho
+   `withdrawCollateral(live, all collateral, wallet, wallet)`. `run` unwinds whether or not the agent acted. After a
+   failure it does not, and prints the `unwind` command. A separate `unwind` adds a note to an existing record.
+9. **Files** are written after `before`, after the borrow, after the wait and at the end.
+
+Borrow APR = `IRM.borrowRateView(MarketParams, Market)` (the per-second WAD rate Morpho would accrue at next) ×
+31,536,000 / 1e18, simple, not compounded; the agent's transcripts use the same formula (`borrow_apr`).
+
+## The files
+
+`evidence/scenes/venue-stress.json`:
+
+- **Header.** `scene`, `market` (`live`), `destination` (`backup`), `markets` (ids), `executor`, `started_block`,
+  `started_utc`, `addresses` (`v1`, `wallet`), `sizing` (`borrow_units`, `collateral_wei`, `keep_units`,
+  `collateral_ltv`, `wallet_ltv`, `utilization_after`, `free_liquidity_units`), `corridors` (v1 on live and backup),
+  `backup_feeds` (feed, `age_s`, `max_age_s`, `fresh`).
+- **`phases`.** `before`, `after_borrow`, `after` and, for an action, `before_action` (block N−1). Each has `block`,
+  `ts`, `utc`; `markets.<live|backup>` with `supply_units`, `borrow_units`, `utilization`, `free_liquidity_units`,
+  `borrow_rate_per_sec`, `borrow_apr`, `oracle_price`; `positions.v1.<live|backup>` and `positions.wallet.live`
+  with `coll`, `debt`, `ltv`, `shares`, `cash` (USDC at the address); `moves_in_window`; `wallet_weth_wei`. Raw
+  units are strings.
+- **`comparison`.** `block_before`, `block_after`, `basis`, `collateral_before_wei`, `collateral_after_wei`,
+  `collateral_diff_wei`, `debt_before_units`, `debt_after_units`, `debt_diff_units`, `collateral_identical`,
+  `debt_equal`, `debt_equal_within_units` (1) and, for a migrate, `event` (`fraction`, `debt_moved_units`,
+  `collateral_moved_wei`).
+- **`actions`.** From the chain's events, in chain order: `block`, `kind` (`migrate`, `reduce`, `exit`), `tx`, `by`
+  (`agent`). A migrate has `from`, `to`, `fraction`, `debt_moved_units`, `collateral_moved_wei`. A reduce has
+  `market`, `repaid_units`, `sold_wei`, `protective`, `ltv_before`, `ltv_after`. An exit has `market`, `repaid_units`,
+  `from_idle_units`, `sold_wei`, `collateral_out_wei`.
+- **`transcripts`.** Per new transcript: `name`, `sha256` (of the bytes served), `sha256_index`, `vault`, `loop`,
+  `time_utc`, `block`, `trigger` (`kind`, `new_screens`), `screens` (`market:screen`), `judge` (`outcome`,
+  `accepted`, `ignored`, `trigger`, `judgment_market`, `answer`: `risk`, `action`, `market`, `reasons`), `decisions`
+  (`market`, `action`, `to`, `fraction`, `amount`, `protective`, `basis`), `chosen`, `proposal` (`method`, `args`,
+  `sent`, `why_not_proposed`, `why_not_sent`, `near_tx`, `base_tx`, `base_status`, `base_block`, `error`).
+- **Footer.** `transactions` (`label`, `tx`, `block`, `gas`, `fee_wei`, `l1_fee_wei`), `outcome` (`stopped`,
+  `agent_actions`; empty until the run ends) and `notes`.
+
+`venue-stress.md` is rendered from the JSON. It contains the three-phase table (before the borrow, after the borrow,
+after the agent's action), the comparison, the actions, the transcripts with the judge's reasons, every transaction
+hash and the notes.
+
+## Limits of this scene
+
+- **The judge decides.** The judge may answer `hold`, `reduce_light` or `reduce_to_target`, or may name another
+  market. A judgment is applied only while every screen it was asked about is still on (`relevant`). On 5 Nov one
+  judge call took 93 s.
+- **Fresh feeds at the moment of the decision.** If ETH/USD on Base Sepolia is more than 1,200 s old when the
+  judgment is applied, `feed_stale` fires on live and backup. The backup then fails the destination filter, and
+  `leave_market` becomes an exit on live. In v1's transcripts of 4 and 5 Nov (to 16:19 UTC), 15 of 57 fire
+  `feed_stale` on both markets, for example `ETH/USD age 1203 s > 1200 s`. The precondition checks the feeds only
+  at the start.
+- **Other markets of v1.** v1 also holds a demo position. If it is in a protective state, `pick` proposes the demo
+  reduce first; with a screen on demo, the judge may name demo instead of live. Run the scene with no crash scene
+  in progress.
+- **One run per 24 h of moves.** The executor allows 2 moves per rolling 24 h per caller. A migrate leaves v1 on
+  backup; moving it back to live is the owner's or a later scene's.
