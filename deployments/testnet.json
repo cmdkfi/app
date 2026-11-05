@@ -1,87 +1,123 @@
 {
- "_comment": "Public addresses of the cmdk hackathon build. Testnet only: Base Sepolia (chain 84532) and NEAR testnet. No keys. Base part from executor/deployments-2026-11-04.json (executor deployed 4 Nov 2026; the prototype executor 0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40 is retired), agent/src/chain.rs and the executor's on-chain config; read 3 Nov 2026.",
- "base": {
-  "network": "base-sepolia",
-  "chainId": 84532,
-  "executor": "0xA9bbabE6d75C5BA96CA095586284774c9D09D18b",
-  "executorDeployBlock": 54354973,
-  "cooldownSeconds": 60,
-  "morpho": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
-  "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
-  "morphoChainlinkOracleV2Factory": "0x2DC205F24BCb6B311E5cdf0745B0741648Aebd3d",
-  "gasPriceOracle": "0x420000000000000000000000000000000000000F",
-  "tokens": {
-   "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-   "weth": "0x4200000000000000000000000000000000000006",
-   "dusdc": "0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5",
-   "_comment": "usdc is Circle's Base Sepolia test USDC (faucet.circle.com); dusdc is our test token for the demo market, 6 decimals, anyone may mint"
-  },
-  "uniswapV3": {
-   "factory": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
-   "swapRouter02": "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
-   "nonfungiblePositionManager": "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2",
-   "quoterV2": "0xC5290058841028F1614F3A6F0F5816cAd0df5E27"
-  },
-  "chainlink": {
-   "ethUsd": {"address": "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1", "description": "ETH / USD", "maxAgeSeconds": 1200},
-   "usdcUsd": {"address": "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165", "description": "USDC / USD", "maxAgeSeconds": 86400},
-   "_comment": "the feeds the agent reads (agent/src/chain.rs) and the executor's feed-age gates for live and backup (Executor.config)"
-  },
-  "mockOracle": {
-   "address": "0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f",
-   "owner": "0x0B7Ed66f46fe83252a208563A88201BA60490d25",
-   "_comment": "the demo market's oracle; only the team's test wallet can set its price (scripts/rebalance_pool.py --market demo --set-price)"
-  },
-  "markets": {
-   "live": {
-    "id": "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c",
-    "loanToken": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-    "collateralToken": "0x4200000000000000000000000000000000000006",
-    "oracle": "0x7D0ebc71EBBEC6F215C2Ab818F9dB538A52f6a3E",
+  "_comment": "Public addresses of the cmdk hackathon build. Testnet only: Base Sepolia (chain 84532) and NEAR testnet. No keys. Base part from executor/deployments-2026-11-04.json (executor deployed 4 Nov 2026; the prototype executor 0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40 is retired), agent/src/chain.rs and the executor's on-chain config; read 3 Nov 2026.",
+  "base": {
+    "network": "base-sepolia",
+    "chainId": 84532,
+    "executor": "0xA9bbabE6d75C5BA96CA095586284774c9D09D18b",
+    "executorDeployBlock": 54354973,
+    "cooldownSeconds": 60,
+    "morpho": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
     "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
-    "lltv": "860000000000000000",
-    "pool": "0x57183717A087d2fe3Ad890873877244c3B96156c",
-    "feeds": ["ethUsd", "usdcUsd"],
-    "_comment": "USDC/WETH, MorphoChainlinkOracleV2 on the real Chainlink ETH/USD and USDC/USD feeds; pool is the public USDC/WETH 0.01% pool, kept at the oracle by scripts/rebalance.sh"
-   },
-   "backup": {
-    "id": "0x99d43c0f2a0eb6172774598a4e34e7eee09caa502692c2b2df0f40e1e3c5ea75",
-    "loanToken": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-    "collateralToken": "0x4200000000000000000000000000000000000006",
-    "oracle": "0x20Ff664b99676a45A13bD77ACB2AFECeA10Cd538",
-    "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
-    "lltv": "860000000000000000",
-    "pool": "0x57183717A087d2fe3Ad890873877244c3B96156c",
-    "feeds": ["ethUsd", "usdcUsd"],
-    "_comment": "its own MorphoChainlinkOracleV2 instance on the same two feeds; the executor's config gives it the live market's pool"
-   },
-   "demo": {
-    "id": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",
-    "loanToken": "0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5",
-    "collateralToken": "0x4200000000000000000000000000000000000006",
-    "oracle": "0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f",
-    "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
-    "lltv": "860000000000000000",
-    "pool": "0x722F350ec250c1697063A080B0196506D7Fe21c1",
-    "feeds": [],
-    "_comment": "dUSDC/WETH on the mock oracle; WETH/dUSDC 0.01% pool owned in practice by our anchor and bands"
-   }
+    "morphoChainlinkOracleV2Factory": "0x2DC205F24BCb6B311E5cdf0745B0741648Aebd3d",
+    "gasPriceOracle": "0x420000000000000000000000000000000000000F",
+    "tokens": {
+      "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "weth": "0x4200000000000000000000000000000000000006",
+      "dusdc": "0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5",
+      "_comment": "usdc is Circle's Base Sepolia test USDC (faucet.circle.com); dusdc is our test token for the demo market, 6 decimals, anyone may mint"
+    },
+    "uniswapV3": {
+      "factory": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+      "swapRouter02": "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
+      "nonfungiblePositionManager": "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2",
+      "quoterV2": "0xC5290058841028F1614F3A6F0F5816cAd0df5E27"
+    },
+    "chainlink": {
+      "ethUsd": {
+        "address": "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1",
+        "description": "ETH / USD",
+        "maxAgeSeconds": 1200
+      },
+      "usdcUsd": {
+        "address": "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
+        "description": "USDC / USD",
+        "maxAgeSeconds": 86400
+      },
+      "_comment": "the feeds the agent reads (agent/src/chain.rs) and the executor's feed-age gates for live and backup (Executor.config)"
+    },
+    "mockOracle": {
+      "address": "0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f",
+      "owner": "0x0B7Ed66f46fe83252a208563A88201BA60490d25",
+      "_comment": "the demo market's oracle; only the team's test wallet can set its price (scripts/rebalance_pool.py --market demo --set-price)"
+    },
+    "markets": {
+      "live": {
+        "id": "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c",
+        "loanToken": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "collateralToken": "0x4200000000000000000000000000000000000006",
+        "oracle": "0x7D0ebc71EBBEC6F215C2Ab818F9dB538A52f6a3E",
+        "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+        "lltv": "860000000000000000",
+        "pool": "0x57183717A087d2fe3Ad890873877244c3B96156c",
+        "feeds": [
+          "ethUsd",
+          "usdcUsd"
+        ],
+        "_comment": "USDC/WETH, MorphoChainlinkOracleV2 on the real Chainlink ETH/USD and USDC/USD feeds; pool is the public USDC/WETH 0.01% pool, kept at the oracle by scripts/rebalance.sh"
+      },
+      "backup": {
+        "id": "0x99d43c0f2a0eb6172774598a4e34e7eee09caa502692c2b2df0f40e1e3c5ea75",
+        "loanToken": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "collateralToken": "0x4200000000000000000000000000000000000006",
+        "oracle": "0x20Ff664b99676a45A13bD77ACB2AFECeA10Cd538",
+        "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+        "lltv": "860000000000000000",
+        "pool": "0x57183717A087d2fe3Ad890873877244c3B96156c",
+        "feeds": [
+          "ethUsd",
+          "usdcUsd"
+        ],
+        "_comment": "its own MorphoChainlinkOracleV2 instance on the same two feeds; the executor's config gives it the live market's pool"
+      },
+      "demo": {
+        "id": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",
+        "loanToken": "0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5",
+        "collateralToken": "0x4200000000000000000000000000000000000006",
+        "oracle": "0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f",
+        "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+        "lltv": "860000000000000000",
+        "pool": "0x722F350ec250c1697063A080B0196506D7Fe21c1",
+        "feeds": [],
+        "_comment": "dUSDC/WETH on the mock oracle; WETH/dUSDC 0.01% pool owned in practice by our anchor and bands"
+      }
+    },
+    "testWallet": "0x0B7Ed66f46fe83252a208563A88201BA60490d25"
   },
-  "testWallet": "0x0B7Ed66f46fe83252a208563A88201BA60490d25"
- },
- "near": {
-  "network": "testnet",
-  "factory": "factory.prime-measure-1792736012.testnet",
-  "vault_code_hash": "G1Q5ksFhGbgPTN4A2DuvgraYmsbRpfwb78B547gAKXWq",
-  "vault_code_hash_hex": "def9671e099fe325a7ac8c43831de0334a3dc75221f6c302b17a893e0377e1ba",
-  "vault": "v1.factory.prime-measure-1792736012.testnet",
-  "vault_base_address": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
-  "relayer": "relayer.prime-measure-1792736012.testnet",
-  "_comment": "filled on 4 Nov 2026 at the public testnet deployment (DEPLOY.md step 7; moved forward from Fri 6): vault_code_hash is base58, vault_code_hash_hex the same SHA-256 in hex; vault is v1.<factory>; vault_base_address is the vault's derived Base Sepolia address"
- },
- "feeds": {
-  "venueStatus": "feeds/venue-status.json",
-  "governance": "feeds/governance.json",
-  "_comment": "demo feeds published by the cmdk team for the testnet demo; not a real venue. Served from the public repository's raw GitHub URL (feeds/README.md)"
- }
+  "near": {
+    "network": "testnet",
+    "factory": "factory.prime-measure-1792736012.testnet",
+    "vault_code_hash": "G1Q5ksFhGbgPTN4A2DuvgraYmsbRpfwb78B547gAKXWq",
+    "vault_code_hash_hex": "def9671e099fe325a7ac8c43831de0334a3dc75221f6c302b17a893e0377e1ba",
+    "vault": "v1.factory.prime-measure-1792736012.testnet",
+    "vault_base_address": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+    "relayer": "relayer.prime-measure-1792736012.testnet",
+    "_comment": "filled on 4 Nov 2026 at the public testnet deployment (DEPLOY.md step 7; moved forward from Fri 6): vault_code_hash is base58, vault_code_hash_hex the same SHA-256 in hex; vault is v1.<factory>; vault_base_address is the vault's derived Base Sepolia address"
+  },
+  "feeds": {
+    "venueStatus": "feeds/venue-status.json",
+    "governance": "feeds/governance.json",
+    "_comment": "demo feeds published by the cmdk team for the testnet demo; not a real venue. Served from the public repository's raw GitHub URL (feeds/README.md)"
+  },
+  "agent": {
+    "operator": "cmdk",
+    "measurement": {
+      "mrtd": "7fe60787222bd394cb516abca2435f22f035ab2cc9c0a4b4b3b148e46297f3d931a237b72f359052c6e657d8c1409173",
+      "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+      "rtmr1": "4ae609807c765916a31d724786ed74bcb97e168a9d937b04936aeef2015c907eba5ac352c6bcd749c246fd62ffb659ec",
+      "rtmr2": "764489f277a8540189761e72b4238ba36d4d647e11bd958d8ab5522af2a4867b0ff63e06b0c4967f1857236244040a5d",
+      "compose_hash": "216124c1e33e525670272566938268471719d6eb94fdf6048c67925cbab9bdb2",
+      "os_image_hash": "8db40cb23008d6213668b5816702d100b37b859a8a5bfd18d938ae3a1b3715bd"
+    },
+    "sourceCommit": "fd0272f",
+    "version": "0.1.0",
+    "image": "ghcr.io/cmdkfi/agent@sha256:479f98f394bc3a146574d5c325b0ab881521c17eaa10ec131aa4fb9cc2518f34",
+    "imageId": "sha256:01027505f3873dc6fff86ffac5819bb28dc45dcbc8760fdc929ed4474c0a6eb3",
+    "phalaAppId": "29fc9b0846dc459e21923c5a1b63474d79df6e6b",
+    "osImage": "dstack-0.5.12",
+    "instance": "tdx.small",
+    "evidenceUrl": "https://29fc9b0846dc459e21923c5a1b63474d79df6e6b-8080.dstack-pha-prod9.phala.network",
+    "evidenceProxy": "https://relayer.cmdk.fi/agent",
+    "transcriptsPath": "/transcripts",
+    "_comment": "filled 5 Nov 2026: the measurement a vault must approve (the setup message's `measurement`, or approve_measurement) for the running agent to watch it; the six values are those of boot a405e917 (image fd0272f), compose_hash changes with every image, the other five with the Phala OS image or instance size. A vault whose approved values differ is not watched: the app should compare the vault's `approved` (get_state) with this block and offer approve_measurement. evidenceUrl serves GET /, /vaults, /evidence/<file>, /transcripts[/<name>]; evidenceProxy the same with CORS."
+  }
 }
