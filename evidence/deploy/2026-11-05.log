@@ -67,3 +67,22 @@ signature 0x2643419061506daeb5b8ac71cc07ec656b3c52671726661be5d8b04432c181bf7a08
 {"protocol":"cmdk-vault/1","network":"testnet","vault":"v1.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":8,"expiry":1793881107}
 signature 0xa6484e0c3ba2d230b62a7fb8e1149285f97a6a13db0eb927aca98ac79a4be7ed45224153b156445cd0556b8adc784f0738535ab9f0fe5bf5b270589c4b663e821b
 {"ok":true,"near_tx":"J5911fHyaff1uV8xnHkcBh3Zi5PRN6PnxsLgUxheSiuw","error":null,"receipts":[{"hash":"0xc6385e5a58bc7ec291153d8c9ec2caa85be00b7426428699d6cf4800cc410142","status":1}]}
+2026-11-05T14:42:53Z between scenes: owner close on demo for v1 and v2 (after gradual-crash)
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v1.factory.prime-measure-1792736012.testnet","method":"close","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585"},"nonce":9,"expiry":1793890377}
+signature 0x17050d1511b9e6d3959422f34b2441e48f77128c335fa550e3993d5b017c461974aeda0843a9cf330a0a01dc316703b2ddee630764a958d2c81854ddaa3caabb1b
+{"ok":true,"near_tx":"5iDyQXERPxj71sjUVVVN2EgUN9SM3KLmwkwk6vmUxDe9","error":null,"receipts":[{"hash":"0x66a8be540cf4678dc41fdcf9768d3945fee03f0ddbdfda0149a4c55bdf572afa","status":1}]}
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"close","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585"},"nonce":8,"expiry":1793890400}
+signature 0xef4e3361b210762dd7938b3d819efe8f1a0d227186c46660867e5ef43308263546665d747713785f549aefcba6744ac5fa058b2dd6d42988c0fb7c0cc25cfb1c1c
+{"ok":true,"near_tx":"3XpD9ttmwe4hACcH3s5ZcvVU2F8yk85TtCk8i1Ysrijj","error":null,"receipts":[{"hash":"0xd1fa43c7b85e43b67a41a1b5bb68f225e4a708149a5d2c98ce146a3e4305224e","status":1}]}
+2026-11-05T14:49:17Z between scenes: wallet close on demo; WETH top-ups to 0.002 at v1 and v2; wallet re-open at 50%
+  scenes-close-demo-wallet: tx 0xbf88f31a8a103e426f5aeb358767075807267ec48c9fc43a71a8fba0c46c7344 status 1 gas 143911, fee 719555144008 wei (L2 719555143911 + L1 97)
+  scenes-weth-v1-b: tx 0x07c17daa5167438809d2fdcee15070d4c2987e2aa88e96c4c321617798904dc6 status 1 gas 34245, fee 171225034342 wei (L2 171225034245 + L1 97)
+  scenes-weth-v2-b: tx 0x33958b65d4a2e5d8ed20059fbcce49687c4123eb659bb2083b181a745f11e3b3 status 1 gas 34245, fee 205470000097 wei (L2 205470000000 + L1 97)
+  scenes-open-demo-wallet-2: tx 0x9d6ff7e499caa09ed3df04b1c538c9905e212b14a965f354de133af96233ada4 status 1 gas 205714, fee 1234284000111 wei (L2 1234284000000 + L1 111)
+2026-11-05T14:49:36Z between scenes: v1 and v2 re-open demo 0.002 WETH at 50% (before the gap scene)
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v1.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":10,"expiry":1793890780}
+signature 0x033106efa7693052c8f3a12660ca1856bff5d846c7b18adf01f990141e1d993f68eec5c74c3f05fc75d2b08c76f71f83617e51eb14d607e65e77577d779142ed1b
+{"ok":true,"near_tx":"BxCnbMdqiP2rwaJsfdZFvAkz4bznqXvvN6h8FScVRmt","error":null,"receipts":[{"hash":"0x10caf90e3672efa9431fdeaf9e2d49603730335109969eb34e590fd4f8b15bb1","status":1}]}
+{"protocol":"cmdk-vault/1","network":"testnet","vault":"v2.factory.prime-measure-1792736012.testnet","method":"open","args":{"market":"0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585","collateral_in":"2000000000000000","target_ltv":"500000000000000000"},"nonce":9,"expiry":1793890800}
+signature 0x44dc1db2095735714145768f1ea9bfca0a6faad3b1a29c121f0618c6c964fef53a19757ff2701f3937c7c0b083173b6bba6bc66d8c706e4fc3030c751da1c4021b
+{"ok":true,"near_tx":"HwPHtEK4xWtdzMQZKbNzvG7ntNkKrokNsdLaZeBnLQk2","error":null,"receipts":[{"hash":"0x7cb2bddc23ab0d3da5681a209a885cad92cdd86063b82737ba860e34c216019a","status":1}]}
