@@ -1,0 +1,41 @@
+attack-corridor: executor 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25, chain 84532 (testnet), block 54752004, time 1793872269
+  testnet: cooldown waits run in real time (MoveLimit, BelowFloor and SellBudget each wait 60 s before an agent call)
+  corridor on live, backup, demo: target 0.50, act 0.70, floor 0.30, sell budget 0.05, migrate and exit allowed
+-- Expired: reduce(demo) signed with deadline = block time + 6 s, broadcast after the deadline
+  signed at block time 1793872280, nonce 774, deadline 1793872286
+  waiting 7 s in real time
+  published after the deadline: tx 0x38b88527daa9520f0722a32d3957c11b3d85f540421df6519b9f2bb322d17772 block 54752110 (time 1793872290) status 0x0 gasUsed 23290
+attack Expired: revert Expired 0x203d82d8 PASS
+-- MoveLimit: two moves between live and backup within 24 h, then a third
+  feed ages: ETH/USD 513 s (max 1200), USDC/USD 2596 s (max 86400)
+  0.002 WETH is worth 4828614 USDC units; free liquidity min(live, backup) 5270281; open at LTV 0.2000
+  open(live, 0.002 WETH, LTV 0.2000): borrowShares 965706255623 collateral 2000000000000000
+  moves in the last 24 h before: 0
+  move 1: migrate(100%) done at time 1793872297; movesInWindow = 1
+  waiting 58 s in real time
+  move 2: migrate(100%) done at time 1793872361; movesInWindow = 2
+  waiting 57 s in real time
+  landed: tx 0xfcdda7a4af61de9f18fb77bceda4b6b1bb894adfdf581257c278008e60f23dd3 block 54752767 status 0x0 gasUsed 67113 / 600000
+attack MoveLimit: revert MoveLimit 0x013da4fb PASS
+-- UnapprovedMarket: migrate from live to 0xcdffa34acd76819c6cc63553cd99aaa981848aa90134b63c7be4e502b6cc2b11 (live's parameters, LLTV 94.5%; no corridor)
+  corridors(wallet, that id) = (0,0,0,0,false,false,false)
+  landed: tx 0x31832940a432a161ef78ce445647a42c26dc0261150ada8c4423ef6593ade362 block 54752782 status 0x0 gasUsed 35413 / 300000
+attack UnapprovedMarket: revert UnapprovedMarket 0x99b2f06d PASS
+  closed the move position (owner close); live: borrowShares 0 collateral 0; backup: borrowShares 0 collateral 0
+-- BelowFloor: discretionary reduce(demo) at LTV 0.10, floor 0.30
+  open(demo, 0.002 WETH, LTV 0.10): LTV 0.1000
+  landed: tx 0x286c6de303a482370e2ebe644575d7d5d2c0d2b52d4b8f813ff295609eabb681 block 54752809 status 0x0 gasUsed 104675 / 400000
+attack BelowFloor: revert BelowFloor 0x4e7e2916 PASS
+-- SellBudget: discretionary reduces on demo at LTV 0.45 until the 5% budget is used, then one more
+  open(demo, +0, LTV 0.45): LTV 0.4500, collateral 2000000000000000, sold in window 0
+  sale 1: reduce(demo, ask 100 dUSDC) clamped; sold in window 99012155717795 wei WETH, collateral 1900987844282205, LTV 0.4214
+  waiting 57 s in real time
+  sale 2: reduce(demo, ask 100 dUSDC) clamped; sold in window 99990035066251 wei WETH, collateral 1900009964933749, LTV 0.4211
+  waiting 59 s in real time
+  sale 3: reduce(demo, ask 100 dUSDC) clamped; sold in window 99999886675993 wei WETH, collateral 1900000113324007, LTV 0.4211
+  waiting 56 s in real time
+  landed: tx 0xdc68d0a11c58c5e1e3f05c67f1f1af798104b7c76933bcac4973c2286ee10ff8 block 54753786 status 0x0 gasUsed 180654 / 400000
+attack SellBudget: revert SellBudget 0x397b9774 PASS
+  closed demo; positions live: borrowShares 0 collateral 0; backup: borrowShares 0 collateral 0; demo: borrowShares 0 collateral 0
+  corridors restored to their values before the run: 3 (a market without one before keeps the attack corridor)
+result: 5 PASS, 0 FAIL (executor 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25, block 54753848)
