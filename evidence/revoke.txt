@@ -1,0 +1,51 @@
+# Revoke scene (README step 12), 5 Nov 2026, vault v2
+
+Vault: v2.factory.prime-measure-1792736012.testnet (owner: the test wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25;
+Base address 0xfc85641356fe56b8851f715c3c81ad2b511a67cf). The agent is the same enclave boot that serves v1
+(boot-1793877578-a405e917, key ed25519:C3H6CqBzBMxUEDcLyZHMqeZwBt9KNr5vnZv5tQ6ouHMu). All times UTC. Owner messages
+went through the relayer (https://relayer.cmdk.fi/owner-call); the vault checked each signature on NEAR.
+
+## Setup, so there is something to revoke
+
+11:29  owner `setup` on v2: live market approvals, Morpho authorization, corridor 50/70/30/20, and the agent measurement
+       (compose hash 216124c1…). NEAR tx CYE4H8PmNg9B2MHArQTafDkM5BdYSz1ZGWd4B8pLFmjj, 4 Base receipts status 1.
+11:31  the agent's scan sees that v2 approves its measurement: `RESULT vault joined vault=v2 …: approves this measurement; registering`
+11:31  owner `open` on v2 live: 0.002 WETH at target LTV 50%. NEAR tx FxqqcJXmSRWmvdXAQGPDZkAyzdSRruEZtUNojK9U8BtQ,
+       Base 0x054a06f1b7b3b72b2c9ecc0cd56e2abd53e965ffed2f4721824c97424f0abf9d. ltvOf = 499999793151922054; 2.417231 USDC borrowed to the vault's address.
+11:42  `RESULT register_agent vault=v2 … registered=true` NEAR tx BFyyLs5v71VGYuKcUY7DU6Mr43Yq6BuaC379ntGhbJ2J, expires_at 1794483727.
+       `near account list-keys v2.factory.prime-measure-1792736012.testnet network-config testnet now` → one key,
+       ed25519:C3H6Cq…, "only do [reduce, migrate, exit] function calls on v2…", allowance 2 NEAR. No full-access key.
+11:43  GET https://relayer.cmdk.fi/agent/vaults → v2: registered, active, 10 ticks.
+
+## Revoke
+
+11:43:18  owner `revoke_agent` on v2 (no arguments). NEAR tx FYeZcfVXc4adX1PicUkEzUYHtyNEFJgnULFHSmgTQiEW; no Base transaction (the vault
+          deletes the key and clears `approved` in the same NEAR transaction).
+11:43:54  enclave log: `RESULT vault left vault=v2 …: it no longer approves this measurement (revoked or changed); its tick loop stops`
+11:43:56  enclave log: `RESULT vault loop ended vault=v2 ticks=22 loops=1 stopped=true`
+11:44:01  `near account list-keys v2…` → 0 keys. `get_state` → agent: null, approved: null. GET /agent/vaults → v2 not in the watched list.
+
+What did not happen, and why the README's earlier wording was wrong: the agent made no call after the revoke, so there is no
+`AccessKeyNotFound` in any log. The agent re-reads the vault's state every refresh and stops the vault's loop when it no longer
+approves the measurement (`logic::agent_status`, `may_propose` false when revoked). Had it tried, the NEAR protocol would refuse
+the signature with `AccessKeyNotFound`, because the key is gone from the account (0 keys above); that refusal is at the
+protocol, not in our code. A held signature past its deadline fails on Base with `Expired`: shown from the wallet path in
+evidence/attacks.txt (attack Expired, selector 0x203d82d8).
+
+## Close and withdraw: only the owner's signature moves funds, only to where the owner says
+
+11:44  owner `close` on v2 live, first attempt: refused by the relayer's pre-check, "the vault holds 2427231 of the loan token, below
+       the 2441404 it pulls (debt plus 1%)" — the position address held exactly the borrowed USDC. 0.02 USDC sent from the test wallet
+       (Base 0xfa635f70638719ffb350cf7a3a6b1d8711b6729b876f94ac41cb029552fd83cb) to cover interest and the margin.
+11:46  owner `close` on v2 live: NEAR tx ESR9eKAoMXWGoqpEvHaGvD8A1aXKCBxq3Waaqo3JhRTW, Base 0x8c8949e365c2a66eeac80196896b583ee1b26ad045724d975f907a39e6891c6f
+       status 1. Morpho position(live, 0xfc85…) → 0 supply shares, 0 borrow shares, 0 collateral. Vault address: 0.002 WETH, 0.029999 USDC.
+11:47  owner `withdraw` 0.002 WETH, destination = the owner wallet: NEAR tx GK1ghXTtLfv1WgDtvPuXu35ju9koc9mpjkWW5FPy6u6,
+       Base 0x431aefa81689bd54a8d6e83faf27ab87731c7fc9e8e9492b057de25bc40c94cf status 1, block 54786817.
+       Owner wallet WETH 38168475624793891 → 40168475624793891 (+0.002 WETH exactly). Vault address WETH 0.
+
+## Verify
+
+near account list-keys v2.factory.prime-measure-1792736012.testnet network-config testnet now          # no keys
+near contract call-function as-read-only v2.factory.prime-measure-1792736012.testnet get_state json-args '{}' network-config testnet now   # agent null, approved null
+cast receipt 0x431aefa81689bd54a8d6e83faf27ab87731c7fc9e8e9492b057de25bc40c94cf --rpc-url https://sepolia.base.org   # WETH Transfer 0xfc85… → 0x0B7E…, 2000000000000000
+Relayer responses: evidence/deploy/2026-11-05-v2-{setup,open-live,revoke-agent,close-live,withdraw-weth}.json; log: evidence/deploy/2026-11-05.log.
