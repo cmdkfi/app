@@ -1,0 +1,12 @@
+{
+  "eligible_episodes": 19794,
+  "case_policy_rows": 39588,
+  "continuation_rows": 59382,
+  "headline_rows": 4,
+  "per_asset_rows": 8,
+  "no_duplicate_case_policy_rows": true,
+  "finite_outputs": true,
+  "step1_closed_before_step2": true,
+  "selection_frozen_before_holdout": true,
+  "aave_excluded": true
+}

@@ -1,0 +1,3 @@
+.venv/
+.pip-cache/
+__pycache__/

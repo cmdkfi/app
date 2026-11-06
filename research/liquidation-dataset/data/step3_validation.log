@@ -1,0 +1,11 @@
+{
+  "all_passed": true,
+  "rows_checked": 4983502,
+  "unique_position_hours": 4983502,
+  "known_outcomes": 4896646,
+  "unknown_outcomes": 86856,
+  "scaler_training_rows": 1587760,
+  "source_feature_samples": 548,
+  "direct_outcome_samples": 535,
+  "elapsed_s": 11.350698947906494
+}

@@ -1,0 +1,42 @@
+{
+  "started_at": 1793122782.959056,
+  "protocol_sha256": "0086528608f1d957a073f7b2fc0726c4b0922d459a668b4581f6cffee4e7131d",
+  "train_rows": 357860,
+  "train_positions": 2398,
+  "train_episodes": 2468,
+  "train_positives": 45720,
+  "latest_train_hour": 1766343600,
+  "latest_train_horizon_end": 1766430000,
+  "training_keys_sha256": "f2c5111ee458bc041e52e25ab306d5516e39ffcfa19b3b025ce970f660a4959d",
+  "parameters": {
+    "loss": "log_loss",
+    "learning_rate": 0.05,
+    "max_iter": 200,
+    "max_leaf_nodes": 15,
+    "max_depth": 5,
+    "min_samples_leaf": 50,
+    "l2_regularization": 1.0,
+    "max_features": 1.0,
+    "max_bins": 127,
+    "categorical_features": null,
+    "early_stopping": false,
+    "random_state": 20261027,
+    "class_weight": null
+  },
+  "features": [
+    "ltv",
+    "dist_to_line",
+    "price_change_1h",
+    "price_change_6h",
+    "price_change_24h",
+    "realized_volatility_24h",
+    "oracle_vs_binance_pct",
+    "utilization",
+    "borrow_rate",
+    "hours_since_owner_action",
+    "position_size_usd"
+  ],
+  "train_command": "scripts/.venv/bin/python3 -I scripts/step4_train.py",
+  "model_selection": "one predeclared fit; no hyperparameter sweep or early stopping",
+  "holdout_used_in_fit": false
+}

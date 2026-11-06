@@ -1,0 +1,13 @@
+{
+  "status": "complete",
+  "started_at": 1793095444.110286,
+  "finished_at": 1793095444.978223,
+  "elapsed_s": 0.8679370880126953,
+  "wall_span_from_diagnostics_s": 1236.7187020778656,
+  "extra_counts": {
+    "inactive_or_zero_balance_hours": 97504,
+    "outside_validated_episode_hours": 3600674,
+    "known_stale_hours": 294256,
+    "unknown_label_missing_window_hours": 86757
+  }
+}

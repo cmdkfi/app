@@ -1,0 +1,35 @@
+{
+  "elapsed_s": 0.40766286849975586,
+  "eth_factors": [
+    {
+      "split": "holdout",
+      "episodes": 4260,
+      "losses": 263,
+      "dust_limited": 244,
+      "dust_share_pct": 92.77566539923954,
+      "dust_start_under_4c": 242,
+      "dust_max_candidate_notional": 0.009179402586315645,
+      "dust_median_lead_hours": 58.39472222222222,
+      "above_act_under_1h": 8,
+      "under_120s": 8,
+      "order_blocks": 91,
+      "reverts": 0,
+      "fallback": 2
+    },
+    {
+      "split": "train",
+      "episodes": 2403,
+      "losses": 760,
+      "dust_limited": 630,
+      "dust_share_pct": 82.89473684210526,
+      "dust_start_under_4c": 620,
+      "dust_max_candidate_notional": 0.009963637499999999,
+      "dust_median_lead_hours": 28.413333333333334,
+      "above_act_under_1h": 97,
+      "under_120s": 93,
+      "order_blocks": 162,
+      "reverts": 1,
+      "fallback": 2
+    }
+  ]
+}

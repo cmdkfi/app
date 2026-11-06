@@ -1,0 +1,10 @@
+{
+  "source": "step2_selected_results",
+  "status": "complete",
+  "started_at": 1793092339.918456,
+  "finished_at": 1793092342.424317,
+  "elapsed_s": 2.505861759185791,
+  "result": {
+    "rows": 39588
+  }
+}

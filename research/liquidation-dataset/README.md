@@ -111,15 +111,15 @@ Initial failure/recovery details are archived in `data/raw/step1_readme_original
 Use Python 3.14 and the versions pinned in `scripts/requirements.txt`. From the repository root:
 
 ```sh
-python3 -I 'research_notes/Liquidation dataset/scripts/close_step1.py' candidates
-python3 -I 'research_notes/Liquidation dataset/scripts/close_step1.py' select_market
-python3 -I 'research_notes/Liquidation dataset/scripts/close_step1.py' replacement_pull
-python3 -I 'research_notes/Liquidation dataset/scripts/close_step1.py' oracle_config
-python3 -I 'research_notes/Liquidation dataset/scripts/close_step1.py' extra_oracles
-python3 -I 'research_notes/Liquidation dataset/scripts/close_step1.py' replacement_oracle
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/assemble.py'
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/validate.py'
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/report.py'
+python3 -I 'research/liquidation-dataset/scripts/close_step1.py' candidates
+python3 -I 'research/liquidation-dataset/scripts/close_step1.py' select_market
+python3 -I 'research/liquidation-dataset/scripts/close_step1.py' replacement_pull
+python3 -I 'research/liquidation-dataset/scripts/close_step1.py' oracle_config
+python3 -I 'research/liquidation-dataset/scripts/close_step1.py' extra_oracles
+python3 -I 'research/liquidation-dataset/scripts/close_step1.py' replacement_oracle
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/assemble.py'
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/validate.py'
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/report.py'
 ```
 
 Successful exact HTTP pages are immutable and reused on restart. Do not restart the failed Aave attempt without a new instruction; `close_step1.py aave` is the recorded attempt command. All table assembly and validation are offline. No Step 3 or Step 4 code has run.
@@ -254,22 +254,22 @@ Step 2 measured command timings (seconds; `data/step2_source_times.csv`). Record
 After Step 1 closure, run these from the repository root using the local environment. Every successful request and completed case is reused on restart; `train_run_manifest.json` prevents reuse across incompatible grid settings.
 
 ```sh
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/step2_data.py' market_history
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/step2_data.py' case_plan
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/step2_data.py' minute_prices
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/step2_data.py' features
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/replay.py' oracles
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/replay.py' parity
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/replay.py' baseline
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/replay.py' train
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/replay.py' select
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/replay.py' holdout
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/summarize_step2.py' selected_results
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/summarize_step2.py' continuation
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/summarize_step2.py' tables
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/validate_step2.py'
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/validate_results.py'
-'research_notes/Liquidation dataset/scripts/.venv/bin/python3' -I 'research_notes/Liquidation dataset/scripts/report.py' complete
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/step2_data.py' market_history
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/step2_data.py' case_plan
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/step2_data.py' minute_prices
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/step2_data.py' features
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/replay.py' oracles
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/replay.py' parity
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/replay.py' baseline
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/replay.py' train
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/replay.py' select
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/replay.py' holdout
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/summarize_step2.py' selected_results
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/summarize_step2.py' continuation
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/summarize_step2.py' tables
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/validate_step2.py'
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/validate_results.py'
+'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/report.py' complete
 ```
 
 The compiler is the local C++17 toolchain (`c++`); no external simulation package or paid service is required. See `scripts/requirements.txt` for Python versions.
