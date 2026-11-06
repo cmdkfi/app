@@ -1,0 +1,58 @@
+{
+  "boot": "boot-1793948092-14fda74d",
+  "operator": "cmdk",
+  "files": [
+    {
+      "name": "app-compose.json",
+      "bytes": 19683,
+      "sha256": "216124c1e33e525670272566938268471719d6eb94fdf6048c67925cbab9bdb2",
+      "path": "/evidence/app-compose.json"
+    },
+    {
+      "name": "vm_config.json",
+      "bytes": 372,
+      "sha256": "3914a1512ab963a51d6bbdfe46c5d7070a36d8ad955ddbfe10b7bc17b6f4e3fa",
+      "path": "/evidence/vm_config.json"
+    },
+    {
+      "name": "tdx_quote.hex",
+      "bytes": 10020,
+      "sha256": "abf77a9905057e8362d78cd7dcc8c21a455f09eaf83ab63fa39954e2bd4c3878",
+      "path": "/evidence/tdx_quote.hex"
+    },
+    {
+      "name": "event_log.json",
+      "bytes": 4927,
+      "sha256": "75e3ed27c084c00a0e0f025797a21f02703af1d18ec7aa7353b1a481d84aa6d7",
+      "path": "/evidence/event_log.json"
+    },
+    {
+      "name": "info.json",
+      "bytes": 23031,
+      "sha256": "eaf9bf4c27d7d9f06136a1523b24dcc1232ea88955eb52c7d284c40c9d80c314",
+      "path": "/evidence/info.json"
+    },
+    {
+      "name": "registration-v1.json",
+      "bytes": 2570,
+      "sha256": "03c10c82c7e04ebda8576ae7d6ff3faf39cb3d9163854b1e0c2432f5345f6182",
+      "path": "/evidence/registration-v1.json"
+    }
+  ],
+  "vaults": [
+    {
+      "slot": 1,
+      "tag": "v1",
+      "vault": "v1.factory.prime-measure-1792736012.testnet",
+      "base_address": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+      "registration": "registered",
+      "registration_tx": "CjN1nLHFUDiVqMyp1ZVKQ88SeDkhosjs6Do6GyxgFNU5",
+      "agent_status": "active",
+      "expires_at": 1794553767,
+      "expires_utc": "2026-11-13T07:09:27Z",
+      "ticks": 22,
+      "last_tick_unix": 1793949030
+    }
+  ],
+  "note": "measurement evidence of this boot and the vaults it watches (also GET /vaults); the decision-loop transcripts of every boot are listed at GET /transcripts"
+}

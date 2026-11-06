@@ -122,7 +122,7 @@ GET /transcripts/<name>       -> the transcript as written, Content-Type applica
 A vault's tag is `v<n>` for the factory's vault n (`v3` = `v3.<factory>`), `vault<n>` for the n-th `--vault`.
 
 On Phala the port is reached through the CVM's gateway URL for port 8080 (the dashboard lists it; the form is
-`<app-id>-8080.<gateway domain>`; observed 4 Nov: `https://29fc9b0846dc459e21923c5a1b63474d79df6e6b-8080.dstack-pha-prod9.phala.network`, kept in `cloud/wrangler.jsonc` as `AGENT_EVIDENCE_URL`). Without it, `scripts/p3_evidence.py <log> <out>`
+`<app-id>-8080.<gateway domain>`; observed 4 Nov: `https://29fc9b0846dc459e21923c5a1b63474d79df6e6b-8080.dstack-pha-prod9.phala.network`; from 6 Nov, after the redeploy that followed Phala's KMS incident (`evidence/incident-2026-11-06-phala-kms.md`): `https://49ecae9fcc4a6970956d8c987386315297922a69-8080.dstack-pha1-prod5.phala.network`, a different node and gateway domain; kept in `cloud/wrangler.jsonc` as `AGENT_EVIDENCE_URL`). Without it, `scripts/p3_evidence.py <log> <out>`
 rebuilds the same files from `phala logs` and checks every SHA-256.
 
 Transcripts (public in the build, decided 5 Nov): one JSON file per decision loop and vault in

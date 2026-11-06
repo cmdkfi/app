@@ -1,0 +1,483 @@
+{
+  "agent": {
+    "public_key": "ed25519:DCErHQnu7eNKqzXVZbrAzvSnPpTnrP6KtsXsciMSgeD6",
+    "implicit_account": "b52d4abbcff1092bbf5cb4324a61f9edceb79d1c805911021999c622cbff89d9",
+    "boot": "boot-1793800130-b52d4abb",
+    "mode": "live",
+    "operator": "cmdk",
+    "measurement": {
+      "mrtd": "7fe60787222bd394cb516abca2435f22f035ab2cc9c0a4b4b3b148e46297f3d931a237b72f359052c6e657d8c1409173",
+      "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+      "rtmr1": "4ae609807c765916a31d724786ed74bcb97e168a9d937b04936aeef2015c907eba5ac352c6bcd749c246fd62ffb659ec",
+      "rtmr2": "764489f277a8540189761e72b4238ba36d4d647e11bd958d8ab5522af2a4867b0ff63e06b0c4967f1857236244040a5d",
+      "compose_hash": "0d6e07a270cb001c55223385991200208175f48b8aa43d4eab688cf5af69e9dd",
+      "os_image_hash": "8db40cb23008d6213668b5816702d100b37b859a8a5bfd18d938ae3a1b3715bd"
+    }
+  },
+  "vault": {
+    "id": "v1.factory.prime-measure-1792736012.testnet",
+    "tag": "v1",
+    "slot": 1,
+    "registration": {
+      "near_tx": "4z1RAB97En8CriGptMq83n8jntwFiCj87TVojWYysjkn",
+      "registered": true
+    }
+  },
+  "mode": "live",
+  "twin": false,
+  "label": "agent",
+  "network": "Base Sepolia",
+  "loop": 3,
+  "tick": 30,
+  "time_utc": "2026-11-04T13:58:10Z",
+  "agent_status": "active",
+  "trigger": {
+    "kind": "judge_result",
+    "new_screens": [],
+    "judge_in_flight": false
+  },
+  "inputs": {
+    "snapshot": {
+      "block": 54394099,
+      "block_hash": "0xa8a2bd636a93c492c37eb8e28a07219368338aa8e6d6c7cd2d28f34120cf994b",
+      "timestamp": 1793800688,
+      "base_fee": 5000000,
+      "user": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+      "executor": "0xa9bbabe6d75c5ba96ca095586284774c9d09d18b",
+      "executor_deployed": true,
+      "markets": [
+        {
+          "name": "live",
+          "id": "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c",
+          "exists": true,
+          "loan_token": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+          "collateral_token": "0x4200000000000000000000000000000000000006",
+          "oracle": "0x7d0ebc71ebbec6f215c2ab818f9db538a52f6a3e",
+          "irm": "0x46415998764c29ab2a25cbea6254146d50d22687",
+          "lltv": 860000000000000000,
+          "market": [
+            13000016,
+            6500000000000,
+            7729735,
+            7729724986971,
+            1793800684,
+            0
+          ],
+          "borrow_shares": 7729724986971,
+          "collateral": 8335601888990126,
+          "oracle_price": "2317411859300716347153114249",
+          "borrow_rate_per_sec": 184752722,
+          "total_borrow_accrued": 7729735,
+          "total_supply_accrued": 13000016,
+          "debt": 7729735,
+          "collateral_value": 19317022,
+          "ltv": {
+            "state": "ratio",
+            "wad": 400151482977034452
+          },
+          "utilization": 0.5945942681916699,
+          "borrow_apr": 0.005826361840992,
+          "oracle_usd": 2317.4118593007165,
+          "pool": "0x57183717a087d2fe3ad890873877244c3b96156c",
+          "pool_usd": 2309.0921201103774,
+          "pool_gap": -0.003590099514226841,
+          "feeds": [
+            {
+              "feed": "0x4adc67696ba383f43dd60a9e78f2c97fbbfc7cb1",
+              "updated_at": 1793799624,
+              "max_age_s": 1200,
+              "age_s": 1064,
+              "answer_positive": true
+            },
+            {
+              "feed": "0xd30e2101a97dcbaebcbc04f14c3f624e67a35165",
+              "updated_at": 1793783295,
+              "max_age_s": 86400,
+              "age_s": 17393,
+              "answer_positive": true
+            }
+          ],
+          "exec": {
+            "corridor": {
+              "target": 400000000000000000,
+              "act": 450000000000000000,
+              "floor": 300000000000000000,
+              "sell_budget": 200000000000000000,
+              "migrate_allowed": true,
+              "exit_allowed": true,
+              "set": true
+            },
+            "sold_in_window": 0,
+            "moves_in_window": 0,
+            "last_agent_call": 1793800684,
+            "session_start": 1793800684,
+            "closed_for_agent": false,
+            "cooldown": 60
+          },
+          "liquidity": 5270281
+        },
+        {
+          "name": "backup",
+          "id": "0x99d43c0f2a0eb6172774598a4e34e7eee09caa502692c2b2df0f40e1e3c5ea75",
+          "exists": true,
+          "loan_token": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+          "collateral_token": "0x4200000000000000000000000000000000000006",
+          "oracle": "0x20ff664b99676a45a13bd77acb2afecea10cd538",
+          "irm": "0x46415998764c29ab2a25cbea6254146d50d22687",
+          "lltv": 860000000000000000,
+          "market": [
+            13000001,
+            6500000000000,
+            0,
+            0,
+            1793792929,
+            0
+          ],
+          "borrow_shares": 0,
+          "collateral": 0,
+          "oracle_price": "2317411859300716347153114249",
+          "borrow_rate_per_sec": 116062098,
+          "total_borrow_accrued": 0,
+          "total_supply_accrued": 13000001,
+          "debt": 0,
+          "collateral_value": 0,
+          "ltv": {
+            "state": "no_debt"
+          },
+          "utilization": 0.0,
+          "borrow_apr": 0.003660134322528,
+          "oracle_usd": 2317.4118593007165,
+          "pool": "0x57183717a087d2fe3ad890873877244c3b96156c",
+          "pool_usd": 2309.0921201103774,
+          "pool_gap": -0.003590099514226841,
+          "feeds": [
+            {
+              "feed": "0x4adc67696ba383f43dd60a9e78f2c97fbbfc7cb1",
+              "updated_at": 1793799624,
+              "max_age_s": 1200,
+              "age_s": 1064,
+              "answer_positive": true
+            },
+            {
+              "feed": "0xd30e2101a97dcbaebcbc04f14c3f624e67a35165",
+              "updated_at": 1793783295,
+              "max_age_s": 86400,
+              "age_s": 17393,
+              "answer_positive": true
+            }
+          ],
+          "exec": {
+            "corridor": {
+              "target": 500000000000000000,
+              "act": 700000000000000000,
+              "floor": 300000000000000000,
+              "sell_budget": 200000000000000000,
+              "migrate_allowed": true,
+              "exit_allowed": true,
+              "set": true
+            },
+            "sold_in_window": 0,
+            "moves_in_window": 0,
+            "last_agent_call": 1793800684,
+            "session_start": 0,
+            "closed_for_agent": false,
+            "cooldown": 60
+          },
+          "liquidity": 13000001
+        },
+        {
+          "name": "demo",
+          "id": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",
+          "exists": true,
+          "loan_token": "0xeb68fd5baaafd4e46b43baa7feab3216b87b10d5",
+          "collateral_token": "0x4200000000000000000000000000000000000006",
+          "oracle": "0x91ec8d7177b876017773cf787b2cab0fe6ac6b2f",
+          "irm": "0x46415998764c29ab2a25cbea6254146d50d22687",
+          "lltv": 860000000000000000,
+          "market": [
+            5000000001,
+            2500000000000000,
+            0,
+            0,
+            1793792933,
+            0
+          ],
+          "borrow_shares": 0,
+          "collateral": 0,
+          "oracle_price": "2334929333310569197317460609",
+          "borrow_rate_per_sec": 90444119,
+          "total_borrow_accrued": 0,
+          "total_supply_accrued": 5000000001,
+          "debt": 0,
+          "collateral_value": 0,
+          "ltv": {
+            "state": "no_debt"
+          },
+          "utilization": 0.0,
+          "borrow_apr": 0.002852245736784,
+          "oracle_usd": 2334.9293333105693,
+          "pool": "0x722f350ec250c1697063a080b0196506d7fe21c1",
+          "pool_usd": 2334.9293333105693,
+          "pool_gap": 0.0,
+          "feeds": [],
+          "exec": {
+            "corridor": {
+              "target": 500000000000000000,
+              "act": 700000000000000000,
+              "floor": 300000000000000000,
+              "sell_budget": 200000000000000000,
+              "migrate_allowed": true,
+              "exit_allowed": true,
+              "set": true
+            },
+            "sold_in_window": 0,
+            "moves_in_window": 0,
+            "last_agent_call": 1793800684,
+            "session_start": 0,
+            "closed_for_agent": false,
+            "cooldown": 60
+          },
+          "liquidity": 5000000001
+        }
+      ],
+      "rpc_primary": "https://base-sepolia-rpc.publicnode.com",
+      "rpc_second": "https://sepolia.base.org",
+      "rpc_disagree": [],
+      "rpc_second_error": null,
+      "read_errors": [],
+      "l1_base_fee": 15,
+      "l1_fee_reduce_template": 57973962,
+      "info_errors": []
+    }
+  },
+  "screens": [],
+  "frozen_on_fork": [],
+  "judge": {
+    "attestation": {
+      "ok": true,
+      "failed_because": null,
+      "tcb_status": "UpToDate",
+      "nonce": "0642e175f5e4e566d8be0054b4b041273cbcdfbb4a18961a16a0a1aa933cfc0d",
+      "signing_address": "0x3b753b4406613c5e70ae640508632b600424fa0c",
+      "report_data_binds_address_and_nonce": true,
+      "debug": false,
+      "quote_sha256": "fb7daaa64b8c45d3c83567f8ed500749c3e629567fb1beb6aab37079dcc3dba6",
+      "mr_td": "df4d77c857de652bd0fafa343a2026b51071ee03773d076d283abf1a7d36ff91ffa279ee4a617ac664f7e2a2c8d5891b",
+      "dcap": {
+        "verified": true,
+        "status": "UpToDate",
+        "advisory_ids": []
+      },
+      "nvidia_payload_sha256": "55e02d7bed07cc87e6484f8910398f02963a389057a43d3cd29ecc133f9e16f5",
+      "nvidia_verified": false,
+      "ms_report": 450,
+      "ms_dcap": 353
+    },
+    "model_tcb_status": "UpToDate",
+    "call": {
+      "error": "completion HTTP 402 Payment Required: {\"error\":{\"message\":\"API key spend limit exceeded. Spent: $5.086663396, Limit: $5.00\",\"type\":\"api_key_limit_exceeded\",\"param\":null,\"code\":null}}"
+    },
+    "outcome": "error",
+    "accepted": false,
+    "applies": "rules only",
+    "judgment_market": null,
+    "cited_feed_items": null,
+    "input_block": 54393932,
+    "feed": {
+      "fetched_at": 1793800611,
+      "feeds": [
+        {
+          "url": "https://status.base.org/history.rss",
+          "ok": true,
+          "feed_id": "base-status",
+          "kind": "official status page",
+          "publisher": "Base",
+          "notice": "Base's public status page (status.base.org), incident history",
+          "fetched_ms": 82,
+          "body_sha256": "74e2e5145490860dca538daea168e2351401bd7ceae6f65022a237058b570956",
+          "bytes": 41541,
+          "items": [
+            {
+              "id": "feed:base-status:8e86f0b0",
+              "feed_id": "base-status",
+              "item_id": "8e86f0b0",
+              "title": "Mainnet: Base Denim Upgrade - November 5th",
+              "published": "Thu, 05 Nov 2026 18:00:00 +0000",
+              "published_unix": 1793901600,
+              "link": "https://base-l2.statuspage.io/incidents/js0n0438q6l4",
+              "text": "Mainnet: Base Denim Upgrade - November 5th | THIS IS A SCHEDULED EVENT Nov 5 , 18:00 - 20:00 UTC Oct 30 , 22:16 UTC Scheduled - On Thursday, November 5th at 18:00 UTC (Unix timestamp 1793901600), Base Mainnet will undergo the Denim upgrade. Base Mainnet is expected to remain operational during the upgrade window. Operators of Base Mainnet nodes must upgrade to base/base v1.5.1 before activation: https://github.com/base/base/releases/tag/v1.5",
+              "sha256": "90e098ec30146a25476719a6f88e4e8a8559f828001c3b5994604b2702d91184",
+              "body_sha256": "79b9732784b7a61ec0c148fc56d8ed877784afe32603b1c8654b60774b0a8ca7",
+              "first_seen": 1793800131
+            },
+            {
+              "id": "feed:base-status:2c1e5e68",
+              "feed_id": "base-status",
+              "item_id": "2c1e5e68",
+              "title": "Delayed transaction inclusion on Base Mainnet",
+              "published": "Mon, 02 Nov 2026 14:55:51 +0000",
+              "published_unix": 1793631351,
+              "link": "https://base-l2.statuspage.io/incidents/9jdt5jc1ylry",
+              "text": "Delayed transaction inclusion on Base Mainnet | Nov 2 , 14:55 UTC Monitoring - A fix has been implemented and we are monitoring the results. Nov 2 , 14:37 UTC Update - We are continuing to work on a fix for this issue. Nov 2 , 14:36 UTC Identified - We&apos;ve identified the performance degradation and have deployed optimizations. We&apos;re continuing to monitor the situation. Nov 2 , 13:36 UTC Investigating - We are investigating reports of s",
+              "sha256": "f8e51e2d29c2a57bf9edf1fcf986bc09d87b53f556d903a1e696152b9e3dcf96",
+              "body_sha256": "65da1430b100fb3451b7a061a65eb97f653ee1d0d0701a4fd1251e9f624347c4",
+              "first_seen": 1793800131
+            },
+            {
+              "id": "feed:base-status:f00c9b75",
+              "feed_id": "base-status",
+              "item_id": "f00c9b75",
+              "title": "Delayed transaction inclusion on Base Mainnet",
+              "published": "Sat, 31 Oct 2026 16:37:32 +0000",
+              "published_unix": 1793464652,
+              "link": "https://base-l2.statuspage.io/incidents/7xj799fyhrlx",
+              "text": "Delayed transaction inclusion on Base Mainnet | Oct 31 , 16:37 UTC Resolved - This incident has been resolved. Oct 30 , 19:28 UTC Monitoring - A fix for transaction inclusion delays has been deployed and early monitoring indicates that the issue has been resolved. We will continue to monitor conditions. Oct 29 , 16:34 UTC Investigating - We are investigating reports of slower than usual transaction inclusion on Base Mainnet. Blocks continue to ",
+              "sha256": "d2c9740a587807097dd9472274553e80048a75e7a502d67ee1cf94e9df85cea3",
+              "body_sha256": "d659f795586caa8c292e3a44d4dd0aa8a9357846821c87dac6b7b3e2a16e49fe",
+              "first_seen": 1793800131
+            },
+            {
+              "id": "feed:base-status:c6f64678",
+              "feed_id": "base-status",
+              "item_id": "c6f64678",
+              "title": "Delayed transaction inclusion",
+              "published": "Sat, 24 Oct 2026 12:30:00 +0000",
+              "published_unix": 1792845000,
+              "link": "https://base-l2.statuspage.io/incidents/9v8w1pcww9rx",
+              "text": "Delayed transaction inclusion | Oct 24 , 12:30 UTC Resolved - Unexpected mempool congestion lead to some transactions being delayed/dropped from the mempool.",
+              "sha256": "cc0ca3c4b34739d93a82150be03bcda2c19fd424c1bb57c0d9fdaad2de2db0fc",
+              "body_sha256": "6518bcdc297e3c7a3c2c915046dcb8695a484ea2a26ecddf55be41ad2876a850",
+              "first_seen": 1793800131
+            },
+            {
+              "id": "feed:base-status:16fc9549",
+              "feed_id": "base-status",
+              "item_id": "16fc9549",
+              "title": "Base Sepolia public RPC delayed responses",
+              "published": "Fri, 23 Oct 2026 06:00:25 +0000",
+              "published_unix": 1792735225,
+              "link": "https://base-l2.statuspage.io/incidents/2scbkszwqfrr",
+              "text": "Base Sepolia public RPC delayed responses | Oct 23 , 06:00 UTC Resolved - This incident has been resolved. Oct 23 , 05:04 UTC Monitoring - A fix has been implemented and we are monitoring the results. Oct 23 , 04:58 UTC Identified - The issue has been identified and a fix is being implemented.",
+              "sha256": "603757a4d56ccea0a4d4a5a5b4e8540356592b14607135652447ac8212435e81",
+              "body_sha256": "bc33d35d3050155826cc1f22ac04663500d697d61796b476b7c63485418318ca",
+              "first_seen": 1793800131
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/cmdkfi/app/main/feeds/venue-status.json",
+          "ok": true,
+          "feed_id": "cmdk-testnet-venue-status",
+          "kind": "security alerts and venue status (demo)",
+          "title": "cmdk testnet venue status (demo feed)",
+          "publisher": "cmdk team",
+          "notice": "Published by the cmdk team for the testnet demo; not a real venue. These items describe our own test markets on Base Sepolia and are never part of a production allowlist.",
+          "body_sha256": "6cfcae042e9fd938a4de9ef0d658df446c7f344f1dd3e763fa18b6be74e47d79",
+          "bytes": 1512,
+          "items": [
+            {
+              "id": "feed:cmdk-testnet-venue-status:venue-status-2026-11-03-001",
+              "feed_id": "cmdk-testnet-venue-status",
+              "item_id": "venue-status-2026-11-03-001",
+              "title": "Testnet markets operating normally",
+              "published": "2026-11-03T05:30:00Z",
+              "published_unix": 1793683800,
+              "link": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json",
+              "text": "Testnet markets operating normally | The live, backup and demo markets on Base Sepolia (deployments/testnet.json) accept supply and borrowing. No incident is open for their oracles or pools.",
+              "sha256": "1eb2c745076846f680cba6fb51240120294ba1194bd438f1436c8153eedb20fe",
+              "body_sha256": "dd7757db4686ddb161cb16a35fe0d3d4b445ceb839a1864a874d402917a4790a",
+              "first_seen": 1793800131
+            },
+            {
+              "id": "feed:cmdk-testnet-venue-status:venue-status-2026-11-04-001",
+              "feed_id": "cmdk-testnet-venue-status",
+              "item_id": "venue-status-2026-11-04-001",
+              "title": "Testnet markets re-supplied; executor redeployed",
+              "published": "2026-11-04T12:45:00Z",
+              "published_unix": 1793796300,
+              "link": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json",
+              "text": "Testnet markets re-supplied; executor redeployed | On 4 November the team's lender supply returned to the live and backup markets (13 USDC each) and the demo market (5,000 dUSDC) on Base Sepolia, and the executor moved to 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b (deployments/testnet.json). All three markets accept supply and borrowing; the live market's public Uniswap 0.01% pool again holds the team's price band. No incident is open for their oracles or pools.",
+              "sha256": "e4d1bf522479c04dcc4142fac7db90ec31f0935783ba4435e883aea4abd3ee0f",
+              "body_sha256": "17e9b924f6a6b9b6e2b7c18ab717b1f90c41c26765268b7f8260655955e0fe6e",
+              "first_seen": 1793800131
+            }
+          ],
+          "fetched_ms": 3
+        },
+        {
+          "url": "https://raw.githubusercontent.com/cmdkfi/app/main/feeds/governance.json",
+          "ok": true,
+          "feed_id": "cmdk-testnet-governance",
+          "kind": "protocol announcements (demo)",
+          "title": "cmdk testnet governance (demo feed)",
+          "publisher": "cmdk team",
+          "notice": "Published by the cmdk team for the testnet demo; not a real venue. These items describe our own test markets on Base Sepolia and are never part of a production allowlist.",
+          "body_sha256": "11117501ccfbafbcf3655c98b1d770c33b49de669ee39a37009219d0b2e95e1c",
+          "bytes": 900,
+          "items": [
+            {
+              "id": "feed:cmdk-testnet-governance:governance-2026-11-03-001",
+              "feed_id": "cmdk-testnet-governance",
+              "item_id": "governance-2026-11-03-001",
+              "title": "Testnet market parameters published",
+              "published": "2026-11-03T05:30:00Z",
+              "published_unix": 1793683800,
+              "link": "https://github.com/cmdkfi/app/blob/main/feeds/governance.json",
+              "text": "Testnet market parameters published | The three test markets use Morpho Blue with an 86% liquidation LTV: live and backup on two oracle instances reading Chainlink ETH/USD and USDC/USD, demo on a mock oracle the team sets. No parameter change is proposed.",
+              "sha256": "0e4f7a2eeaa4f786cba375a161f256152db661a236db2ebaa5e726ab952c2115",
+              "body_sha256": "23e8390d331471264f37de591e6f0cdfa005c798eb2da4c70ee4789fdeb5dbcc",
+              "first_seen": 1793800131
+            }
+          ],
+          "fetched_ms": 3
+        }
+      ]
+    },
+    "seconds": 0.949826067,
+    "trigger": [
+      "live:ltv_above_act"
+    ],
+    "trigger_feed_items": [],
+    "arrived_tick": 30,
+    "ignored": "the screens it was asked about are gone: [\"live:ltv_above_act\"]; rules only"
+  },
+  "judgment_applied": null,
+  "decisions": [
+    {
+      "action": "none",
+      "protective": false,
+      "market": "live",
+      "market_id": "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c",
+      "to": null,
+      "amount": "0",
+      "fraction": "0",
+      "basis": "no fired on-chain screen on this market: no discretionary action",
+      "text_path": false,
+      "text_corroboration": null,
+      "detail": {
+        "ltv": {
+          "state": "ratio",
+          "wad": 400151482977034452
+        },
+        "target": 0.4,
+        "act": 0.45,
+        "floor": 0.3,
+        "lltv": 0.86,
+        "debt": "7729735",
+        "collateral_value": "19317022",
+        "amount_to_target": "4877",
+        "amount_to_floor": "2763754",
+        "sell_budget_remaining_collateral": "1667120377798025",
+        "sell_budget_remaining_value": "3824770",
+        "slice_max": "1000000000",
+        "session_start": 1793800684,
+        "judge_action": null,
+        "judge_market": null,
+        "onchain_confirmation": []
+      }
+    }
+  ],
+  "chosen": null,
+  "next_recheck_utc": "2026-11-04T13:59:54Z",
+  "seconds": 0.000369159
+}

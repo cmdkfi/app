@@ -1,0 +1,1 @@
+{"os_image_hash":"8db40cb23008d6213668b5816702d100b37b859a8a5bfd18d938ae3a1b3715bd","cpu_count":1,"memory_size":2147483648,"qemu_single_pass_add_pages":true,"pic":true,"qemu_version":"8.2.2","pci_hole64_size":0,"hugepages":false,"num_gpus":0,"num_nvswitches":0,"hotplug_off":false,"image":"dstack-0.5.12","host_share_mode":"9p","ovmf_variant":"pre202505","spec_version":1}

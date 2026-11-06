@@ -1,0 +1,520 @@
+{
+  "agent": {
+    "public_key": "ed25519:C3H6CqBzBMxUEDcLyZHMqeZwBt9KNr5vnZv5tQ6ouHMu",
+    "implicit_account": "a405e9179fb91e7278962981442003f6cd4ae5d37d97b1cf6808fade35ae115c",
+    "boot": "boot-1793877578-a405e917",
+    "mode": "live",
+    "operator": "cmdk",
+    "measurement": {
+      "mrtd": "7fe60787222bd394cb516abca2435f22f035ab2cc9c0a4b4b3b148e46297f3d931a237b72f359052c6e657d8c1409173",
+      "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+      "rtmr1": "4ae609807c765916a31d724786ed74bcb97e168a9d937b04936aeef2015c907eba5ac352c6bcd749c246fd62ffb659ec",
+      "rtmr2": "764489f277a8540189761e72b4238ba36d4d647e11bd958d8ab5522af2a4867b0ff63e06b0c4967f1857236244040a5d",
+      "compose_hash": "216124c1e33e525670272566938268471719d6eb94fdf6048c67925cbab9bdb2",
+      "os_image_hash": "8db40cb23008d6213668b5816702d100b37b859a8a5bfd18d938ae3a1b3715bd"
+    }
+  },
+  "vault": {
+    "id": "v1.factory.prime-measure-1792736012.testnet",
+    "tag": "v1",
+    "slot": 1,
+    "registration": {
+      "near_tx": "8jAe8ZJms584nGJ8ymFvwAeuEbTCsT5uidZ7WCCDQX9S",
+      "registered": true
+    }
+  },
+  "mode": "live",
+  "twin": false,
+  "label": "agent",
+  "network": "Base Sepolia",
+  "loop": 11,
+  "tick": 3720,
+  "time_utc": "2026-11-05T13:53:56Z",
+  "agent_status": "active",
+  "trigger": {
+    "kind": "recheck_on_cooldown",
+    "new_screens": [],
+    "judge_in_flight": false
+  },
+  "inputs": {
+    "snapshot": {
+      "block": 54824832,
+      "block_hash": "0xaeb2a9825d9b4dccfdf57d284fec60de57e484ff655146be196d70287267ee56",
+      "timestamp": 1793886835,
+      "base_fee": 5000000,
+      "user": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+      "executor": "0xa9bbabe6d75c5ba96ca095586284774c9d09d18b",
+      "executor_deployed": true,
+      "markets": [
+        {
+          "name": "live",
+          "id": "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c",
+          "exists": true,
+          "loan_token": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+          "collateral_token": "0x4200000000000000000000000000000000000006",
+          "oracle": "0x7d0ebc71ebbec6f215c2ab818f9db538a52f6a3e",
+          "irm": "0x46415998764c29ab2a25cbea6254146d50d22687",
+          "lltv": 860000000000000000,
+          "market": [
+            13000125,
+            6500000000000,
+            7729841,
+            7729724986971,
+            1793879192,
+            0
+          ],
+          "borrow_shares": 7729724986971,
+          "collateral": 8335601888990126,
+          "oracle_price": "2388017070821109912865495069",
+          "borrow_rate_per_sec": 176799719,
+          "total_borrow_accrued": 7729851,
+          "total_supply_accrued": 13000135,
+          "debt": 7729851,
+          "collateral_value": 19905559,
+          "ltv": {
+            "state": "ratio",
+            "wad": 388326245949686719
+          },
+          "utilization": 0.5945977484079973,
+          "borrow_apr": 0.005575555938384,
+          "oracle_usd": 2388.01707082111,
+          "pool": "0x57183717a087d2fe3ad890873877244c3b96156c",
+          "pool_usd": 2413.246584089033,
+          "pool_gap": 0.010565047283874085,
+          "feeds": [
+            {
+              "feed": "0x4adc67696ba383f43dd60a9e78f2c97fbbfc7cb1",
+              "updated_at": 1793886729,
+              "max_age_s": 1200,
+              "age_s": 106,
+              "answer_positive": true
+            },
+            {
+              "feed": "0xd30e2101a97dcbaebcbc04f14c3f624e67a35165",
+              "updated_at": 1793869696,
+              "max_age_s": 86400,
+              "age_s": 17139,
+              "answer_positive": true
+            }
+          ],
+          "exec": {
+            "corridor": {
+              "target": 500000000000000000,
+              "act": 700000000000000000,
+              "floor": 300000000000000000,
+              "sell_budget": 200000000000000000,
+              "migrate_allowed": true,
+              "exit_allowed": true,
+              "set": true
+            },
+            "sold_in_window": 0,
+            "moves_in_window": 0,
+            "last_agent_call": 1793886632,
+            "session_start": 1793800684,
+            "closed_for_agent": false,
+            "cooldown": 60
+          },
+          "liquidity": 5270284
+        },
+        {
+          "name": "backup",
+          "id": "0x99d43c0f2a0eb6172774598a4e34e7eee09caa502692c2b2df0f40e1e3c5ea75",
+          "exists": true,
+          "loan_token": "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
+          "collateral_token": "0x4200000000000000000000000000000000000006",
+          "oracle": "0x20ff664b99676a45a13bd77acb2afecea10cd538",
+          "irm": "0x46415998764c29ab2a25cbea6254146d50d22687",
+          "lltv": 860000000000000000,
+          "market": [
+            13000001,
+            6500000000000,
+            0,
+            0,
+            1793872359,
+            0
+          ],
+          "borrow_shares": 0,
+          "collateral": 0,
+          "oracle_price": "2388017070821109912865495069",
+          "borrow_rate_per_sec": 101825678,
+          "total_borrow_accrued": 0,
+          "total_supply_accrued": 13000001,
+          "debt": 0,
+          "collateral_value": 0,
+          "ltv": {
+            "state": "no_debt"
+          },
+          "utilization": 0.0,
+          "borrow_apr": 0.003211174581408,
+          "oracle_usd": 2388.01707082111,
+          "pool": "0x57183717a087d2fe3ad890873877244c3b96156c",
+          "pool_usd": 2413.246584089033,
+          "pool_gap": 0.010565047283874085,
+          "feeds": [
+            {
+              "feed": "0x4adc67696ba383f43dd60a9e78f2c97fbbfc7cb1",
+              "updated_at": 1793886729,
+              "max_age_s": 1200,
+              "age_s": 106,
+              "answer_positive": true
+            },
+            {
+              "feed": "0xd30e2101a97dcbaebcbc04f14c3f624e67a35165",
+              "updated_at": 1793869696,
+              "max_age_s": 86400,
+              "age_s": 17139,
+              "answer_positive": true
+            }
+          ],
+          "exec": {
+            "corridor": {
+              "target": 500000000000000000,
+              "act": 700000000000000000,
+              "floor": 300000000000000000,
+              "sell_budget": 200000000000000000,
+              "migrate_allowed": true,
+              "exit_allowed": true,
+              "set": true
+            },
+            "sold_in_window": 0,
+            "moves_in_window": 0,
+            "last_agent_call": 1793886632,
+            "session_start": 0,
+            "closed_for_agent": false,
+            "cooldown": 60
+          },
+          "liquidity": 13000001
+        },
+        {
+          "name": "demo",
+          "id": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",
+          "exists": true,
+          "loan_token": "0xeb68fd5baaafd4e46b43baa7feab3216b87b10d5",
+          "collateral_token": "0x4200000000000000000000000000000000000006",
+          "oracle": "0x91ec8d7177b876017773cf787b2cab0fe6ac6b2f",
+          "irm": "0x46415998764c29ab2a25cbea6254146d50d22687",
+          "lltv": 860000000000000000,
+          "market": [
+            5000000004,
+            2500000000000000,
+            4012624,
+            4012622281482,
+            1793886795,
+            0
+          ],
+          "borrow_shares": 838847640741,
+          "collateral": 1083773200860030,
+          "oracle_price": "1519360000000000000000000000",
+          "borrow_rate_per_sec": 78655309,
+          "total_borrow_accrued": 4012624,
+          "total_supply_accrued": 5000000004,
+          "debt": 838849,
+          "collateral_value": 1646641,
+          "ltv": {
+            "state": "ratio",
+            "wad": 509430410150117725
+          },
+          "utilization": 0.0008025247993579802,
+          "borrow_apr": 0.002480473824624,
+          "oracle_usd": 1519.3600000000001,
+          "pool": "0x722f350ec250c1697063a080b0196506d7fe21c1",
+          "pool_usd": 1519.36,
+          "pool_gap": -1.1102230246251565e-16,
+          "feeds": [],
+          "exec": {
+            "corridor": {
+              "target": 500000000000000000,
+              "act": 700000000000000000,
+              "floor": 300000000000000000,
+              "sell_budget": 200000000000000000,
+              "migrate_allowed": true,
+              "exit_allowed": true,
+              "set": true
+            },
+            "sold_in_window": 0,
+            "moves_in_window": 0,
+            "last_agent_call": 1793886632,
+            "session_start": 1793885949,
+            "closed_for_agent": false,
+            "cooldown": 60
+          },
+          "liquidity": 4995987380
+        }
+      ],
+      "rpc_primary": "https://base-sepolia-rpc.publicnode.com",
+      "rpc_second": "https://sepolia.base.org",
+      "rpc_disagree": [],
+      "rpc_second_error": null,
+      "read_errors": [],
+      "l1_base_fee": 15,
+      "l1_fee_reduce_template": 92,
+      "info_errors": []
+    }
+  },
+  "screens": [],
+  "frozen_on_fork": [],
+  "judge": null,
+  "judgment_applied": null,
+  "decisions": [
+    {
+      "action": "none",
+      "protective": false,
+      "market": "live",
+      "market_id": "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c",
+      "to": null,
+      "amount": "0",
+      "fraction": "0",
+      "basis": "no fired on-chain screen on this market: no discretionary action",
+      "text_path": false,
+      "text_corroboration": null,
+      "detail": {
+        "ltv": {
+          "state": "ratio",
+          "wad": 388326245949686719
+        },
+        "target": 0.5,
+        "act": 0.7,
+        "floor": 0.3,
+        "lltv": 0.86,
+        "debt": "7729851",
+        "collateral_value": "19905559",
+        "amount_to_target": "0",
+        "amount_to_floor": "2511690",
+        "sell_budget_remaining_collateral": "1883875017970031",
+        "sell_budget_remaining_value": "4453738",
+        "slice_max": "1000000000",
+        "session_start": 1793800684,
+        "judge_action": null,
+        "judge_market": null,
+        "onchain_confirmation": []
+      }
+    },
+    {
+      "action": "reduce",
+      "protective": true,
+      "market": "demo",
+      "market_id": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",
+      "to": null,
+      "amount": "31057",
+      "fraction": "0",
+      "basis": "rule: LTV above the act line (or a protective session still above target), protective reduce to target",
+      "text_path": false,
+      "text_corroboration": null,
+      "detail": {
+        "ltv": {
+          "state": "ratio",
+          "wad": 509430410150117725
+        },
+        "target": 0.5,
+        "act": 0.7,
+        "floor": 0.3,
+        "lltv": 0.86,
+        "debt": "838849",
+        "collateral_value": "1646641",
+        "amount_to_target": "31057",
+        "amount_to_floor": "492652",
+        "sell_budget_remaining_collateral": "1883875017970031",
+        "sell_budget_remaining_value": "2833661",
+        "slice_max": "1000000000",
+        "session_start": 1793885949,
+        "judge_action": null,
+        "judge_market": null,
+        "onchain_confirmation": []
+      }
+    }
+  ],
+  "chosen": "demo",
+  "proposal": {
+    "proposed": true,
+    "method": "reduce",
+    "args": {
+      "market": "0x55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d585",
+      "amount": "31057"
+    },
+    "tx": {
+      "nonce": 16,
+      "gas_limit": 419940,
+      "max_fee_per_gas": 11002924,
+      "max_priority_fee_per_gas": 1000000,
+      "estimate_block": 54824857,
+      "margin_pct": 150
+    },
+    "estimate": {
+      "Ok": 279960
+    },
+    "l1_fee_wei": {
+      "Ok": "92"
+    },
+    "calldata": "0x643d3b9e55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d5850000000000000000000000000000000000000000000000000000000000007951000000000000000000000000000000000000000000000000000000006aec8cc6",
+    "deadline_in_check": 1793887430,
+    "unsigned_1559": "0x02f88e83014a3410830f424083a7e42c8306686494a9bbabe6d75c5ba96ca095586284774c9d09d18b80b864643d3b9e55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d5850000000000000000000000000000000000000000000000000000000000007951000000000000000000000000000000000000000000000000000000006aec8cc6c0",
+    "vault_check_transaction": "\"ok\"",
+    "prechecks": [
+      {
+        "name": "vault_agent_key_registered_and_unexpired",
+        "ok": true,
+        "detail": "active"
+      },
+      {
+        "name": "vault_cooldown_elapsed",
+        "ok": true,
+        "detail": "free at 1793886741, now 1793886840"
+      },
+      {
+        "name": "vault_market_allowlisted",
+        "ok": true,
+        "detail": "demo"
+      },
+      {
+        "name": "vault_corridor_flag_set",
+        "ok": true,
+        "detail": "demo"
+      },
+      {
+        "name": "executor_corridor_in_force",
+        "ok": true,
+        "detail": "demo (executor corridors() is the source of truth)"
+      },
+      {
+        "name": "executor_deployed",
+        "ok": true,
+        "detail": "0xa9bbabe6d75c5ba96ca095586284774c9d09d18b"
+      },
+      {
+        "name": "executor_cooldown_elapsed",
+        "ok": true,
+        "detail": "free at 1793886692, block time 1793886835"
+      },
+      {
+        "name": "vault_amount_within_slice_max",
+        "ok": true,
+        "detail": "31057 of 1000000000"
+      }
+    ],
+    "refusals": [],
+    "agent_status": "active",
+    "mode": "live",
+    "near_tx": "23rMLe3yTR6EoRsgYApF8EozFioombm45dKJkikbxk79",
+    "near_gas": {
+      "final_status": {
+        "SuccessValue": "W3sicmF3IjoiMHgwMmY4ZDE4MzAxNGEzNDEwODMwZjQyNDA4M2E3ZTQyYzgzMDY2ODY0OTRhOWJiYWJlNmQ3NWM1YmE5NmNhMDk1NTg2Mjg0Nzc0YzlkMDlkMThiODBiODY0NjQzZDNiOWU1NTg3MmI1M2RiYTYxNDdiNmJhZGY5ZDQyNzdiYzE2NmRmYjdkNWY4YWM4ZDQ5MWRhMDkzOTYwZGJlZjZkNTg1MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNzk1MTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNmFlYzhjZGFjMDAxYTA4YjU4ZmZlMzg2NmZjYzNkODA3YTMyMDUxYmJjZmQyZTIyZmY3Yzg5OWRiZDE5NTIxYmY2MTE1ZTQ3ZDViOTExYTAyYzg3OGRmNWE4YWFlNTcyMzdlMGU5MGUyNGE1ZTI5NmUwODM1NWNlYTY1NzljNjJhYzJhMTZkYjQ1NmJkZGQ2IiwiaGFzaCI6IjB4ZWM5MTQ1YjU5OGIyMjRhYTBkMjY5ZjkxOTIxMTUyOGZiNWFmODU3ZWJiMzEzOGI0MDJkNmU3NWJhNzFmZDU5ZiIsImZyb20iOiIweGIzY2NkMGFkN2U1ZmNhOWQ0YzE4Y2Y1OWQxOWZhYjQ3MDNlZWU2ZmIiLCJ0byI6IjB4YTliYmFiZTZkNzVjNWJhOTZjYTA5NTU4NjI4NDc3NGM5ZDA5ZDE4YiIsInZhbHVlIjoiMCIsIm5vbmNlIjoxNn1d"
+      },
+      "gas_total": 14283969125673,
+      "tgas_total": 14.283969125673,
+      "near_burnt": 0.0013391238875673,
+      "receipts": [
+        {
+          "id": "tx",
+          "executor": "v1.factory.prime-measure-1792736012.testnet",
+          "gas": 308508922734,
+          "tokens_burnt": "30850892273400000000",
+          "status": "conversion"
+        },
+        {
+          "id": "fhtcduoY4rsMQNt53QhSHjCzdk6zjXYCDxsHhjuKEMk",
+          "executor": "v1.factory.prime-measure-1792736012.testnet",
+          "gas": 2953493714836,
+          "tokens_burnt": "295349371483600000000",
+          "status": "SuccessReceiptId",
+          "failure": "",
+          "logs": []
+        },
+        {
+          "id": "EaD2eGHRhwBZmzFifRj5sWJxqfW81C45Tivfq297zNfq",
+          "executor": "v1.signer-prod.testnet",
+          "gas": 4282350332452,
+          "tokens_burnt": "428235033245200000000",
+          "status": "SuccessReceiptId",
+          "failure": "",
+          "logs": [
+            "sign: predecessor=AccountId(\"v1.factory.prime-measure-1792736012.testnet\"), request=SignRequestArgs { path: \"cmdk-base\", payload: Ecdsa(BoundedVec { inner: [60, 71, 228, 134, 23, 135, 54, 177, 172, 129, 252, 230, 21, 209, 198, 209, 182, 92, 205, 187, 137, 151, 135, 254, 19, 122, 223, 35, 37, 152, 53, 196], witness: NonEmpty(()) }), domain_id: DomainId(0) }"
+          ]
+        },
+        {
+          "id": "2tdT2CVwajxyhwvkEtMhsK3a3NfRJGGbhNoc9c7LEeST",
+          "executor": "v1.signer-prod.testnet",
+          "gas": 3467167818346,
+          "tokens_burnt": "346716781834600000000",
+          "status": "SuccessValue",
+          "failure": "",
+          "logs": []
+        },
+        {
+          "id": "WTjKEXbfyggWb7UULtk57V4mxwSvraNMyGaU8xtxSuV",
+          "executor": "v1.factory.prime-measure-1792736012.testnet",
+          "gas": 223182562500,
+          "tokens_burnt": "0",
+          "status": "SuccessValue",
+          "failure": "",
+          "logs": []
+        },
+        {
+          "id": "3UBbhUfqTbCAt1vUKdguk7CEYsDbxeNA2UE1Tg8en2VC",
+          "executor": "v1.factory.prime-measure-1792736012.testnet",
+          "gas": 223182562500,
+          "tokens_burnt": "0",
+          "status": "SuccessValue",
+          "failure": "",
+          "logs": []
+        },
+        {
+          "id": "3KChnjT6puYLNVqrk3bd3juGD9Ve6pds8t5fhMBTvXct",
+          "executor": "v1.factory.prime-measure-1792736012.testnet",
+          "gas": 2379718087305,
+          "tokens_burnt": "237971808730500000000",
+          "status": "SuccessValue",
+          "failure": "",
+          "logs": []
+        },
+        {
+          "id": "GUZTkFDdckXAvqACkuvNXUKDRTWUHG1Rq3o9y2gBGaAu",
+          "executor": "v1.factory.prime-measure-1792736012.testnet",
+          "gas": 223182562500,
+          "tokens_burnt": "0",
+          "status": "SuccessValue",
+          "failure": "",
+          "logs": []
+        },
+        {
+          "id": "6p1ZV91WhuyR65LZPcbEzxaQKk9T1k97e1FXnvkGJrjH",
+          "executor": "v1.factory.prime-measure-1792736012.testnet",
+          "gas": 223182562500,
+          "tokens_burnt": "0",
+          "status": "SuccessValue",
+          "failure": "",
+          "logs": []
+        }
+      ]
+    },
+    "near_seconds": 16.202028855000002,
+    "signed": [
+      {
+        "raw": "0x02f8d183014a3410830f424083a7e42c8306686494a9bbabe6d75c5ba96ca095586284774c9d09d18b80b864643d3b9e55872b53dba6147b6badf9d4277bc166dfb7d5f8ac8d491da093960dbef6d5850000000000000000000000000000000000000000000000000000000000007951000000000000000000000000000000000000000000000000000000006aec8cdac001a08b58ffe3866fcc3d807a32051bbcfd2e22ff7c899dbd19521bf6115e47d5b911a02c878df5a8aae57237e0e90e24a5e296e08355cea6579c62ac2a16db456bddd6",
+        "hash": "0xec9145b598b224aa0d269f919211528fb5af857ebb3138b402d6e75ba71fd59f",
+        "from": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+        "to": "0xa9bbabe6d75c5ba96ca095586284774c9d09d18b",
+        "value": "0",
+        "nonce": 16
+      }
+    ],
+    "base": {
+      "hash": "0xec9145b598b224aa0d269f919211528fb5af857ebb3138b402d6e75ba71fd59f",
+      "status": 1,
+      "block": 54824958,
+      "gas_used": 252455,
+      "effective_gas_price": 6000000,
+      "l1_fee": 92,
+      "from": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+      "to": "0xa9bbabe6d75c5ba96ca095586284774c9d09d18b"
+    },
+    "base_seconds": 1.318609171,
+    "sent": true,
+    "reasons": {
+      "basis": "rule: LTV above the act line (or a protective session still above target), protective reduce to target",
+      "text_path": false,
+      "cited_items": []
+    }
+  },
+  "next_recheck_utc": "2026-11-05T13:55:21Z",
+  "seconds": 24.406566865
+}

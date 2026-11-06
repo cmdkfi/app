@@ -1,0 +1,82 @@
+{
+  "near_tx": "CjN1nLHFUDiVqMyp1ZVKQ88SeDkhosjs6Do6GyxgFNU5",
+  "args_bytes": 37503,
+  "seconds": 12.565923626,
+  "gas": {
+    "final_status": {
+      "SuccessValue": ""
+    },
+    "gas_total": 130647245741869,
+    "tgas_total": 130.647245741869,
+    "near_burnt": 0.0115597350366869,
+    "receipts": [
+      {
+        "id": "tx",
+        "executor": "14fda74d78641fb442f76f3e310ee9e2c21651ab9afe44bcee59e6adc4fe0100",
+        "gas": 2097009435655,
+        "tokens_burnt": "209700943565500000000",
+        "status": "conversion"
+      },
+      {
+        "id": "7A5GGAhuxjQedoqdm2zzNCwhYJazi6xrGN1u6eTw3V42",
+        "executor": "v1.factory.prime-measure-1792736012.testnet",
+        "gas": 113195078674594,
+        "tokens_burnt": "11319507867459400000000",
+        "status": "SuccessReceiptId",
+        "failure": "",
+        "logs": [
+          "agent registered: ed25519:2QwVDKFgp3AT6XMURgWr5ZkKUAS6dYt5nqeHwc85SHio until 1794553767"
+        ]
+      },
+      {
+        "id": "ASvi3nQ1DKvBNrzKXX2qGrneCECncdPhHZsLPaVv7FHF",
+        "executor": "v1.factory.prime-measure-1792736012.testnet",
+        "gas": 305262256620,
+        "tokens_burnt": "30526225662000000000",
+        "status": "SuccessValue",
+        "failure": "",
+        "logs": []
+      },
+      {
+        "id": "BukJSAvUCAPYvohzuiGZpuJKBvAcjwQ3jCwSJ2zShwKA",
+        "executor": "14fda74d78641fb442f76f3e310ee9e2c21651ab9afe44bcee59e6adc4fe0100",
+        "gas": 7524947687500,
+        "tokens_burnt": "0",
+        "status": "SuccessValue",
+        "failure": "",
+        "logs": []
+      },
+      {
+        "id": "FiMZVr53WAvtxEHkRzYCztBzLGmAXQP2Zf5tKxu5VMa2",
+        "executor": "14fda74d78641fb442f76f3e310ee9e2c21651ab9afe44bcee59e6adc4fe0100",
+        "gas": 7524947687500,
+        "tokens_burnt": "0",
+        "status": "SuccessValue",
+        "failure": "",
+        "logs": []
+      }
+    ]
+  },
+  "attempt": 1,
+  "prepaid_tgas": 130,
+  "balance_before_yocto": "160000000000000000000000",
+  "balance_after_yocto": "148440264963313100000000",
+  "collateral": {
+    "bytes": 23929,
+    "sha256": "73f28b72844cba4872f2c652716a07b4be16c27c4635a9dd5a7c939d3b7936c8",
+    "tcb_issue": "2026-11-06T00:25:25Z",
+    "tcb_next_update": "2026-12-06T00:25:25Z",
+    "fmspc": "20A06F000000",
+    "local_verify": {
+      "verified": true,
+      "status": "UpToDate",
+      "advisory_ids": []
+    }
+  },
+  "vault": "v1.factory.prime-measure-1792736012.testnet",
+  "registered": true,
+  "vault_agent": {
+    "public_key": "ed25519:2QwVDKFgp3AT6XMURgWr5ZkKUAS6dYt5nqeHwc85SHio",
+    "expires_at": 1794553767
+  }
+}

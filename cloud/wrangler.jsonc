@@ -28,7 +28,7 @@
     // the agent's evidence endpoint (agent/src/serve.rs, port 8080), no trailing slash: the Phala gateway URL of the
     // CVM's port 8080 (agent/MEASUREMENT.md §4). Empty until the Friday launch (DEPLOY.md step 8 sets it and
     // redeploys). Empty: GET /agent/... answers 503 and the cron does no funding
-    "AGENT_EVIDENCE_URL": "https://29fc9b0846dc459e21923c5a1b63474d79df6e6b-8080.dstack-pha-prod9.phala.network",
+    "AGENT_EVIDENCE_URL": "https://49ecae9fcc4a6970956d8c987386315297922a69-8080.dstack-pha1-prod5.phala.network",
     // the cron's auto-funding of the agent's registrations (POST /fund-agent): at most this much NEAR per rolling
     // 24 hours in all, as the relayer reports it sent; each call reserves 0.16 NEAR (its most) before it is made.
     // "0" turns the funding off. The relayer's own 0.5 NEAR per implicit account per 24 hours stays the inner bound
