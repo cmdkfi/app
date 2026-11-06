@@ -310,14 +310,15 @@ so that an exit has to sell collateral rather than repay from idle USDC; the age
 scan and registered on it (it waits for 0.16 NEAR before a registration; `POST /fund-agent` once).
 
 What happened: the venue stress alone (utilization 0.99, APR 2.49 %) got `hold` from the judge, recorded in
-`venue-stress-exit.md`. The exit came from the text path: two items appended to the demo feeds (labelled as ours,
+`venue-stress-exit.md`. The exits (two runs, the second clean) came from the text path: two items appended to the demo feeds (labelled as ours,
 `feeds/README.md`) announced a drain of the live market; the agent fetched them within about 7 minutes (raw GitHub
 caches 300 s, the agent polls every 60 s), the judge answered `leave_market` with risk critical, the agreement
 rule counted two independent feeds, and the agent called `exit`. The vault signed the Base transaction through
 Chain Signatures; the agent's NEAR RPC `send_tx` answered `HANDLER_ERROR`/`PENDING` although the call was included,
-so the agent recorded `near_error` and did not broadcast; the operator broadcast the signed transaction from the
-NEAR outcome (`cast publish <raw>`), which anyone can do and nobody can alter. Details and every transaction:
-`evidence/scenes/exit-v4.md`.
+so in the first run the agent recorded `near_error` and did not broadcast; the operator broadcast the signed transaction
+from the NEAR outcome (`cast publish <raw>`), which anyone can do and nobody can alter. In the second run, an hour
+later with new items, the agent sent and broadcast the exit itself, mined seven minutes after the push. Details and
+every transaction: `evidence/scenes/exit-v4.md`.
 
 Limits: the judge decides (attempt 1 shows a `hold`); a feed item is seen only after the raw GitHub cache expires;
 the scene needs a vault with a single approved market, or the judgment becomes a migrate (the venue-stress scene
