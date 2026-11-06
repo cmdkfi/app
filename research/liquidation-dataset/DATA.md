@@ -192,7 +192,7 @@ The compiled `.dylib` files are not in the repository. The flags are macOS ones 
 | `data/step4_fixed_union_increment.csv` | 1,295 B | b101dc60c045a80bc66a0bc24c751c58fdefad4fc81fbefc8621ecdd32208e26 | in this folder |
 | `data/step4_hour_counts.csv` | 720 B | 444d06151ffe9755248c6275670d85410bcb0f36149d9140104aa88850317ed1 | in this folder |
 | `data/step4_hours.parquet` | 115.7 MB | 3757b9037853cd05b34df82c6c67308157c28abab6ea6c2b67e8166ddbea74e3 | [step4_hours.parquet](https://github.com/cmdkfi/app/releases/download/research-data-2026-11-06/step4_hours.parquet) (release asset) |
-| `data/step4_install.log` | 3,955 B | a9246ce4ee51024cfad8af6b7becd15811ad8881d3836faf2fc28140bef9715d | in this folder |
+| `data/step4_install.log` | 3,843 B | a9246ce4ee51024cfad8af6b7becd15811ad8881d3836faf2fc28140bef9715d | in this folder |
 | `data/step4_lead_metrics.csv` | 4,553 B | c2ffe357f96237f2e892025cc2a35b20d064c8f177859edeb6972bc545b89d67 | in this folder |
 | `data/step4_metrics.csv` | 13 KB | 574e262558ae11a7b1a41289bb8acdd903967a28f161c93c673c98e5b1e048a7 | in this folder |
 | `data/step4_operating_thresholds.csv` | 3,407 B | 735e5fd25ab4b4f3efc191edfa0c0894fedcb96327a15105e518b07fc5455c45 | in this folder |

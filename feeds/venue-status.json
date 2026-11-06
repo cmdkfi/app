@@ -22,6 +22,13 @@
    "title": "Testnet markets re-supplied; executor redeployed",
    "body": "On 4 November the team's lender supply returned to the live and backup markets (13 USDC each) and the demo market (5,000 dUSDC) on Base Sepolia, and the executor moved to 0xA9bbabE6d75C5BA96CA095586284774c9D09D18b (deployments/testnet.json). All three markets accept supply and borrowing; the live market's public Uniswap 0.01% pool again holds the team's price band. No incident is open for their oracles or pools.",
    "url": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json"
+  },
+  {
+   "published": "2026-11-06T15:51:29Z",
+   "title": "Live market stress test: free liquidity drained, withdrawals may fail",
+   "body": "From about 16:10 UTC on 6 November the team borrows the live market's free USDC down to 0.10 USDC for a stress test (utilization above 99%). While it lasts, lenders cannot withdraw and the borrow rate rises. Positions on the live market should leave it: move to another approved market, or exit if none is approved. The test ends when the team repays, within about 40 minutes.",
+   "url": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json",
+   "id": "venue-status-2026-11-06-001"
   }
  ]
 }

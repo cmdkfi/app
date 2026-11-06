@@ -39,7 +39,9 @@ WAD, ORACLE_SCALE = lq.WAD, lq.ORACLE_SCALE
 SECONDS_PER_YEAR = 31_536_000            # APR = rate per second x 31,536,000 / 1e18 (agent/src/chain.rs borrow_apr)
 UTILIZATION_SCREEN = 0.95                # agent/src/logic.rs UTILIZATION_SCREEN
 MAX_MOVES = 2                            # Executor MAX_MOVES per rolling 24 h (logic.rs MAX_MOVES)
-SCENE = 'venue-stress'
+SCENE = 'venue-stress'                   # --scene renames the output files (the exit variant: venue-stress-exit)
+TAG = 'v1'                               # --tag: how the watched vault is named in the output (its record key stays 'v1')
+EXPECT = 'migrate'                       # --expect migrate|exit: which agent action the scene is set up to produce
 MIGRATED_T0 = '0xb4aa34cc6887fca05d7be0cfbb44e20fd962986bb5c97095895949823704ab37'   # Migrated(address,bytes32,bytes32,uint256,uint256,uint256)
 EXITED_T0 = '0xb7cd236bc6dcde82ab6894bc063892f7f56ee39a7fb5a06ad6ea6405c00120c8'     # Exited(address,bytes32,uint256,uint256,uint256,uint256)
 REDUCED_T0 = sc.REDUCED_T0
@@ -207,7 +209,7 @@ def phase_entry(o):
 
 
 def new_record(o, v1, wallet, sz, args):
-    return {'scene': SCENE, 'market': 'live', 'destination': 'backup', 'markets': dict(MARKETS), 'executor': EXECUTOR,
+    return {'scene': SCENE, 'tag': TAG, 'expect': EXPECT, 'market': 'live', 'destination': 'backup' if EXPECT == 'migrate' else None, 'markets': dict(MARKETS), 'executor': EXECUTOR,
             'started_block': o['block'], 'started_utc': o['utc'], 'addresses': {'v1': v1, 'wallet': wallet},
             'sizing': {'borrow_units': str(sz['borrow']), 'collateral_wei': str(sz['collateral']), 'keep_units': str(args.borrow_keep_units),
                        'collateral_ltv': args.collateral_ltv, 'wallet_ltv': _ltv(sz['wallet_ltv']),
@@ -225,14 +227,15 @@ PHASES = (('before', 'before the borrow'), ('after_borrow', 'after the borrow'),
 def render_md(rec):
     L = []; p = L.append
     ph = rec['phases']
-    p('# Scene `venue-stress` on the live market (Base Sepolia)'); p('')
+    tag = rec.get('tag', 'v1'); scene = rec.get('scene', SCENE)
+    p('# Scene `%s` on the live market (Base Sepolia)' % scene); p('')
     p('The test wallet borrows most of the live market\'s free USDC, so utilization rises above the agent\'s 95%% screen and the '
-      'borrow rate rises; this records what the live agent does with vault v1\'s live position. Started at block %d (%s). '
-      'Data: `venue-stress.json`; written by `scripts/venue_stress.py`.' % (rec['started_block'], rec['started_utc']))
+      'borrow rate rises; this records what the live agent does with vault %s\'s live position%s. Started at block %d (%s). '
+      'Data: `%s.json`; written by `scripts/venue_stress.py`.' % (tag, ' (live is the only market this vault lists, so `leave_market` can only become an exit, a sale of collateral)' if rec.get('expect') == 'exit' else '', rec['started_block'], rec['started_utc'], scene))
     if not rec.get('outcome'): p(''); p('**Incomplete:** the scene has not reached its end (see Notes).')
     p(''); p('## Positions'); p('')
     p('| position | address | role |'); p('|---|---|---|')
-    p('| v1 | `%s` | vault v1\'s Base address, watched by the live enclave agent; borrower on live |' % rec['addresses']['v1'])
+    p('| %s | `%s` | vault %s\'s Base address, watched by the live enclave agent; borrower on live |' % (tag, rec['addresses']['v1'], tag))
     p('| wallet | `%s` | the test wallet: lender on live and backup; the scene\'s borrower on live |' % rec['addresses']['wallet'])
     p(''); p('Markets: live `%s`, backup `%s`; executor `%s`.' % (rec['markets']['live'], rec['markets']['backup'], rec['executor']))
     s = rec['sizing']
@@ -251,16 +254,16 @@ def render_md(rec):
         row('%s borrow APR' % m, lambda e, m=m: _pct(e['markets'][m]['borrow_apr']))
         row('%s free liquidity (USDC)' % m, lambda e, m=m: _usdc(e['markets'][m]['free_liquidity_units']))
     for m in ('live', 'backup'):
-        row('v1 collateral on %s (WETH)' % m, lambda e, m=m: _weth(e['positions']['v1'][m]['coll']))
-        row('v1 debt on %s (USDC)' % m, lambda e, m=m: _usdc(e['positions']['v1'][m]['debt']))
-        row('v1 LTV on %s' % m, lambda e, m=m: _pct(e['positions']['v1'][m]['ltv']))
+        row('%s collateral on %s (WETH)' % (tag, m), lambda e, m=m: _weth(e['positions']['v1'][m]['coll']))
+        row('%s debt on %s (USDC)' % (tag, m), lambda e, m=m: _usdc(e['positions']['v1'][m]['debt']))
+        row('%s LTV on %s' % (tag, m), lambda e, m=m: _pct(e['positions']['v1'][m]['ltv']))
     row('wallet collateral on live (WETH)', lambda e: _weth(e['positions']['wallet']['live']['coll']))
     row('wallet debt on live (USDC)', lambda e: _usdc(e['positions']['wallet']['live']['debt']))
-    row('v1 movesInWindow', lambda e: str(e['moves_in_window']))
+    row('%s movesInWindow' % tag, lambda e: str(e['moves_in_window']))
     p(''); p('Debt is accrued to each block (Morpho\'s share math and IRM accrual). Borrow APR = `IRM.borrowRateView` (per-second '
              'WAD rate) x 31,536,000 / 1e18, simple. Utilization = borrowed / supplied, both accrued to the block.')
     c = rec.get('comparison') or {}
-    p(''); p('## v1 collateral and debt across the action'); p('')
+    p(''); p('## %s collateral and debt across the action' % tag); p('')
     if c:
         p('Summed over live and backup; before at block %s with interest accrued to the time of block %s, after at block %s. %s' % (
             c['block_before'], c['block_after'], c['block_after'], c.get('basis', '')))
@@ -423,7 +426,16 @@ def preconditions(o, corridors, fd_backup, sz, chain_ok=True):
     v1l, v1b = o['positions']['v1']['live'], o['positions']['v1']['backup']
     w = o['positions']['wallet']['live']
     b = o['markets']['backup']
-    if v1l['shares'] == 0: bad.append('v1 has no debt on live')
+    if v1l['shares'] == 0: bad.append('%s has no debt on live' % TAG)
+    if EXPECT == 'exit':
+        c = corridors['live']
+        if not c['set'] or c['closed_for_agent']: bad.append("%s's corridor on live is not in force (set %s, closed for agent %s)" % (TAG, c['set'], c['closed_for_agent']))
+        elif not c['exit_allowed']: bad.append("%s's corridor on live does not allow exit" % TAG)
+        if corridors['backup']['set']: bad.append("%s's corridor on backup is set: the agent would migrate there instead of exiting (--expect exit needs a vault with live only)" % TAG)
+        if sz['borrow'] <= 0: bad.append('the borrow is not positive (free liquidity %s USDC, keep %s USDC)' % (_usdc(sz['free_liquidity']), _usdc(sz['free_liquidity'] - sz['borrow'])))
+        if o['wallet_weth'] < sz['collateral']: bad.append('the wallet holds %s WETH, the collateral needs %s' % (_weth(o['wallet_weth']), _weth(sz['collateral'])))
+        if w['shares'] or w['coll']: bad.append('the wallet already has a live position (borrow shares %d, collateral %d): run `unwind` first' % (w['shares'], w['coll']))
+        return bad
     if b['free'] < v1l['debt'] + v1l['debt'] // 100:
         bad.append('backup free liquidity %s USDC is below v1\'s debt %s USDC plus 1%% (the agent then moves only part: logic.rs migrate_fraction)' % (_usdc(b['free']), _usdc(v1l['debt'])))
     for n in MARKETS:
@@ -453,16 +465,16 @@ def print_obs(o):
     print('  %-14s %-42s %14s %12s %10s %16s %12s' % ('position', 'address', 'collateral', 'debt', 'LTV', 'borrow shares', 'USDC held'))
     for who, per in o['positions'].items():
         for n, x in per.items():
-            print('  %-14s %-42s %14s %12s %10s %16d %12s' % ('%s on %s' % (who, n), ADDR[who], _weth(x['coll']), _usdc(x['debt']),
+            print('  %-14s %-42s %14s %12s %10s %16d %12s' % ('%s on %s' % (TAG if who == 'v1' else who, n), ADDR[who], _weth(x['coll']), _usdc(x['debt']),
                                                              _pct(_ltv(x['ltv'])), x['shares'], _usdc(x['cash'])))
-    print('  wallet free WETH %s, free USDC %s; v1 movesInWindow %d of %d' % (_weth(o['wallet_weth']), _usdc(o['positions']['wallet']['live']['cash']),
-                                                                         o['moves_in_window'], MAX_MOVES))
+    print('  wallet free WETH %s, free USDC %s; %s movesInWindow %d of %d' % (_weth(o['wallet_weth']), _usdc(o['positions']['wallet']['live']['cash']),
+                                                                         TAG, o['moves_in_window'], MAX_MOVES))
 
 
 def print_corridors(cs):
     for n, c in cs.items():
-        print('  v1 corridor on %-6s target %.2f act %.2f floor %.2f sell budget %.2f migrate %s exit %s set %s closed for agent %s' % (
-            n, c['target'] / 1e18, c['act'] / 1e18, c['floor'] / 1e18, c['sell_budget'] / 1e18, c['migrate_allowed'], c['exit_allowed'], c['set'], c['closed_for_agent']))
+        print('  %s corridor on %-6s target %.2f act %.2f floor %.2f sell budget %.2f migrate %s exit %s set %s closed for agent %s' % (
+            TAG, n, c['target'] / 1e18, c['act'] / 1e18, c['floor'] / 1e18, c['sell_budget'] / 1e18, c['migrate_allowed'], c['exit_allowed'], c['set'], c['closed_for_agent']))
 
 
 def print_sizing(sz, keep, ltv):
@@ -475,16 +487,17 @@ def print_sizing(sz, keep, ltv):
 ADDR = {}
 
 
-def addresses():
+def addresses(vault=None):
+    """The watched vault's Base address: --vault, else v1's from the deployments."""
     _, me = rp.key()
-    ADDR.update({'v1': RAW['near']['vault_base_address'], 'wallet': me})
+    ADDR.update({'v1': (vault or RAW['near']['vault_base_address']).lower(), 'wallet': me})
     return ADDR['v1'], me
 
 
 def read_all(a):
     """The reading status and run share: observation, corridors, backup feeds, sizing, preconditions."""
     sc.check_chain()
-    v1, me = addresses()
+    v1, me = addresses(a.vault)
     o = observe(v1, me)
     cs = {n: corridor(v1, n) for n in MARKETS}
     fb = feeds('backup')
@@ -555,7 +568,7 @@ def write(rec, out):
     with open(os.path.join(out, SCENE + '.md'), 'w') as f: f.write(render_md(rec))
 
 
-UNWIND_CMD = 'python3 -I scripts/venue_stress.py unwind'
+UNWIND_CMD = 'python3 -I scripts/venue_stress.py unwind'   # main() appends --vault/--tag/--scene when they are not the defaults
 
 
 def fail(rec, out, msg):
@@ -578,6 +591,7 @@ def poll(v1, me, start_block, a):
                 n, o['block'], o['utc'], l['utilization'], _pct(l['apr']), _weth(b['live']['coll']), _usdc(b['live']['debt']), b['live']['shares'],
                 _weth(b['backup']['coll']), _usdc(b['backup']['debt']), ', '.join('%s@%d' % (x['kind'], x['block']) for x in acts) or 'none'))
             if any(x['kind'] == 'migrate' for x in acts): return acts, o, 'migrate'
+            if any(x['kind'] == 'exit' and x['market'] == 'live' for x in acts): return acts, o, 'exit'
             if b['live']['shares'] == 0: return acts, o, 'v1 live borrow shares 0'
         except (subprocess.CalledProcessError, OSError, ValueError, KeyError, IndexError) as e:
             msg = (e.stderr.strip() if isinstance(e, subprocess.CalledProcessError) and e.stderr else str(e))[-200:]
@@ -708,7 +722,7 @@ def dry_run(a, o, sz, bad, path):
 
 def unwind(a):
     sc.check_chain()
-    v1, me = addresses()
+    v1, me = addresses(a.vault)
     path = os.path.join(a.out_dir, SCENE + '.json')
     rec = None
     if not a.dry_run and os.path.exists(path):
@@ -735,11 +749,20 @@ def main():
         x.add_argument('--borrow-keep-units', type=int, default=100_000, help='USDC units left free on live (default 0.10 USDC)')
         x.add_argument('--collateral-ltv', type=float, default=0.5, help="the wallet's LTV on its borrow (default 0.5)")
     for x in (r, u): x.add_argument('--out-dir', default=os.path.join(ROOT, 'evidence', 'scenes'))
+    for x in (st, r, u):
+        x.add_argument('--vault', default=None, help="the watched vault's Base address (default: v1's, near.vault_base_address)")
+        x.add_argument('--tag', default='v1', help='how that vault is named in the output (default v1)')
+        x.add_argument('--scene', default='venue-stress', help='output file name (default venue-stress; the exit variant uses venue-stress-exit)')
+        x.add_argument('--expect', choices=('migrate', 'exit'), default='migrate', help='migrate: the vault lists backup, the agent moves there; exit: live is its only market, the agent exits')
     a = ap.parse_args()
     if a.cmd in ('status', 'run'):
         if not 0 < a.collateral_ltv < 0.86: raise SystemExit('--collateral-ltv must be above 0 and below the LLTV 0.86')
         if a.borrow_keep_units < 0: raise SystemExit('--borrow-keep-units must not be negative')
     if a.cmd == 'run' and (a.poll_s <= 0 or a.timeout_s <= 0): raise SystemExit('--poll-s and --timeout-s must be positive')
+    global SCENE, TAG, EXPECT, UNWIND_CMD
+    SCENE, TAG, EXPECT = a.scene, a.tag, a.expect
+    extra = ''.join(' --%s %s' % (k, v) for k, v in (('vault', a.vault), ('tag', a.tag), ('scene', a.scene)) if v and v != {'tag': 'v1', 'scene': 'venue-stress'}.get(k))
+    UNWIND_CMD += extra
     {'status': status, 'run': run, 'unwind': unwind}[a.cmd](a)
 
 
