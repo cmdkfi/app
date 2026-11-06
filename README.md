@@ -200,7 +200,7 @@ Two people, with AI assistants.
 
 AI assistants wrote research notes, first drafts of code and text, and independent reviews; nothing shipped without one of us reading it.
 
-License: MIT (`LICENSE`). Contact: open an issue in this repository, or write to either of us on LinkedIn.
+License: MIT (`LICENSE`). Contact: team@cmdk.fi, or open an issue in this repository.
 
 ## Baseline disclosure
 
