@@ -193,7 +193,14 @@ Our claim, stated precisely: among the designs we compared, the tightest limits 
 
 ## Team, license, contact
 
-_To fill before submission._
+Two people, with AI assistants.
+
+- **Vadim Filimonov** ([LinkedIn](https://www.linkedin.com/in/vadim-filimonov-56542823a/), [GitHub](https://github.com/fffilimonov)): the vault and factory on NEAR, the executor on Base, the agent and its enclave, the relayer, the testnet venue, the evidence and this README. CTO of dTelecom, software engineer for over fifteen years.
+- **Vlada One** ([LinkedIn](https://www.linkedin.com/in/vlada-one/), [GitHub](https://github.com/vladaone)): the web app at https://testnet.cmdk.fi (its own repository, `cmdkfi/cmdk-app`), its screens and copy, the name and visual identity, the video and the X posts.
+
+AI assistants wrote research notes, first drafts of code and text, and independent reviews; nothing shipped without one of us reading it.
+
+License: MIT (`LICENSE`). Contact: open an issue in this repository, or write to either of us on LinkedIn.
 
 ## Baseline disclosure
 
