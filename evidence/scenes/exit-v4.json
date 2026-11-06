@@ -1,0 +1,156 @@
+{
+ "scene": "exit-v4",
+ "date_utc": "2026-11-06",
+ "summary": "A second team vault (v4) that lists only the live market is told by two demo feed items that the live market is about to be drained; the judge answers leave_market with risk critical; with no approved destination the agent's code turns that into exit; the vault signs the Base transaction through Chain Signatures; the agent's NEAR RPC call reports a pending error, so the operator broadcasts the signed transaction from the NEAR outcome; the exit sells 0.002003 WETH, repays 4.450866 USDC and returns the rest of the collateral to the vault's Base address.",
+ "vault": {
+  "id": "v4.factory.prime-measure-1792736012.testnet",
+  "base_address": "0xd3983a65120d1c17f26e6dd6151c5ff3a0701db0",
+  "owner": "0x0B7Ed66f46fe83252a208563A88201BA60490d25",
+  "markets": [
+   "0xa25ac5171b7e500b82653d3750b91bb44e2409c32ca3c9e80b0db077e8a4535c"
+  ],
+  "corridor_live": {
+   "target": "0.50",
+   "act": "0.70",
+   "floor": "0.30",
+   "sell_budget": "0.20",
+   "migrate_allowed": true,
+   "exit_allowed": true
+  }
+ },
+ "setup_steps": [
+  {
+   "step": "create-vault through the relayer (2 NEAR, 0.005 ETH float)",
+   "near_tx": "9vJTp4GveQaLb9RyjVG9taZEeS14Cb1GFfC3KzechQGE",
+   "base_tx": "0xaed3add38f731dfbfaf9111fd6a79567105496ac38d4e0e92c1b6f1d1c7c2a6b"
+  },
+  {
+   "step": "0.004 WETH from the test wallet to the vault's Base address",
+   "base_tx": "0xb9aa5bb8a08925c7b59450f504ff1a56f2872c2ed9891c8567bbf499fbc0c6c2"
+  },
+  {
+   "step": "owner setup: approve, authorize, corridor on live, the agent measurement (4 Base transactions)",
+   "near_tx": "H9FyHwiEmnBBKya8kCiABjtt7PbyZ4gxn2fjLBz5nr5j",
+   "base_txs": [
+    "0x93154a6be1caa0c0d0daab0b74afe0b432d324a5722ccd5c8d2525c01ab9c148",
+    "0xb674dae22deb64cdce5ffb16fcb4a32d8d998b04b6847b7e43c2f2a0918c9899",
+    "0x45bb9ba70caefbf0d587d3aefd9ae3b2723c8c908d5c316401f049417a37f66c",
+    "0xbd2dc774ad86509d178e4294923b1c24c2fb33b7481a8570c92cc54a5d1860b9"
+   ]
+  },
+  {
+   "step": "owner open on live: collateral_in 0.004 WETH, target LTV 0.50 (debt 4.450858 USDC, LTV 50.15 %)",
+   "near_tx": "C2RhNXCG13g7RAjc8vinsJFVmhWwoBLeVoKdXTAXo1SG",
+   "base_tx": "0x7788afbda766c67a6f9a47f26a830dbc6e10ec97fb3f5dbb61a49282b17e924a"
+  },
+  {
+   "step": "owner withdraw of the 4.450858 USDC to the wallet, so an exit must sell collateral (a first submission failed with the NEAR CLI's 'Transaction has expired' and was re-signed)",
+   "near_tx": "896Pijh4QdWwqM2yzb5PepnzGnsS2RBixwCjUFhSfUAm",
+   "base_tx": "0x0eade3c531c8e561e9cde578bc6bb5e47ed92e8ff2ce6b26958943f28f36fa50"
+  },
+  {
+   "step": "agent registration on v4 (the agent found the vault in its factory scan; it waits for 0.16 NEAR before each registration and held 0.148, so the operator called the relayer's /fund-agent once)",
+   "fund_near_tx": "Hvm8jeVYffqTwsH9cDDSVSvmc7e8EvWmdpeXXGgBEgXB",
+   "registration_near_tx": "ELBi3Bh29pap7ZVH6k7C6w4CoxtLx8q5zQzTWH4newig",
+   "expires_utc": "2026-11-13T15:06:21Z"
+  }
+ ],
+ "attempt_1_venue_stress": {
+  "record": "venue-stress-exit.json",
+  "window_utc": "15:07:57 to 15:48:43",
+  "wallet_borrow_usdc": "8.449306",
+  "live_utilization": "0.9923",
+  "live_borrow_apr": "2.49 %",
+  "judge_transcript": "boot-1793948092-14fda74d-v4-0006.json",
+  "judge_transcript_sha256": "1a29f3981dfca1b5e2339130d98ed3e8b87833d9c558591f2e10aacad0fb0993",
+  "judge_time_utc": "2026-11-06T15:12:07Z",
+  "judge_answer": {
+   "risk": "elevated",
+   "action": "hold",
+   "market": "live"
+  },
+  "agent_actions": [],
+  "result": "no action; the wallet's borrow was repaid at block 55291775"
+ },
+ "attempt_2_text_path": {
+  "feed_items": [
+   {
+    "feed": "cmdk-testnet-venue-status",
+    "id": "venue-status-2026-11-06-001",
+    "published": "2026-11-06T15:51:29Z",
+    "body_sha256": "6280a246cb926c19aa37847450b5c70f398a80c8d7ffcce46beafeea41831188"
+   },
+   {
+    "feed": "cmdk-testnet-governance",
+    "id": "governance-2026-11-06-001",
+    "published": "2026-11-06T15:51:29Z",
+    "body_sha256": "bd3038b80238f91e42e33c69f02e9649ee1f9ac62e6584bb4a2dffcfd6c0cae2"
+   }
+  ],
+  "feed_commit": "11bb6e8",
+  "feed_pushed_utc": "2026-11-06T15:52:33Z",
+  "judge_transcript": "boot-1793948092-14fda74d-v4-0045.json",
+  "judge_transcript_sha256": "ca26519e3586690eb916bb2f6cbb3c26448e0b2ed31b840b20e62f026da56f6e",
+  "judge_time_utc": "2026-11-06T15:58:57Z",
+  "judge_answer": {
+   "risk": "critical",
+   "action": "leave_market",
+   "market": "live"
+  },
+  "decision": {
+   "market": "live",
+   "action": "exit",
+   "basis": "judge leave_market + two independent text sources (text path), no approved market can take the position: exit",
+   "text_path": true
+  },
+  "agent_near_tx": {
+   "hash": "3hxs2UC25j3F42K41EryQVCjG8u1TSwyLwUjL5NASQ32",
+   "method": "exit",
+   "prepaid_tgas": 150,
+   "final_execution_status": "FINAL",
+   "signer_receipt": "v1.signer-prod.testnet (Chain Signatures, path cmdk-base)",
+   "signed_base_tx": {
+    "nonce": 6,
+    "gas_limit": 568953,
+    "max_fee_per_gas": 11000000,
+    "hash": "0xd90f46ed88ace72d77bab2157ff07d054ce1518f0f8b23259f7e76a2bdd793d0"
+   }
+  },
+  "agent_near_error": "send_tx: NEAR RPC HANDLER_ERROR, cause PENDING, final_execution_status INCLUDED_FINAL (the transaction was included; the agent treated the answer as a failure and did not broadcast; transcript field proposal.near_error)",
+  "operator_broadcast": {
+   "how": "the signed transaction read from the NEAR transaction's SuccessValue and sent with `cast publish` from the operator's machine at about 16:01 UTC; no key involved",
+   "base_tx": "0xd90f46ed88ace72d77bab2157ff07d054ce1518f0f8b23259f7e76a2bdd793d0",
+   "block": 55295076,
+   "block_time_utc": "2026-11-06T16:01:24Z",
+   "status": 1,
+   "gas_used": 346214,
+   "effective_gas_price_wei": 6000000,
+   "l1_fee_wei": 174
+  },
+  "exited_event": {
+   "caller": "0xd3983a65120d1c17f26e6dd6151c5ff3a0701db0",
+   "market": "live",
+   "repaid_units": "4450866",
+   "from_idle_units": "0",
+   "sold_wei": "2002308808446752",
+   "collateral_out_wei": "1997691191553248"
+  },
+  "after": {
+   "block": 55295284,
+   "v4_live_collateral_wei": "0",
+   "v4_live_debt_units": "0",
+   "v4_base_weth_wei": "1997691191553248",
+   "v4_base_usdc_units": "0",
+   "live_utilization": "0.0000",
+   "pool_gap_after_sale": "-0.361 % (pool below the oracle after the sale; the timer repairs within 10 minutes)"
+  }
+ },
+ "properties_shown": [
+  "the agent's key can call only the vault's agent methods; the vault built the Base transaction and had it signed by Chain Signatures",
+  "the signed transaction is public in the NEAR outcome: anyone can broadcast it, nobody can alter it, and a failed broadcast is recoverable without any key",
+  "a leave-market judgment on a vault with no approved destination becomes an exit, a sale of collateral at the oracle-checked price"
+ ],
+ "hardening": [
+  "the agent treats a NEAR send_tx answer of HANDLER_ERROR/PENDING as a failure although the transaction was included; it should poll the transaction and broadcast (agent/src/near.rs), or the relayer should broadcast signed transactions found in NEAR outcomes"
+ ]
+}

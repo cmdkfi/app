@@ -515,10 +515,10 @@ def status(a):
     last = int(sc.cc(o['block'], EXECUTOR, 'lastAgentCall(address)(uint256)', v1)[0])
     auth = sc.cc(o['block'], MORPHO, 'isAuthorized(address,address)(bool)', v1, EXECUTOR)[0]
     held = int(sc.cc(o['block'], DEP['usdc'], 'balanceOf(address)(uint256)', MORPHO)[0])
-    print('  v1 lastAgentCall %d (%s); v1 authorizes the executor on Morpho: %s; USDC held by Morpho (flash-loan source) %s' % (
-        last, sc.utc(last) if last else 'never', auth, _usdc(held)))
+    print('  %s lastAgentCall %d (%s); %s authorizes the executor on Morpho: %s; USDC held by Morpho (flash-loan source) %s' % (
+        TAG, last, sc.utc(last) if last else 'never', TAG, auth, _usdc(held)))
     d = sc.cc(o['block'], MORPHO, 'position(bytes32,address)(uint256,uint128,uint128)', DEP['demoMarketId'], v1)
-    print('  v1 on demo (not part of this scene): borrow shares %s, collateral %s WETH' % (d[1], _weth(d[2])))
+    print('  %s on demo (not part of this scene): borrow shares %s, collateral %s WETH' % (TAG, d[1], _weth(d[2])))
     print_sizing(sz, a.borrow_keep_units, a.collateral_ltv)
     print('preconditions: ' + ('all hold' if not bad else 'a run refuses:\n  ' + '\n  '.join(bad)))
 

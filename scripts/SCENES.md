@@ -284,3 +284,42 @@ hash and the notes.
   in progress.
 - **One run per 24 h of moves.** The executor allows 2 moves per rolling 24 h per caller. A migrate leaves v1 on
   backup; moving it back to live is the owner's or a later scene's.
+
+# Exit on a live-only vault (README step 10; `evidence/scenes/exit-v4.md`)
+
+Run on 6 Nov on a second team vault, `v4`, whose policy lists only the live market: a `leave_market` judgment then
+has no destination and the agent's code turns it into `exit` on live, a sale of collateral through the executor
+(`agent/src/logic.rs`). The same script serves, with four options added that day:
+
+```sh
+# from the repository root; the vault's Base address from `GET $U/vault/v4.FACTORY` (base.address)
+python3 -I scripts/venue_stress.py status --vault 0x<v4 base address> --tag v4 --expect exit
+python3 -I scripts/venue_stress.py run --vault 0x<v4 base address> --tag v4 --scene venue-stress-exit --expect exit
+python3 -I scripts/venue_stress.py unwind --vault 0x<v4 base address> --tag v4 --scene venue-stress-exit
+```
+
+`--vault` names the watched vault (default v1's address from the deployments), `--tag` how it is called in the
+output, `--scene` the output file name, `--expect exit` replaces the destination preconditions (backup liquidity,
+corridor and utilization) with: the live corridor in force with exit allowed, and no corridor set on backup. The
+wait also ends at an `Exited` event by the vault.
+
+How v4 was prepared (all through the public relayer and owner messages, `evidence/scenes/exit-v4.json`
+`setup_steps`): `POST /create-vault` with one market; 0.004 WETH to its Base address; owner `setup` with the live
+corridor and the agent measurement; owner `open` at 50 % LTV; owner `withdraw` of the borrowed USDC to the wallet,
+so that an exit has to sell collateral rather than repay from idle USDC; the agent found the vault in its factory
+scan and registered on it (it waits for 0.16 NEAR before a registration; `POST /fund-agent` once).
+
+What happened: the venue stress alone (utilization 0.99, APR 2.49 %) got `hold` from the judge, recorded in
+`venue-stress-exit.md`. The exit came from the text path: two items appended to the demo feeds (labelled as ours,
+`feeds/README.md`) announced a drain of the live market; the agent fetched them within about 7 minutes (raw GitHub
+caches 300 s, the agent polls every 60 s), the judge answered `leave_market` with risk critical, the agreement
+rule counted two independent feeds, and the agent called `exit`. The vault signed the Base transaction through
+Chain Signatures; the agent's NEAR RPC `send_tx` answered `HANDLER_ERROR`/`PENDING` although the call was included,
+so the agent recorded `near_error` and did not broadcast; the operator broadcast the signed transaction from the
+NEAR outcome (`cast publish <raw>`), which anyone can do and nobody can alter. Details and every transaction:
+`evidence/scenes/exit-v4.md`.
+
+Limits: the judge decides (attempt 1 shows a `hold`); a feed item is seen only after the raw GitHub cache expires;
+the scene needs a vault with a single approved market, or the judgment becomes a migrate (the venue-stress scene
+above).
+
