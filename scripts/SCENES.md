@@ -317,7 +317,7 @@ rule counted two independent feeds, and the agent called `exit`. The vault signe
 Chain Signatures; the agent's NEAR RPC `send_tx` answered `HANDLER_ERROR`/`PENDING` although the call was included,
 so in the first run the agent recorded `near_error` and did not broadcast; the operator broadcast the signed transaction
 from the NEAR outcome (`cast publish <raw>`), which anyone can do and nobody can alter. In the second run, an hour
-later with new items, the agent sent and broadcast the exit itself, mined seven minutes after the push. Details and
+later with new items, the agent sent and broadcast the exit itself, mined six minutes after the push. Details and
 every transaction: `evidence/scenes/exit-v4.md`.
 
 Limits: the judge decides (attempt 1 shows a `hold`); a feed item is seen only after the raw GitHub cache expires;
