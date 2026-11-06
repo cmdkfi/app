@@ -29,6 +29,13 @@
    "body": "From about 16:10 UTC on 6 November the team borrows the live market's free USDC down to 0.10 USDC for a stress test (utilization above 99%). While it lasts, lenders cannot withdraw and the borrow rate rises. Positions on the live market should leave it: move to another approved market, or exit if none is approved. The test ends when the team repays, within about 40 minutes.",
    "url": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json",
    "id": "venue-status-2026-11-06-001"
+  },
+  {
+   "title": "Live market stress test, second run: free liquidity to be drained, withdrawals may fail",
+   "body": "The stress test announced earlier today is repeated from about 16:45 UTC on 6 November: the team borrows the live market's free USDC down to 0.10 USDC (utilization above 99%). While it lasts, lenders cannot withdraw and the borrow rate rises. Positions on the live market should leave it: move to another approved market, or exit if none is approved. The test ends when the team repays, within about 40 minutes.",
+   "url": "https://github.com/cmdkfi/app/blob/main/feeds/venue-status.json",
+   "id": "venue-status-2026-11-06-002",
+   "published": "2026-11-06T16:22:08Z"
   }
  ]
 }

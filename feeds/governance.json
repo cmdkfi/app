@@ -36,6 +36,13 @@
    "body": "Announcement by the cmdk team: the live market on Base Sepolia undergoes a liquidity stress test on 6 November from about 16:10 UTC. For its duration the market is treated as impaired: positions on it should be moved to another approved market or closed. This item describes our own test market (demo feed).",
    "url": "https://github.com/cmdkfi/app/blob/main/feeds/governance.json",
    "id": "governance-2026-11-06-001"
+  },
+  {
+   "title": "Live market: second scheduled stress test today, positions advised to leave",
+   "body": "Announcement by the cmdk team: the liquidity stress test of the live market on Base Sepolia is repeated on 6 November from about 16:45 UTC. For its duration the market is treated as impaired: positions on it should be moved to another approved market or closed. This item describes our own test market (demo feed).",
+   "url": "https://github.com/cmdkfi/app/blob/main/feeds/governance.json",
+   "id": "governance-2026-11-06-002",
+   "published": "2026-11-06T16:22:08Z"
   }
  ]
 }
