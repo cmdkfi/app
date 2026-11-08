@@ -23,7 +23,10 @@
 // Agent evidence, open, GET only (the agent's evidence endpoint, agent/src/serve.rs, at AGENT_EVIDENCE_URL):
 //   GET /agent/vaults -> <AGENT_EVIDENCE_URL>/vaults,  GET /agent/ (or /agent) -> <AGENT_EVIDENCE_URL>/,
 //   GET /agent/transcripts -> /transcripts (index), GET /agent/transcripts/<name> -> /transcripts/<name> (5 Nov: public
-//   transcripts; <name> must match TRANSCRIPT_NAME, anything else is 404 here and never reaches the agent)
+//   transcripts; <name> must match TRANSCRIPT_NAME, anything else is 404 here and never reaches the agent),
+//   GET /agent/evidence/<file> -> /evidence/<file> (8 Nov: the boot's measurement evidence the index lists, tdx_quote.hex,
+//   event_log.json, app-compose.json, vm_config.json, info.json and the registration files; <file> must match
+//   EVIDENCE_NAME, the Worker's copy of the agent's is_public_name; anything else is 404 here)
 //        the agent's JSON as it is, with this Worker's CORS; one read of the enclave per path per 10 s (kept in the
 //        Durable Object's memory); 503 {"ok": false, "error": "agent evidence url not set"} while the URL is empty
 // Cron "*/10 * * * *": one round (live, then demo), unless paused; then, paused or not, the agent's funding: when
@@ -55,11 +58,21 @@ const ADMIN = new Set(['/rebalance', '/pause', '/resume', '/timer', '/runs', '/s
 const AGENT_GET = new Map([['/agent', '/'], ['/agent/', '/'], ['/agent/vaults', '/vaults'], ['/agent/transcripts', '/transcripts']]);
 // A transcript file name as the agent writes it: boot-<unix>-<8 hex>-v<n>[-twin]-<loop 4 digits>.json (agent/src/main.rs)
 const TRANSCRIPT_NAME = /^boot-[0-9]{1,12}-[0-9a-f]{8}-(v|vault)[0-9]{1,6}(-twin)?-[0-9]{4,6}\.json$/; // = agent/src/serve.rs transcript_name
+// A measurement evidence file as the agent serves it (agent/src/serve.rs is_public_name): one of PUBLIC_FILES,
+// registration-<tag>.json or reregistration-<tag>-<digits>.json, <tag> = v<1-6 digits> or vault<1-6 digits> (vaults::valid_tag)
+const PUBLIC_FILES = new Set(['app-compose.json', 'vm_config.json', 'tdx_quote.hex', 'event_log.json', 'info.json']);
+const REGISTRATION_NAME = /^registration-(?:v|vault)[0-9]{1,6}\.json$/;
+const REREGISTRATION_NAME = /^reregistration-(?:v|vault)[0-9]{1,6}-[0-9]{1,6}\.json$/;
+function evidenceName(name: string): boolean {
+	return PUBLIC_FILES.has(name) || REGISTRATION_NAME.test(name) || REREGISTRATION_NAME.test(name);
+}
 function agentRoute(path: string): string | undefined {
 	const fixed = AGENT_GET.get(path);
 	if (fixed !== undefined) return fixed;
 	const t = path.match(/^\/agent\/transcripts\/([^/]+)$/);
-	return t && TRANSCRIPT_NAME.test(t[1]) ? `/transcripts/${t[1]}` : undefined;
+	if (t) return TRANSCRIPT_NAME.test(t[1]) ? `/transcripts/${t[1]}` : undefined;
+	const e = path.match(/^\/agent\/evidence\/([^/]+)$/);
+	return e && evidenceName(e[1]) ? `/evidence/${e[1]}` : undefined;
 }
 const EVIDENCE_TTL_MS = 10_000;
 const EVIDENCE_TIMEOUT_MS = 10_000;
