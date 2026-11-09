@@ -54,7 +54,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
-const NEAR_RPC: &str = "https://rpc.testnet.near.org";
+/// NEAR testnet providers in the order they are tried (near.rs). The NEAR docs' provider list, public without a key;
+/// the official endpoint last: on 9 Nov it answered the enclave `-429 … DEPRECATED` on about 95% of calls.
+const NEAR_RPCS: [&str; 4] = ["https://test.rpc.fastnear.com", "https://near-testnet.drpc.org", "https://testnet-rpc.intea.rs", "https://rpc.testnet.near.org"];
 const BASE_RPCS: [&str; 2] = ["https://base-sepolia-rpc.publicnode.com", "https://sepolia.base.org"];
 const DIGEST_SECS: u64 = 6 * 3600;
 /// The feed poll's default interval (`--feed-secs`).
@@ -149,7 +151,7 @@ struct Args {
     source: vaults::Source,
     tee: bool,
     base_rpcs: Vec<String>,
-    near_rpc: String,
+    near_rpcs: Vec<String>,
     tick_secs: u64,
     max_ticks: u64,
     digest_at_start: bool,
@@ -167,7 +169,7 @@ fn args() -> Result<Args> {
         source: vaults::Source::List(vec![]),
         tee: true,
         base_rpcs: vec![],
-        near_rpc: NEAR_RPC.into(),
+        near_rpcs: vec![],
         tick_secs: 2,
         max_ticks: u64::MAX,
         digest_at_start: true,
@@ -193,7 +195,7 @@ fn args() -> Result<Args> {
                     "--factory" => factory = Some(val),
                     "--vault" => list.push(val),
                     "--base-rpc" => a.base_rpcs.push(val),
-                    "--near-rpc" => a.near_rpc = val,
+                    "--near-rpc" => a.near_rpcs.push(val),
                     "--tick-secs" => a.tick_secs = val.parse()?,
                     "--max-ticks" => a.max_ticks = val.parse()?,
                     "--evidence" => a.evidence = PathBuf::from(val),
@@ -214,6 +216,9 @@ fn args() -> Result<Args> {
     }
     if a.base_rpcs.is_empty() {
         a.base_rpcs = BASE_RPCS.iter().map(|s| s.to_string()).collect();
+    }
+    if a.near_rpcs.is_empty() {
+        a.near_rpcs = NEAR_RPCS.iter().map(|s| s.to_string()).collect();
     }
     a.source = vault_source(a.mode, factory, list)?;
     Ok(a)
@@ -1097,7 +1102,7 @@ async fn main() -> Result<()> {
     println!("RESULT start mode={} operator={} {src} tee={} boot={boot_id}", a.mode.label(), a.operator, a.tee);
     println!("RESULT agent_public_key={} implicit_account={implicit}", near::pk_string(&sk));
     std::fs::create_dir_all(&a.evidence)?;
-    let nearc = near::Near::new(&a.near_rpc);
+    let nearc = near::Near::new(a.near_rpcs.clone());
     let base = Base::new(a.base_rpcs.clone());
     let key = match &a.nearai_key_file {
         Some(f) => Some(std::fs::read_to_string(f)?.trim().to_string()),
