@@ -1,0 +1,71 @@
+{
+  "boot": "boot-1794264608-2286af92",
+  "operator": "cmdk",
+  "files": [
+    {
+      "name": "app-compose.json",
+      "bytes": 19683,
+      "sha256": "db4f508517a01b31986dc9ec10eefd7491eb249cc209fb6b395c449e91c1dfc4",
+      "path": "/evidence/app-compose.json"
+    },
+    {
+      "name": "vm_config.json",
+      "bytes": 372,
+      "sha256": "3914a1512ab963a51d6bbdfe46c5d7070a36d8ad955ddbfe10b7bc17b6f4e3fa",
+      "path": "/evidence/vm_config.json"
+    },
+    {
+      "name": "tdx_quote.hex",
+      "bytes": 10020,
+      "sha256": "4f64aa416a44d04ec3af743d7cbfef05f1b623dd089da944eee0f9c25f8522f3",
+      "path": "/evidence/tdx_quote.hex"
+    },
+    {
+      "name": "event_log.json",
+      "bytes": 4927,
+      "sha256": "9b6efbf0f944931e79b26bc1aeb5676939415ea1f14603e97432b16f1f877448",
+      "path": "/evidence/event_log.json"
+    },
+    {
+      "name": "info.json",
+      "bytes": 23031,
+      "sha256": "34e18bc1731ac24511cb83807fd48164b5220bcf837eb943103010eab41b8f3a",
+      "path": "/evidence/info.json"
+    },
+    {
+      "name": "registration-v1.json",
+      "bytes": 2569,
+      "sha256": "09a522fed098b37516dd9d02519874e2e3c04921046db607ad07e70cc298b458",
+      "path": "/evidence/registration-v1.json"
+    }
+  ],
+  "vaults": [
+    {
+      "slot": 1,
+      "tag": "v1",
+      "vault": "v1.factory.prime-measure-1792736012.testnet",
+      "base_address": "0xb3ccd0ad7e5fca9d4c18cf59d19fab4703eee6fb",
+      "registration": "registered",
+      "registration_tx": "CPEBXcPDmvp2QmS3zakVDtRQ46Z8fvPsrfU5cS8GpKgb",
+      "agent_status": "active",
+      "expires_at": 1794869548,
+      "expires_utc": "2026-11-16T22:52:28Z",
+      "ticks": 13,
+      "last_tick_unix": 1794264779
+    },
+    {
+      "slot": 4,
+      "tag": "v4",
+      "vault": "v4.factory.prime-measure-1792736012.testnet",
+      "base_address": "0xd3983a65120d1c17f26e6dd6151c5ff3a0701db0",
+      "registration": "registering",
+      "registration_tx": null,
+      "agent_status": "revoked (another key registered)",
+      "expires_at": 1794582381,
+      "expires_utc": "2026-11-13T15:06:21Z",
+      "ticks": 0,
+      "last_tick_unix": null
+    }
+  ],
+  "note": "measurement evidence of this boot and the vaults it watches (also GET /vaults); the decision-loop transcripts of every boot are listed at GET /transcripts"
+}

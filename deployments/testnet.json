@@ -105,19 +105,19 @@
       "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
       "rtmr1": "4ae609807c765916a31d724786ed74bcb97e168a9d937b04936aeef2015c907eba5ac352c6bcd749c246fd62ffb659ec",
       "rtmr2": "764489f277a8540189761e72b4238ba36d4d647e11bd958d8ab5522af2a4867b0ff63e06b0c4967f1857236244040a5d",
-      "compose_hash": "216124c1e33e525670272566938268471719d6eb94fdf6048c67925cbab9bdb2",
+      "compose_hash": "db4f508517a01b31986dc9ec10eefd7491eb249cc209fb6b395c449e91c1dfc4",
       "os_image_hash": "8db40cb23008d6213668b5816702d100b37b859a8a5bfd18d938ae3a1b3715bd"
     },
-    "sourceCommit": "fd0272f",
+    "sourceCommit": "4171c10",
     "version": "0.1.0",
-    "image": "ghcr.io/cmdkfi/agent@sha256:479f98f394bc3a146574d5c325b0ab881521c17eaa10ec131aa4fb9cc2518f34",
-    "imageId": "sha256:01027505f3873dc6fff86ffac5819bb28dc45dcbc8760fdc929ed4474c0a6eb3",
+    "image": "ghcr.io/cmdkfi/agent@sha256:e72564a8e1fe513a578dc37863491a84f7873d7bfba28314ce59ac3f5ebc94d1",
+    "imageId": "sha256:d3b51d670192b3b77b64241e70dca28eb97fa446128c3aca79ba548c18efcfcb",
     "phalaAppId": "49ecae9fcc4a6970956d8c987386315297922a69",
     "osImage": "dstack-0.5.12",
     "instance": "tdx.small",
     "evidenceUrl": "https://49ecae9fcc4a6970956d8c987386315297922a69-8080.dstack-pha1-prod5.phala.network",
     "evidenceProxy": "https://relayer.cmdk.fi/agent",
     "transcriptsPath": "/transcripts",
-    "_comment": "filled 5 Nov 2026: the measurement a vault must approve (the setup message's `measurement`, or approve_measurement) for the running agent to watch it; the six values are those of boot a405e917 (image fd0272f) and of boot 14fda74d (6 Nov, the same image on a new CVM after Phala's KMS incident, see evidence/incident-2026-11-06-phala-kms.md), compose_hash changes with every image, the other five with the Phala OS image or instance size. A vault whose approved values differ is not watched: the app should compare the vault's `approved` (get_state) with this block and offer approve_measurement. evidenceUrl serves GET /, /vaults, /evidence/<file>, /transcripts[/<name>]; evidenceProxy the same with CORS."
+    "_comment": "filled 5 Nov 2026, updated 9 Nov: the measurement a vault must approve (the setup message's `measurement`, or approve_measurement) for the running agent to watch it; the six values are those of boot 2286af92 (9 Nov, image 4171c10: NEAR RPC provider failover, the same CVM updated in place). Before it: compose hash 216124c1 (image fd0272f, boots a405e917 and 14fda74d, see evidence/incident-2026-11-06-phala-kms.md); compose_hash changes with every image, the other five with the Phala OS image or instance size. A vault whose approved values differ is not watched: the app should compare the vault's `approved` (get_state) with this block and offer approve_measurement. evidenceUrl serves GET /, /vaults, /evidence/<file>, /transcripts[/<name>]; evidenceProxy the same with CORS."
   }
 }

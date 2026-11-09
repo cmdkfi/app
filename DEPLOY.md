@@ -44,6 +44,14 @@ Base Sepolia (chain 84532) and NEAR testnet. Nothing here touches mainnet.
   `relayer.cmdk.fi/agent/transcripts`; one fetched through the proxy matched the index's SHA-256 and passed
   `agent/verify-transcript.sh` (`ALL PASS`). Step 7's record `evidence/attacks.txt` was made the same day (5 PASS on chain).
   Step 11 (screening rehearsal) waits for the judges' README decision. The "Known gaps" at the end were closed on 3 Nov.
+  **9 Nov, third image:** commit `4171c10` (the agent's NEAR reads go to FastNear, dRPC and Intear before
+  rpc.testnet.near.org, which answered the enclave `-429 … DEPRECATED` on about 95% of calls), image id `d3b51d67…`,
+  pushed as `@sha256:e72564a8…`, CVM `5a5e66d3…` updated in place (`phala deploy --cvm-id … --wait`, 61 s), boot
+  `2286af92`, compose hash `db4f5085…` (recomputed from the boot's `app-compose.json`; the measured compose and
+  pre-launch script equal the committed files; the other five values unchanged), approved on v1 (NEAR tx
+  `CoHoSrYiNfhJ9KduGpvqFGmn1TzxcopbDgWRLuHZwQdk`) and v4 (`EpbnCDh9Jrh8bmsNQLdLDT4UmSYUHz5pS2LHHxjhphE6`) by the test
+  wallet; v3, v6 and v10 belong to other owners and are watched again once they approve the new values
+  (`evidence/deploy/2026-11-09.log`).
 
 ## Budget (Base Sepolia test wallet)
 
