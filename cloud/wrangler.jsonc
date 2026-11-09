@@ -9,7 +9,7 @@
   "workers_dev": true,
   "routes": [{ "pattern": "relayer.cmdk.fi", "custom_domain": true }],
   "observability": { "enabled": true },
-  "triggers": { "crons": ["*/10 * * * *"] },
+  "triggers": { "crons": ["*/10 * * * *", "* * * * *"] },
   "vars": {
     // the app origins allowed by CORS (comma separated)
     "ALLOWED_ORIGINS": "https://cmdk.fi,https://testnet.cmdk.fi,http://localhost:5173",

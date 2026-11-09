@@ -27,11 +27,15 @@
 //   GET /agent/evidence/<file> -> /evidence/<file> (8 Nov: the boot's measurement evidence the index lists, tdx_quote.hex,
 //   event_log.json, app-compose.json, vm_config.json, info.json and the registration files; <file> must match
 //   EVIDENCE_NAME, the Worker's copy of the agent's is_public_name; anything else is 404 here)
-//        the agent's JSON as it is, with this Worker's CORS; one read of the enclave per path per 10 s (kept in the
-//        Durable Object's memory); 503 {"ok": false, "error": "agent evidence url not set"} while the URL is empty
+//        the agent's JSON as it is, with this Worker's CORS; one read of the enclave per path per 10 s (an hour for
+//        /agent/evidence/<file>, fixed for a boot), kept in the Durable Object's memory; a read that fails (Phala's
+//        gateway stalls now and then, 9 Nov) is retried once and then answered with the last good copy and its Age,
+//        502 only for a path never read; 503 {"ok": false, "error": "agent evidence url not set"} while the URL is empty
 // Cron "*/10 * * * *": one round (live, then demo), unless paused; then, paused or not, the agent's funding: when
 // AGENT_EVIDENCE_URL is set and a watched vault is "registering", POST /fund-agent for the agent's implicit account
 // (from the quote's report_data), within FUND_NEAR_PER_DAY (rolling 24 h, kept in the Durable Object's storage).
+// Cron "* * * * *" (9 Nov): the funding step alone, so a vault that joins waits about a minute for its registration
+// fee instead of up to ten; the daily cap is the same.
 // A fresh Durable Object starts paused.
 
 import { Container } from '@cloudflare/containers';
@@ -75,7 +79,11 @@ function agentRoute(path: string): string | undefined {
 	return e && evidenceName(e[1]) ? `/evidence/${e[1]}` : undefined;
 }
 const EVIDENCE_TTL_MS = 10_000;
-const EVIDENCE_TIMEOUT_MS = 10_000;
+// the files under /evidence/ are fixed for a boot (the index's sha256 list changes only with a new boot)
+const EVIDENCE_FILE_TTL_MS = 3_600_000;
+const EVIDENCE_TIMEOUT_MS = 20_000;
+// the funding-only cron expression (wrangler.jsonc triggers); the other one runs the round and then the funding
+const FUND_CRON = '* * * * *';
 const RUNS_KEPT = 5000;
 const STATE_NAMES = ['live', 'demo', 'relayer'] as const;
 const HOUR = 3600_000;
@@ -253,35 +261,43 @@ export class CmdkBackend extends Container<Bindings> {
 		return u.trim().replace(/\/+$/, '');
 	}
 
-	// One read of the agent's evidence endpoint; failures are answered as 502 JSON.
+	// One read of the agent's evidence endpoint, tried twice (the gateway in front of the enclave stalls now and then);
+	// failures are answered as 502 JSON.
 	private async readEvidence(path: string): Promise<Evidence> {
-		try {
-			const r = await fetch(`${this.evidenceBase()}${path}`, { signal: AbortSignal.timeout(EVIDENCE_TIMEOUT_MS) });
-			return { status: r.status, type: r.headers.get('Content-Type') ?? 'application/octet-stream', body: await r.text(), at: Date.now() };
-		} catch (e) {
-			const body = JSON.stringify({ ok: false, error: `agent evidence unreachable: ${String(e).slice(0, 200)}` });
-			return { status: 502, type: 'application/json', body, at: Date.now() };
+		let err = '';
+		for (let attempt = 0; attempt < 2; attempt++) {
+			try {
+				const r = await fetch(`${this.evidenceBase()}${path}`, { signal: AbortSignal.timeout(EVIDENCE_TIMEOUT_MS) });
+				return { status: r.status, type: r.headers.get('Content-Type') ?? 'application/octet-stream', body: await r.text(), at: Date.now() };
+			} catch (e) {
+				err = String(e).slice(0, 200);
+			}
 		}
+		const body = JSON.stringify({ ok: false, error: `agent evidence unreachable: ${err}` });
+		return { status: 502, type: 'application/json', body, at: Date.now() };
 	}
 
-	// GET /agent/... for browsers: the answer of the last EVIDENCE_TTL_MS if there is one, else one read (requests
-	// that arrive during it wait for the same read). `age` is the answer's age in seconds.
+	// GET /agent/... for browsers: the answer of the last EVIDENCE_TTL_MS (EVIDENCE_FILE_TTL_MS under /evidence/) if
+	// there is one, else one read (requests that arrive during it wait for the same read). A failed read answers with
+	// the last good copy when there is one, however old, so a gateway stall never empties a page that was showing.
+	// `age` is the answer's age in seconds.
 	async agentEvidence(path: string): Promise<Evidence & { age: number }> {
 		const key = `${this.evidenceBase()}${path}`;
 		const hit = this.evidence.get(key);
 		const now = Date.now();
-		if (hit && now - hit.at < EVIDENCE_TTL_MS) return { ...hit, age: Math.floor((now - hit.at) / 1000) };
+		const ttl = path.startsWith('/evidence/') ? EVIDENCE_FILE_TTL_MS : EVIDENCE_TTL_MS;
+		const aged = (h: Evidence) => ({ ...h, age: Math.floor((Date.now() - h.at) / 1000) });
+		if (hit && now - hit.at < ttl) return aged(hit);
 		let p = this.evidenceReads.get(key);
 		if (!p) {
 			p = this.readEvidence(path).finally(() => this.evidenceReads.delete(key));
 			this.evidenceReads.set(key, p);
 		}
 		const e = await p;
-		if (e.status !== 502) {
-			// transcripts are many distinct paths: drop expired answers before the map grows past a few hundred
-			if (this.evidence.size >= 256) for (const [k, v] of this.evidence) if (now - v.at >= EVIDENCE_TTL_MS) this.evidence.delete(k);
-			this.evidence.set(key, e);
-		}
+		if (e.status === 502) return hit ? aged(hit) : { ...e, age: 0 };
+		// transcripts are many distinct paths: drop expired answers before the map grows past a few hundred
+		if (this.evidence.size >= 256) for (const [k, v] of this.evidence) if (now - v.at >= EVIDENCE_FILE_TTL_MS) this.evidence.delete(k);
+		this.evidence.set(key, e);
 		return { ...e, age: 0 };
 	}
 
@@ -558,10 +574,12 @@ export default {
 
 	async scheduled(controller: ScheduledController, env: Bindings): Promise<void> {
 		const b = backend(env);
-		try {
-			console.log(`cron ${controller.cron}: ${await b.cron()}`);
-		} catch (e) {
-			console.error(`cron ${controller.cron}: round failed`, e);
+		if (controller.cron !== FUND_CRON) {
+			try {
+				console.log(`cron ${controller.cron}: ${await b.cron()}`);
+			} catch (e) {
+				console.error(`cron ${controller.cron}: round failed`, e);
+			}
 		}
 		// after the round, paused or not (the pause is the rebalancer's switch); fund() logs its own line
 		try {

@@ -10,7 +10,7 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
 | `Dockerfile` | python 3.14 slim (pinned by digest), `cast` (Foundry v1.8.6) and `near` (near-cli-rs v0.30.1), both checked by SHA-256, `jq`; copies `scripts/relayer.py`, `scripts/relayer.sh`, `scripts/rebalance_pool.py`, `deployments/testnet.json`, `cloud/front.py`. No key. Build context: the repository root (`Dockerfile.dockerignore` lets only those files in) |
 | `front.py` | The container's entrypoint and only listener (`0.0.0.0:8080`). Writes the keys and the state, starts the relayer on `127.0.0.1:8787`, proxies to it, adds `factory_exists` to `/health` and answers `/create-vault` with 503 while the factory account does not exist, runs rebalancer rounds |
 | `src/index.ts` | The Worker: routes, CORS (here only), the admin token, the `/create-vault` limits, the read-only proxy of the agent's evidence endpoint (`/agent/...`), the Durable Object `CmdkBackend` that owns the container and keeps the state, the creation counts and the funding ledger, the cron (rebalancer round, then the agent's funding) |
-| `wrangler.jsonc` | Container `basic` (1/4 vCPU, 1 GiB, 4 GB), `max_instances` 1, cron `*/10 * * * *`, custom domain `relayer.cmdk.fi`, observability on |
+| `wrangler.jsonc` | Container `basic` (1/4 vCPU, 1 GiB, 4 GB), `max_instances` 1, crons `*/10 * * * *` (round, then funding) and `* * * * *` (funding only, 9 Nov), custom domain `relayer.cmdk.fi`, observability on |
 
 ## How it works
 
@@ -44,12 +44,16 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
 - **Agent evidence for the browser.** `GET /agent/vaults`, `GET /agent/`, `GET /agent/transcripts` (index) and `GET /agent/transcripts/<name>` (one transcript; the name must match the agent's file pattern, `TRANSCRIPT_NAME`, else 404 at the Worker; public since 5 Nov) forward to the agent's evidence
   endpoint (`agent/src/serve.rs`, port 8080 of the CVM) at `AGENT_EVIDENCE_URL`, GET only, and answer the agent's
   JSON as it is, with this Worker's CORS (the agent's own headers are not passed on). The Durable Object reads the
-  enclave at most once per path per 10 s and answers from memory meanwhile (`Cache-Control: public, max-age=10`,
-  `Age`), so a busy dashboard does not reach the enclave more often than that. While `AGENT_EVIDENCE_URL` is empty
+  enclave at most once per path per 10 s (an hour for `/agent/evidence/<file>`, fixed for a boot) and answers from
+  memory meanwhile (`Cache-Control: public, max-age=10`, `Age`), so a busy dashboard does not reach the enclave more
+  often than that. A read is tried twice with a 20 s limit; when both fail (Phala's gateway in front of the CVM
+  stalls now and then, seen 9 Nov) the Worker answers with the last good copy of that path and its `Age`, and 502
+  `agent evidence unreachable` only for a path it has never read. While `AGENT_EVIDENCE_URL` is empty
   (until Friday's Phala launch, DEPLOY.md step 8) both answer 503 `{"ok": false, "error": "agent evidence url not
   set"}`.
 - **Agent funding (cron).** After the rebalancer round, paused or not (the pause is the rebalancer's switch), the
-  cron reads the agent's `GET /` once. When a watched vault's `registration` is `"registering"` (the agent's
+  ten-minute cron reads the agent's `GET /` once; the one-minute cron (9 Nov) runs this step alone, so a vault that
+  joins waits about a minute for its fee. When a watched vault's `registration` is `"registering"` (the agent's
   `Phase::Pending`: joined, `register_agent` not accepted yet), it calls the container's `POST /fund-agent` for the
   agent's implicit account, the call DEPLOY.md step 8 made by hand. The evidence endpoint does not serve the account
   or the `WAITING` line (that is in the CVM's log only), so the Worker takes the account from the quote the index
@@ -60,7 +64,7 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
   "The first funding creates the account"). The relayer decides whether to send: it tops the account up to 0.16 NEAR only
   when it holds under 0.15 (the agent waits for 0.14992 before each registration), else answers `already funded`,
   so a vault that is registering for another reason costs one read. One registration per refill: N vaults take
-  0.16 + (N − 1) × 0.0116 NEAR, one cron (10 min) per vault after the first.
+  0.16 + (N − 1) × 0.0116 NEAR, one cron (1 min) per vault after the first.
   **Caps.** `FUND_NEAR_PER_DAY` (default 2 NEAR) bounds the sum of what the relayer reports it sent
   (`amount_yocto` of a `funded` answer, and of a dry-run answer, so the cap is testable locally) over a rolling
   24 hours, kept in the Durable Object's storage; before each call 0.16 NEAR (the most one call sends) is reserved,
