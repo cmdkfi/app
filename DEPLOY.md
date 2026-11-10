@@ -101,15 +101,15 @@ NEAR is spent in steps 7 and 8 only: 85 NEAR on the publishing account and 5 NEA
 file outside the repository; it holds addresses only. Write it once:
 
 ```sh
-mkdir -p ~/.local/state/cmdk /Users/vf/cmdk/app/evidence/deploy
+mkdir -p ~/.local/state/cmdk <repo>/evidence/deploy
 cat > ~/.local/state/cmdk/deploy-2026-11-06.sh <<'EOF'
 # DEPLOY.md shell setup: addresses and two helpers; no keys
 set -o pipefail
-cd /Users/vf/cmdk/app
+cd <repo>
 export PATH="$HOME/.foundry/bin:$PATH" RPC=https://base-sepolia-rpc.publicnode.com
 U=https://relayer.cmdk.fi; A=$HOME/.config/prime/relayer_admin.header   # relayer and timer (cloud/README.md); A holds the admin token
 unset STATE_DIR DEPLOYMENTS
-LOG=/Users/vf/cmdk/app/evidence/deploy/2026-11-06.log
+LOG=<repo>/evidence/deploy/2026-11-06.log
 W=0x0B7Ed66f46fe83252a208563A88201BA60490d25; OLD=0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40
 MORPHO=0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb; IRM=0x46415998764C29aB2a25CbeA6254146D50D22687; LLTV=860000000000000000
 USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e; WETH=0x4200000000000000000000000000000000000006; DUSDC=0xeb68Fd5bAAAfD4e46b43bAa7fEAb3216B87b10d5
@@ -361,7 +361,7 @@ from now on every wallet transaction from the Mac goes between a pause and a res
 
 **Fallback: the Mac** (only if the container is down; never both). Pause the container if it answers, copy its
 state down (`curl -s -H @$A $U/state | jq .stored.live > scripts/state/live.json`, the same for `demo`), then run
-the 3 Nov command on AC power: `cd /Users/vf/cmdk/app && nohup caffeinate -s scripts/rebalance.sh --band-usdc 10 >>
+the 3 Nov command on AC power: `cd <repo> && nohup caffeinate -s scripts/rebalance.sh --band-usdc 10 >>
 ~/.local/state/cmdk/rebalance.log 2>&1 &`. `pgrep -fl rebalance.sh` shows it; whether `-s` holds through a lid
 close has not been measured. Stop it with `kill -TERM $(pgrep -f '^/bin/sh scripts/rebalance.sh')`, and upload
 the state again (above) before resuming the container.
@@ -405,7 +405,7 @@ gas. The 7b vault is created by the factory directly (not through the relayer), 
 manual ETH transfer stays. Check that the relayer carries 7c's factory and sees it:
 
 ```sh
-cd /Users/vf/cmdk/app
+cd <repo>
 python3 -I scripts/test_relayer.py 2>&1 | tail -1            # OK (71 tests on 3 Nov)
 curl -s https://relayer.cmdk.fi/health | jq -c '{ok, dry_run, sender, factory, factory_exists, chain_id, sender_balance, floats_left: .wallet.floats_left}'
 ```

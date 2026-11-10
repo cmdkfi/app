@@ -16,7 +16,7 @@ old flat `executor/deployments.json` through `DEPLOYMENTS=...`. `p1_onchain_run.
 ## Status (reads only)
 
 ```sh
-cd /Users/vf/cmdk/app
+cd <repo>
 python3 -I scripts/rebalance_pool.py --market live --status
 python3 -I scripts/rebalance_pool.py --market demo --status
 ```
@@ -248,6 +248,6 @@ the floor (`DEPLOY.md`, Budget).
 | When (UTC) | What |
 |---|---|
 | 2026-11-03 05:54–06:07 | Step 2 transactions (204, all status 1; `evidence/venue/2026-11-03-venue-step2.md`). Demo restored to the live oracle price, $2,244.68, once, and re-banded (sell 83639, buy 83640) |
-| 2026-11-03 06:10:03 | Timer started: `cd /Users/vf/cmdk/app && nohup caffeinate -i scripts/rebalance.sh >> ~/.local/state/cmdk/rebalance.log 2>&1 &`. PID 55442 (`/bin/sh scripts/rebalance.sh`, parent 1), with `caffeinate -i` as its child, PID 55444. Stop with `kill 55442`: the trap lets a run in progress finish. First round: live `action=kept` gap +0.188% `exit=0`; demo `action=kept` gap +0.000% `exit=0` |
+| 2026-11-03 06:10:03 | Timer started: `cd <repo> && nohup caffeinate -i scripts/rebalance.sh >> ~/.local/state/cmdk/rebalance.log 2>&1 &`. PID 55442 (`/bin/sh scripts/rebalance.sh`, parent 1), with `caffeinate -i` as its child, PID 55444. Stop with `kill 55442`: the trap lets a run in progress finish. First round: live `action=kept` gap +0.188% `exit=0`; demo `action=kept` gap +0.000% `exit=0` |
 | 2026-11-03 14:46:44 | Timer stopped (`kill -TERM 55442` while only its `sleep 600` ran). 72 RUN lines: live 26 `kept`, 9 `repair+band`, 1 crash; demo 35 `kept`, 1 crash. The two crashes were at 11:02:10, RPC not reached during host sleep. 63 transactions, 0.000057577 ETH. Gaps of 34 min, 50 min and 1 h 39 min were clamshell sleep (`pmset -g log`): `caffeinate -i` does not prevent it |
 | 2026-11-03 14:51–14:55 | Close-out, 13 transactions, all status 1, 0.000008694 ETH. Executor `close` on backup (repaid 6.745182 USDC, 0.006 WETH back) and demo (0.000265 WETH back). Morpho supply withdrawn on live (3.550002 USDC), backup (7.090378 USDC) and demo (5,000.000155 dUSDC). `--close-bands` on the live band 83679 and the demo anchor 83459, sell 83639 and buy 83640. Wallet after: 0.287648 ETH, 0.057910 WETH, 24.341191 USDC, 25,026.49 dUSDC (`evidence/venue/2026-11-03-close-out.md`) |

@@ -36,4 +36,4 @@ corridor target 0.50 act 0.70 floor 0.30 budget 1.00 migrate True exit True: cor
 | open backup 0.003 WETH at 50% | 270,499 | 56,248 | 0xdb9c55881f33fd3e0cc61a476dfc020fca750d303fa4d33241d7548a08983dd7 |
 | open demo 0.003 WETH at 50% | 203,378 | 56,248 | 0xedd892c85e143cc1840bbce0943adeba1c73a767f033a6d71d592bc548d9ef09 |
 
-written /Users/vf/cmdk/app/scripts/../evidence/venue/2026-11-03-venue-step2.json
+written <repo>/scripts/../evidence/venue/2026-11-03-venue-step2.json

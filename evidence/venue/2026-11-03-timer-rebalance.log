@@ -1,4 +1,4 @@
-2026-11-03T06:10:03Z rebalance.sh: every 600 s, live then demo, args: ; detail log /Users/vf/.local/state/cmdk/rebalance-detail.log
+2026-11-03T06:10:03Z rebalance.sh: every 600 s, live then demo, args: ; detail log ~/.local/state/cmdk/rebalance-detail.log
 RUN 2026-11-03T06:10:08Z market=live tick=199153 oracle=2241.28 pool=2245.49 gap=+0.188% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=507348 exit=0
 RUN 2026-11-03T06:10:14Z market=demo tick=-199157 oracle=2244.68 pool=2244.68 gap=+0.000% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=507348 exit=0
 RUN 2026-11-03T06:20:19Z market=live tick=199153 oracle=2244.86 pool=2245.49 gap=+0.028% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=1244360 exit=0
@@ -51,8 +51,8 @@ RUN 2026-11-03T10:17:38Z market=live tick=199072 oracle=2263.33 pool=2263.83 gap
 RUN 2026-11-03T10:17:43Z market=demo tick=-199157 oracle=2244.68 pool=2244.68 gap=+0.000% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=526896675399 exit=0
 RUN 2026-11-03T10:27:49Z market=live tick=199072 oracle=2263.70 pool=2263.83 gap=+0.006% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=155136348963 exit=0
 RUN 2026-11-03T10:27:54Z market=demo tick=-199157 oracle=2244.68 pool=2244.68 gap=+0.000% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=155136348963 exit=0
-RUN 2026-11-03T11:02:10Z market=live action=crash exit=1 (crashed: subprocess.CalledProcessError: Command '['/Users/vf/.foundry/bin/cast', 'chain-id', '--rpc-url', 'https://base-sepolia-rpc.publicnode.com']' returned non-zero exit status 1.)
-RUN 2026-11-03T11:02:10Z market=demo action=crash exit=1 (crashed: subprocess.CalledProcessError: Command '['/Users/vf/.foundry/bin/cast', 'chain-id', '--rpc-url', 'https://base-sepolia-rpc.publicnode.com']' returned non-zero exit status 1.)
+RUN 2026-11-03T11:02:10Z market=live action=crash exit=1 (crashed: subprocess.CalledProcessError: Command '['~/.foundry/bin/cast', 'chain-id', '--rpc-url', 'https://base-sepolia-rpc.publicnode.com']' returned non-zero exit status 1.)
+RUN 2026-11-03T11:02:10Z market=demo action=crash exit=1 (crashed: subprocess.CalledProcessError: Command '['~/.foundry/bin/cast', 'chain-id', '--rpc-url', 'https://base-sepolia-rpc.publicnode.com']' returned non-zero exit status 1.)
 RUN 2026-11-03T11:52:10Z market=live tick=199072 oracle=2264.58 pool=2263.83 gap=-0.033% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=27205603 exit=0
 RUN 2026-11-03T11:52:17Z market=demo tick=-199157 oracle=2244.68 pool=2244.68 gap=+0.000% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=27205603 exit=0
 RUN 2026-11-03T12:02:22Z market=live tick=199072 oracle=2264.26 pool=2263.83 gap=-0.019% action=kept repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=15526399 exit=0

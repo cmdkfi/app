@@ -22,4 +22,4 @@ executor 0xB23e0d7e1D0182Db7f6f2637EC4Ac51c10290f40 on https://base-sepolia-rpc.
 | open demo 0.003 WETH at 50% | 203,378 | 56,248 | 0xedd892c85e143cc1840bbce0943adeba1c73a767f033a6d71d592bc548d9ef09 |
 | migrate live->backup 100% | 352,310 | 67,062 | 0xea755366ca15a9fa8ad2719ba670bfd8ce83e5b8c7d61b1aac16a19d357becc5 |
 
-written /Users/vf/cmdk/app/scripts/../evidence/venue/2026-11-03-venue-step2.json
+written <repo>/scripts/../evidence/venue/2026-11-03-venue-step2.json

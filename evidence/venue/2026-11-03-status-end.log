@@ -1,4 +1,4 @@
-rpc https://base-sepolia-rpc.publicnode.com, deployments /Users/vf/cmdk/app/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287714 ETH, 0.038234 WETH, 19.181966 USDC
+rpc https://base-sepolia-rpc.publicnode.com, deployments <repo>/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287714 ETH, 0.038234 WETH, 19.181966 USDC
 L1 data fee (GasPriceOracle): l1BaseFee 17 wei, blobBaseFee 2422 wei, scalars 1101/659851, upper bound for a 400-byte tx 580427 wei; L2 base fee 5000000 wei
 live: pool 0x57183717A087d2fe3Ad890873877244c3B96156c, oracle 0x7D0ebc71EBBEC6F215C2Ab818F9dB538A52f6a3E
 pool tick 199153 ($2245.49), oracle $2241.28 (tick 199172), gap +0.188%, tolerance 0.25%, in-range L 1.258e+14
@@ -6,8 +6,8 @@ our band: position 83604 [199055, 199255) L 18564888133932, in range; a burn ret
 wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287714 ETH, 0.038234 WETH, 19.181966 USDC, 15.111604 dUSDC
 status: within tolerance; repair cost 0
 RUN 2026-11-03T06:09:32Z market=live tick=199153 oracle=2241.28 pool=2245.49 gap=+0.188% action=status repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=580427
-dry-run: /Users/vf/cmdk/app/scripts/state/live.json unchanged
-rpc https://base-sepolia-rpc.publicnode.com, deployments /Users/vf/cmdk/app/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287714 ETH, 0.038234 WETH, 19.181966 USDC
+dry-run: <repo>/scripts/state/live.json unchanged
+rpc https://base-sepolia-rpc.publicnode.com, deployments <repo>/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287714 ETH, 0.038234 WETH, 19.181966 USDC
 L1 data fee (GasPriceOracle): l1BaseFee 17 wei, blobBaseFee 2422 wei, scalars 1101/659851, upper bound for a 400-byte tx 580427 wei; L2 base fee 5000000 wei
 demo: pool 0x722F350ec250c1697063A080B0196506D7Fe21c1, oracle 0x91Ec8d7177b876017773cf787B2caB0Fe6Ac6b2f
 pool tick -199157 ($2244.68), oracle $2244.68 (tick -199157), gap +0.000%, tolerance 0.25%, in-range L 2.402e+11
@@ -17,4 +17,4 @@ our buy: position 83640 [-199156, -199056) L 47501307935082, out of range; a bur
 wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287714 ETH, 0.038234 WETH, 19.181966 USDC, 15.111604 dUSDC
 status: within tolerance; repair cost 0
 RUN 2026-11-03T06:09:39Z market=demo tick=-199157 oracle=2244.68 pool=2244.68 gap=+0.000% action=status repair_quote=0 swap_in=0 txs=0 fee_eth=0.000000000 l1_fee_wei=0 l1_bound_wei=580427
-dry-run: /Users/vf/cmdk/app/scripts/state/demo.json unchanged
+dry-run: <repo>/scripts/state/demo.json unchanged

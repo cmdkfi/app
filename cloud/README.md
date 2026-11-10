@@ -141,7 +141,7 @@ with only those three fields works as a near-cli-rs access-key file (tested on 3
 Before Friday. The factory name is already in `wrangler.jsonc`.
 
 ```sh
-cd /Users/vf/cmdk/app/cloud
+cd <repo>/cloud
 RELAYER=relayer.prime-measure-1792736012.testnet
 pnpm install                                   # pnpm-workspace.yaml allows the esbuild, sharp, workerd builds
 pnpm run check                                 # wrangler types + tsc --noEmit, exit 0
@@ -208,7 +208,7 @@ cap too. The env file lives outside the repository, mode 600; the NEAR key in it
 nothing), the factory an existing account (the 503 above would come first otherwise):
 
 ```sh
-cd /Users/vf/cmdk/app/cloud; T=$(mktemp -d); chmod 700 $T
+cd <repo>/cloud; T=$(mktemp -d); chmod 700 $T
 python3 -I - "$T" <<'PY'
 import json, os, secrets, sys
 d = sys.argv[1]; base = json.dumps(json.load(open(os.path.expanduser('~/.config/prime/base_sepolia_eoa.json'))), separators=(',', ':'))

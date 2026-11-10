@@ -14,7 +14,7 @@ checks only stop a call that would fail; they grant nothing.
 ## Run it
 
 ```sh
-cd /Users/vf/cmdk/app
+cd <repo>
 scripts/relayer.sh serve --port 8787 --sender RELAYER.testnet --factory FACTORY.testnet    # restarts after a crash
 python3 -I scripts/relayer.py serve ... --dry-run                 # sends nothing, reads nothing
 python3 -I scripts/relayer.py serve ... --dry-run --allow-reads   # reads Base and NEAR, sends nothing

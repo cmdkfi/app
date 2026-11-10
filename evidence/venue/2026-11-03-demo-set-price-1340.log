@@ -1,4 +1,4 @@
-rpc https://base-sepolia-rpc.publicnode.com, deployments /Users/vf/cmdk/app/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287785 ETH, 0.035604 WETH, 19.181966 USDC
+rpc https://base-sepolia-rpc.publicnode.com, deployments <repo>/deployments/testnet.json, wallet 0x0B7Ed66f46fe83252a208563A88201BA60490d25: 0.287785 ETH, 0.035604 WETH, 19.181966 USDC
 L1 data fee (GasPriceOracle): l1BaseFee 18 wei, blobBaseFee 862 wei, scalars 1101/659851, upper bound for a 400-byte tx 206652 wei; L2 base fee 5000000 wei
   decreaseLiquidity sell: tx 0x0548a9a38a4c0fe215638ed2f6b2f294055b4a1a174a5814ad217f5bb7ea54ee status 1 gas 148650, fee 743250210245 wei (L2 743250148650 + L1 61595)
   collect sell: tx 0x48300269cace3b51ec78c0aa818d987be19c2f4cc1119d8fcd461e4320864e10 status 1 gas 67882, fee 339410129477 wei (L2 339410067882 + L1 61595)

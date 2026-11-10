@@ -24,7 +24,7 @@ so nobody can change, redeploy or withdraw from it. A mistake found after step 5
 ## 0. Variables (set once per shell)
 
 ```sh
-cd /Users/vf/cmdk/app/vault
+cd <repo>/vault
 ACCOUNT=<your account>.testnet          # pays steps 2 and 3; needs at least 81 NEAR
 RELAYER=<relayer account>.testnet       # pays step 6; needs at least 2.1 NEAR
 OWNER=<owner EVM address, 0x...>        # the wallet that signs owner messages for vault v1
@@ -54,7 +54,7 @@ pushed to `origin/main`, Docker running with room to pull the image and build, a
 (`git status --short` prints nothing).
 
 ```sh
-cd /Users/vf/cmdk/app/vault
+cd <repo>/vault
 git rev-parse HEAD                          # the commit named in the wasm's link
 HASH=$(cargo near build reproducible-wasm 2>&1 | awk '/checksum bs58/ {print $NF}'); echo "$HASH"
 shasum -a 256 target/near/cmdk_vault.wasm

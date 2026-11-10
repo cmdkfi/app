@@ -66,7 +66,7 @@ A FAIL line names the error that came instead, for example
 
 ```sh
 anvil --fork-url https://base-sepolia-rpc.publicnode.com          # in another terminal; start it just before
-cd /Users/vf/cmdk/app
+cd <repo>
 scripts/attack-corridor.sh --rpc http://127.0.0.1:8545 --close-existing --land
 ```
 
@@ -74,6 +74,21 @@ The script detects anvil by `web3_clientVersion`. It then replaces each wait wit
 gas ETH with `anvil_setBalance` if the wallet holds less than 0.01 ETH. It takes about 20 s. Start the fork just
 before the run: the fork's Chainlink ETH/USD answer never updates, and `open` and `migrate` on live and backup
 revert `StaleFeed` once it is older than 1,200 s (the script prints both feed ages first).
+
+Without the team's key file, use a fresh key. Do not use anvil's account #0: on Base Sepolia that address carries
+EIP-7702 delegation code. The wallet also needs a few units of each loan token, because the closes repay the
+interest that accrues across the fork's time jumps; on the fork they come from the team wallet, impersonated
+(checked on 10 Nov: `result: 5 PASS, 0 FAIL`):
+
+```sh
+cast wallet new --json | jq '{data: .data[0]}' > /tmp/k.json
+A=$(jq -r .data.address /tmp/k.json); T=0x0B7Ed66f46fe83252a208563A88201BA60490d25; R=http://127.0.0.1:8545
+cast rpc anvil_impersonateAccount "$T" --rpc-url "$R"
+for t in $(jq -r '.base.tokens.usdc, .base.tokens.dusdc' deployments/testnet.json); do
+  cast send "$t" "transfer(address,uint256)" "$A" 2000000 --from "$T" --unlocked --rpc-url "$R"
+done
+scripts/attack-corridor.sh --rpc "$R" --key-file /tmp/k.json --land
+```
 
 To test the build's executor rather than the prototype deployment, deploy the current source to the fork. Use a
 copy of `executor/` outside the repository, because `Deploy.s.sol` writes `deployments.json`. Then point
