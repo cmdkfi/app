@@ -199,7 +199,7 @@ Our claim, stated precisely: among the designs we compared, the tightest limits 
 Two people, with AI assistants.
 
 - **Vadim Filimonov** ([LinkedIn](https://www.linkedin.com/in/vadim-filimonov-56542823a/), [GitHub](https://github.com/fffilimonov)): the vault and factory on NEAR, the executor on Base, the agent and its enclave, the relayer, the testnet venue, the evidence and this README. CTO of dTelecom, software engineer for over fifteen years.
-- **Vlada One** ([LinkedIn](https://www.linkedin.com/in/vlada-one/), [GitHub](https://github.com/vladaone)): the web app at https://testnet.cmdk.fi (its own repository, `cmdkfi/cmdk-app`), its screens and copy, the name and visual identity, the video and the X posts.
+- **Vlada One** ([LinkedIn](https://www.linkedin.com/in/vlada-one/), [GitHub](https://github.com/vladaone)): the web app at https://testnet.cmdk.fi (its own public repository, https://github.com/cmdkfi/cmdk-app, deployed from `main`), its screens and copy, the name and visual identity, the video and the X posts.
 
 The landing page at https://cmdk.fi is public too: https://github.com/cmdkfi/landing (Astro, MIT); its copy carries source comments that point to this README and `research/`.
 
