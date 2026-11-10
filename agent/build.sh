@@ -4,7 +4,9 @@
 # so equal IDs mean identical images. Nothing is pushed. Usage: ./build.sh [tag]   (default: cmdk-agent)
 # SOURCE_DATE_EPOCH defaults to the commit time of the last commit that changed the image inputs (Dockerfile,
 # Cargo.toml, Cargo.lock, src/), so committing the compose file afterwards does not change the image.
-# Needs Docker with BuildKit (Docker 23+) and about 4 GB free in Docker's disk.
+# Needs Docker with BuildKit (Docker 23+), about 4 GB free in Docker's disk and about 4 GB of Docker memory with
+# nothing else building (10 Nov: alone in a 3.8 GB Docker VM it built in about 7 minutes; beside another build it ran
+# out of memory).
 set -euo pipefail
 cd "$(dirname "$0")"
 tag="${1:-cmdk-agent}"

@@ -80,7 +80,7 @@ Testnet only (Base Sepolia, NEAR testnet). This directory runs `scripts/relayer.
 ## Routes
 
 Base URL `https://relayer.cmdk.fi` (also `https://cmdk-relayer.fffilimonov.workers.dev`). Every relayer route also
-answers under `/relayer/...`. CORS: the origins in `ALLOWED_ORIGINS` (`https://cmdk.fi`, `http://localhost:5173`).
+answers under `/relayer/...`. CORS: the origins in `ALLOWED_ORIGINS` (`https://cmdk.fi`, `https://testnet.cmdk.fi`, `http://localhost:5173`).
 
 **CORS is done in the Worker only.** `front.py` starts the relayer without `--cors-origin`, and the Worker drops
 every `Access-Control-*` header of the response from behind before it sets its own (replace, never append), so a
