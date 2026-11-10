@@ -1,0 +1,880 @@
+{
+  "schema_version": "1.0",
+  "id": "INC-07-near-intents-deposit-bug",
+  "kind": "incident",
+  "title": "NEAR Intents deposit-notification ghost-balance exploit",
+  "venues": [
+    "NEAR Intents (intents.near Verifier)",
+    "Rhea Lend (ex-Burrow), contract.main.burrow.near"
+  ],
+  "chains": [
+    "near",
+    "bsc"
+  ],
+  "replay_window": {
+    "start_utc": "2026-09-29T12:00:00Z",
+    "end_utc": "2026-10-02T21:00:00Z"
+  },
+  "summary": "An attacker deployed a NEAR contract that failed deposit-notification callbacks. In 23 deposits, the token contract refunded the tokens while intents.near kept the internal credit, creating about $3.8M of unbacked BSC-USDT balance. They withdrew it via the HOT Omni bridge to BNB Chain between 16:14 on 29 Sep and 05:54 on 1 Oct, most of it between 23:15 on 30 Sep and 01:40 on 1 Oct. On-chain, intents.near's BSC-USDT ledger exceeded the tokens it held by 162k at 23:24 and by 3.84M by 01:39, when real backing was 0.06%. Monitoring only checked bridge totals, so the team identified it at 08:04 and paused the contract at 08:33:13. The first public post came at 12:53. Funds were returned in full on 2 Oct, users were made whole, and all features were unpaused at 20:38 on 2 Oct.",
+  "positions_considered": [
+    {
+      "archetype_id": "funds_in_intents_balance",
+      "description": "User holds a balance inside intents.near (e.g. BSC-USDT or NEAR-native USDC), or is mid-bridge on a cross-chain leg"
+    },
+    {
+      "archetype_id": "lending_holder_using_intents_for_exit",
+      "description": "Our agent manages a Rhea Lend position and routes unwind proceeds through NEAR Intents (1-Click / Omni) to another chain"
+    }
+  ],
+  "ground_truth": {
+    "t_incident_start": {
+      "timestamp_utc": "2026-09-29T16:14:00Z",
+      "description": "First withdrawal of ghost (unbacked) balance through Omni, per the post-mortem. Earlier ghost deposits were 'over several days'; dates not public.",
+      "item_ids": [
+        "INC07-002"
+      ],
+      "confidence": "medium"
+    },
+    "t_first_public_signal": {
+      "timestamp_utc": "2026-10-01T12:53:20Z",
+      "description": "First published text: near_intents X post. Nothing was published before the 08:04 internal identification. No security-firm alert, forum post or news was found before 12:53 (ZachXBT's post time unknown). A chain monitor computing intents.near's ledger vs held balance could have seen the BSC-USDT gap from 23:24 UTC on 30 Sep (other_markers).",
+      "item_ids": [
+        "INC07-015"
+      ],
+      "confidence": "high"
+    },
+    "t_point_of_no_return": {
+      "timestamp_utc": "2026-10-01T08:33:13Z",
+      "definition": "intents.near paused (pa_pause_feature ALL). No Intents balance can be withdrawn and no route used, for either archetype. For a BSC-USDT holder the practical PONR came earlier, at 01:39 on 1 Oct, when held BSC-USDT fell to 2.4k against a 3.84M ledger.",
+      "item_ids": [
+        "INC07-013"
+      ],
+      "confidence": "high"
+    },
+    "t_protocol_first_ack": {
+      "timestamp_utc": "2026-10-01T12:53:20Z",
+      "description": "First public statement. The on-chain pause at 08:33:13 was the first visible protocol action (no text).",
+      "item_ids": [
+        "INC07-015"
+      ],
+      "confidence": "high"
+    },
+    "other_markers": [
+      {
+        "name": "first_onchain_invariant_breach_observable",
+        "timestamp_utc": "2026-09-30T23:24:37Z",
+        "description": "BSC-USDT unbacked gap 162.5k (4.2%) and growing; first reading an invariant monitor should alarm on.",
+        "item_ids": [
+          "INC07-007"
+        ],
+        "confidence": "high"
+      },
+      {
+        "name": "bsc_usdt_holder_ponr",
+        "timestamp_utc": "2026-10-01T01:39:16Z",
+        "description": "Held BSC-USDT 2,411 against a 3.84M ledger.",
+        "item_ids": [
+          "INC07-011"
+        ],
+        "confidence": "high"
+      },
+      {
+        "name": "internal_identification",
+        "timestamp_utc": "2026-10-01T08:04:00Z",
+        "description": "Team identified the withdrawal problem (post-mortem, via thecoding.substack). Not public.",
+        "item_ids": [],
+        "confidence": "medium"
+      },
+      {
+        "name": "partial_unpause",
+        "timestamp_utc": "2026-10-01T11:20:44Z",
+        "description": "Global pause lifted; mt_on_transfer still paused.",
+        "item_ids": [
+          "INC07-014"
+        ],
+        "confidence": "high"
+      },
+      {
+        "name": "full_restore",
+        "timestamp_utc": "2026-10-02T20:38:15Z",
+        "description": "All features unpaused; BSC-USDT fully backed.",
+        "item_ids": [
+          "INC07-022"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "lead_time_minutes": {
+      "first_public_signal_to_ponr": -260,
+      "incident_start_to_ponr": 2419,
+      "notes": "No public text signal existed before the pause: the first post came 260 min after it. On-chain, an invariant monitor had a 549-min lead (30 Sep 23:24:37 to 1 Oct 08:33:13). For BSC-USDT holders that lead was 135 min (23:24 to the 01:39 practical PONR). The incident ran about 40 h undetected (16:14 29 Sep to 08:04 1 Oct)."
+    },
+    "outcome_passive_holder": [
+      {
+        "archetype_id": "funds_in_intents_balance",
+        "outcome": "No loss. All Intents balances were frozen 08:33:13-11:20:44 on 1 Oct. HOT-bridged deposits and the 11 affected networks stayed unavailable until about 20:38 on 2 Oct. A BSC-USDT balance was effectively unbacked from about 01:39 on 1 Oct until the 2 Oct top-up, but users were made whole: the post-mortem says users were compensated, and the attacker returned 100% on 2 Oct.",
+        "stuck_duration": "2 h 48 m for all holders; up to ~36 h for affected-network routes (to 2 Oct 20:38)",
+        "loss_estimate": "0 (compensated)",
+        "confidence": "high"
+      },
+      {
+        "archetype_id": "lending_holder_using_intents_for_exit",
+        "outcome": "The Rhea Lend position itself was unaffected (Rhea was not paused). An unwind routed through Intents could not run 08:33-11:20 on 1 Oct, and routes to BSC and 10 other networks were down until about 2 Oct evening. A NEAR-native exit (repay or withdraw on Rhea, hold USDC on NEAR) remained available throughout.",
+        "stuck_duration": "2 h 48 m for any Intents route; ~36 h for affected networks",
+        "loss_estimate": "0, apart from possible price slippage: NEAR fell from ~5.49 (06:00) to a 4.74 low (13:00-14:00) on the disclosure",
+        "confidence": "medium"
+      }
+    ],
+    "outcome_price_only_rule": "No relevant trigger. NEAR/USDT fell from 5.49 (06:00 1 Oct) to a 4.74 intraday low after the 12:53 disclosure (about -13.6%), short of a health-factor-1.6 liquidation (about -37%) and short of most LTV triggers. Stablecoin prices did not move. The risk sat in the Intents ledger, which price rules do not see.",
+    "ideal_action": [
+      {
+        "archetype_id": "funds_in_intents_balance",
+        "action": "exit",
+        "latest_useful_time_utc": "2026-10-01T00:41:37Z",
+        "rationale": "Withdraw Intents balances once the ledger-vs-held invariant broke (23:24 30 Sep). For BSC-USDT, real backing was 6% by 00:41 and 0.06% by 01:39. Other assets could be withdrawn until the 08:33 pause, but there was no need, since they were never unbacked."
+      },
+      {
+        "archetype_id": "lending_holder_using_intents_for_exit",
+        "action": "hold",
+        "latest_useful_time_utc": "2026-10-01T08:33:13Z",
+        "rationale": "No reason to unwind the lending position. The correct response is to stop routing through Intents (use NEAR-native paths) from 23:24 on 30 Sep, and to finish any in-flight Intents leg before 08:33."
+      }
+    ],
+    "expected_judge_labels": [
+      {
+        "from_utc": "2026-09-29T00:00:00Z",
+        "to_utc": "2026-09-30T23:20:00Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "funds_in_intents_balance",
+        "rationale": "Gap under 0.5%; unrelated security alerts only."
+      },
+      {
+        "from_utc": "2026-09-30T23:20:00Z",
+        "to_utc": "2026-10-01T08:33:13Z",
+        "risk": "critical",
+        "action": "exit",
+        "archetype_id": "funds_in_intents_balance",
+        "rationale": "Intents ledger exceeds held tokens by millions; withdraw while possible (only if the judge sees the on-chain invariant)."
+      },
+      {
+        "from_utc": "2026-10-01T08:33:13Z",
+        "to_utc": "2026-10-01T12:53:20Z",
+        "risk": "high",
+        "action": "hold",
+        "archetype_id": "funds_in_intents_balance",
+        "rationale": "Contract paused or partially paused with no public explanation; nothing to do."
+      },
+      {
+        "from_utc": "2026-10-01T12:53:20Z",
+        "to_utc": "2026-10-02T20:38:15Z",
+        "risk": "elevated",
+        "action": "hold",
+        "archetype_id": "funds_in_intents_balance",
+        "rationale": "Protocol promised full compensation; affected routes still down."
+      },
+      {
+        "from_utc": "2026-10-02T20:38:15Z",
+        "to_utc": "2026-10-03T00:00:00Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "funds_in_intents_balance",
+        "rationale": "Restored and fully backed."
+      },
+      {
+        "from_utc": "2026-09-29T00:00:00Z",
+        "to_utc": "2026-09-30T23:20:00Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "lending_holder_using_intents_for_exit",
+        "rationale": "Normal."
+      },
+      {
+        "from_utc": "2026-09-30T23:20:00Z",
+        "to_utc": "2026-10-02T20:38:15Z",
+        "risk": "elevated",
+        "action": "hold",
+        "archetype_id": "lending_holder_using_intents_for_exit",
+        "rationale": "Exit route is impaired; the lending position is not. Avoid Intents routes, do not unwind."
+      },
+      {
+        "from_utc": "2026-10-02T20:38:15Z",
+        "to_utc": "2026-10-03T00:00:00Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "lending_holder_using_intents_for_exit",
+        "rationale": "Routes restored."
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "INC07-001",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-29T12:00:00Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217774191)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 12:00 UTC 2026-09-29: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,453,021 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 4,453,021; unbacked difference 0 (0.00% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 12:00 UTC 2026-09-29: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,453,021 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 4,453,021; unbacked difference 0 (0.00% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 4453020.67,
+        "bsc_usdt_held": 4453020.67,
+        "bsc_usdt_unbacked": 0.0,
+        "held_vs_ledger_pct": 100.0,
+        "block_height": 217774191
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal: ledger fully backed. utilization_pct not applicable to Intents balances."
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Baseline. The same check on 25 Sep also showed no gap. Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-002",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-29T16:14:00Z",
+      "timestamp_precision": "minute",
+      "timestamp_basis": "secondhand_cited_time",
+      "source_type": "onchain",
+      "source_url": "https://x.com/AlexAuroraDev/status/2111124226962870770",
+      "via_url": "https://thecoding.substack.com/p/near-intents-ghost-fund-postmortem",
+      "author": "NEAR Intents post-mortem (A. Shevchenko), quoted by thecoding.substack",
+      "verbatim_text": "from 29 September 16:14 to 1 October 05:54, they withdrew the ghost funds as real tokens through the Omni bridge",
+      "is_paraphrase": false,
+      "is_secondhand": true,
+      "replay_text": "intents.near: routine-looking withdrawal of BSC-USDT to BNB Chain via v2_1.omni.hot.tg (HOT Omni bridge). Ledger and held balances still match within 10 USDT.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal."
+      },
+      "signal_role": "precursor",
+      "confidence": "medium",
+      "notes": "Time from the official post-mortem (an X Article we could not fetch), via the thecoding.substack summary. ChainCatcher and CryptoTimes give only the dates."
+    },
+    {
+      "id": "INC07-003",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-29T16:55:31Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217803650)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 16:55 UTC 2026-09-29: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,096,510 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 4,096,500; unbacked difference 10 (0.00% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 16:55 UTC 2026-09-29: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,096,510 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 4,096,500; unbacked difference 10 (0.00% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 4096510.32,
+        "bsc_usdt_held": 4096500.32,
+        "bsc_usdt_unbacked": 10.0,
+        "held_vs_ledger_pct": 100.0,
+        "block_height": 217803650
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal; a 10-USDT discrepancy is noise-level."
+      },
+      "signal_role": "precursor",
+      "confidence": "high",
+      "notes": "First non-zero gap in our hourly series (0 at 15:57). The gap grew to 30 by 17:54 and 2,550 by 00:52 on 30 Sep. Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-004",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-30T04:01:16Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "security_alert",
+      "source_url": "https://x.com/SlowMist_Team/status/2105145931645743534",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2105145931645743534",
+      "author": "SlowMist_Team",
+      "verbatim_text": "@bitget has engaged SlowMist’s security team to investigate the September 25 hot wallet asset theft.  As of September 29, our investigation has identified malicious activity involving certain third-party security products and a wallet application host, as well as a highly https://t.co/JQ3zoAH5Yi",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "@bitget has engaged SlowMist’s security team to investigate the September 25 hot wallet asset theft.  As of September 29, our investigation has identified malicious activity involving certain third-party security products and a wallet application host, as well as a highly https://t.co/JQ3zoAH5Yi",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal."
+      },
+      "signal_role": "noise",
+      "confidence": "high",
+      "notes": "Background security feed in the window. Unrelated to NEAR Intents, although Intents had frozen some Bitget-hack funds that week (Cointelegraph/Protos)."
+    },
+    {
+      "id": "INC07-005",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-30T15:57:02Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "security_alert",
+      "source_url": "https://x.com/exvulsec/status/2105326059021586684",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2105326059021586684",
+      "author": "exvulsec",
+      "verbatim_text": "🚨 ALERT — Exploit on BNB Smart Chain  The SKYDAO/USDT PancakeSwap V2 pair lost 183,482.88 USDT. The attacker kept 59,914.12 USDT   Root cause: SKYDAO's sell transfer calls its pool controller before crediting the pair with the seller's net tokens.   The controller sells the 35%",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "🚨 ALERT — Exploit on BNB Smart Chain  The SKYDAO/USDT PancakeSwap V2 pair lost 183,482.88 USDT. The attacker kept 59,914.12 USDT   Root cause: SKYDAO's sell transfer calls its pool controller before crediting the pair with the seller's net tokens.   The controller sells the 35%",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal."
+      },
+      "signal_role": "noise",
+      "confidence": "high",
+      "notes": "Unrelated BNB Chain alert; tests whether the judge over-reacts to the BSC keyword."
+    },
+    {
+      "id": "INC07-006",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-30T22:55:44Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217978439)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 22:55 UTC 2026-09-30: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,812,789 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 3,792,466; unbacked difference 20,323 (0.53% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 22:55 UTC 2026-09-30: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,812,789 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 3,792,466; unbacked difference 20,323 (0.53% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 3812789.4,
+        "bsc_usdt_held": 3792466.4,
+        "bsc_usdt_unbacked": 20323.0,
+        "held_vs_ledger_pct": 99.47,
+        "block_height": 217978439
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal operation; discrepancy 0.5%."
+      },
+      "signal_role": "precursor",
+      "confidence": "high",
+      "notes": "Gap was 5,089 at 20:21 and 20,323 by 22:55. Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-007",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-30T23:24:37Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217981385)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 23:24 UTC 2026-09-30: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,911,983 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 3,749,476; unbacked difference 162,507 (4.15% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 23:24 UTC 2026-09-30: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,911,983 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 3,749,476; unbacked difference 162,507 (4.15% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 3911983.11,
+        "bsc_usdt_held": 3749476.11,
+        "bsc_usdt_unbacked": 162507.0,
+        "held_vs_ledger_pct": 95.85,
+        "block_height": 217981385
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Withdrawals work, but 4% of BSC-USDT balances are now unbacked and the gap is growing fast (40.6k at 23:05)."
+      },
+      "signal_role": "first_signal",
+      "confidence": "high",
+      "notes": "First reading where an invariant monitor (ledger <= held) would clearly alarm. Signal is on-chain only; nothing published. Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-008",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-09-30T23:44:03Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217983349)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 23:44 UTC 2026-09-30: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,465,290 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 3,165,311; unbacked difference 1,299,979 (29.11% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 23:44 UTC 2026-09-30: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,465,290 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 3,165,311; unbacked difference 1,299,979 (29.11% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 4465290.48,
+        "bsc_usdt_held": 3165311.48,
+        "bsc_usdt_unbacked": 1299979.0,
+        "held_vs_ledger_pct": 70.89,
+        "block_height": 217983349
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "BSC-USDT holders can still withdraw; held balance falling (3.75M -> 3.17M in 20 min)."
+      },
+      "signal_role": "escalation",
+      "confidence": "high",
+      "notes": "Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-009",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T00:12:54Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217986295)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 00:12 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,824,897 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 2,025,014; unbacked difference 2,799,883 (58.03% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 00:12 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 4,824,897 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 2,025,014; unbacked difference 2,799,883 (58.03% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 4824897.19,
+        "bsc_usdt_held": 2025014.19,
+        "bsc_usdt_unbacked": 2799883.0,
+        "held_vs_ledger_pct": 41.97,
+        "block_height": 217986295
+      },
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "Held BSC-USDT only 42% of ledger; first come, first served."
+      },
+      "signal_role": "escalation",
+      "confidence": "high",
+      "notes": "Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-010",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T00:41:37Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217989240)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 00:41 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,841,424 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 241,669; unbacked difference 3,599,755 (93.71% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 00:41 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,841,424 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 241,669; unbacked difference 3,599,755 (93.71% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 3841424.12,
+        "bsc_usdt_held": 241669.12,
+        "bsc_usdt_unbacked": 3599755.0,
+        "held_vs_ledger_pct": 6.29,
+        "block_height": 217989240
+      },
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "Only 241k real BSC-USDT backs 3.84M of balances (6.3%)."
+      },
+      "signal_role": "escalation",
+      "confidence": "high",
+      "notes": "Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-011",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T01:39:16Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 217995132)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 01:39 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,839,560 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 2,411; unbacked difference 3,837,149 (99.94% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 01:39 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,839,560 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 2,411; unbacked difference 3,837,149 (99.94% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 3839559.84,
+        "bsc_usdt_held": 2410.69,
+        "bsc_usdt_unbacked": 3837149.15,
+        "held_vs_ledger_pct": 0.06,
+        "block_height": 217995132
+      },
+      "holder_state": {
+        "can_withdraw_supply": "no",
+        "can_repay_and_withdraw_collateral": "no",
+        "utilization_pct": null,
+        "notes": "BSC-USDT withdrawals above ~2.4k aggregate fail; a holder of BSC-USDT in Intents is effectively unbacked. Other assets unaffected."
+      },
+      "signal_role": "ponr",
+      "confidence": "high",
+      "notes": "Point of no return for BSC-USDT balance holders. Held stayed between 1.7k and 51k until 07:00 (new deposits trickling in), then 359k at 07:56. Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-012",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T06:00:00Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view mt_supply on intents.near and mt_balance_of on v2_1.omni.hot.tg at block 218021645)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near 06:00 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,810,130 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 8,298; unbacked difference 3,801,833 (99.78% of ledger).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near 06:00 UTC 2026-10-01: BSC-USDT (nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g) internal ledger total (mt_supply) 3,810,130 vs tokens actually held (v2_1.omni.hot.tg mt_balance_of intents.near) 8,298; unbacked difference 3,801,833 (99.78% of ledger).",
+      "observable_metrics": {
+        "bsc_usdt_ledger": 3810130.23,
+        "bsc_usdt_held": 8297.61,
+        "bsc_usdt_unbacked": 3801832.62,
+        "held_vs_ledger_pct": 0.22,
+        "block_height": 218021645
+      },
+      "holder_state": {
+        "can_withdraw_supply": "no",
+        "can_repay_and_withdraw_collateral": "no",
+        "utilization_pct": null,
+        "notes": "Unbacked gap now stable at 3.80M (withdrawals stopped at 05:54 per post-mortem)."
+      },
+      "signal_role": "escalation",
+      "confidence": "high",
+      "notes": "Post-mortem: last withdrawal 05:54. The gap stayed at 3,801,832.62 from 06:00 until the 2 Oct top-up. Spot checks of BSC-USDC, NEAR USDT and NEAR USDC on 25 Sep, 29 Sep 12:00, 30 Sep 12:00, 1 Oct 06:00 and 12:00, and 2 Oct showed no unbacked gap (NEAR USDC held exceeds ledger by ~5k throughout)."
+    },
+    {
+      "id": "INC07-013",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T08:33:13Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://nearblocks.io/txns/GXpc6rSvxPh42btjginXPsPQnfTGfUuPCp4voA2pKQLr",
+      "via_url": null,
+      "author": "c98fb45fe2941904f763ff4c2fa2b621b5eb9a57f8daf420679957c08c1a1c34 (Intents pause role)",
+      "verbatim_text": "pa_pause_feature {\"key\":\"ALL\"} on intents.near",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "intents.near: pa_pause_feature {\"key\":\"ALL\"} executed by account c98fb45f…; pa_all_paused now ['ALL']. All deposits, withdrawals and intent execution are paused.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "no",
+        "can_repay_and_withdraw_collateral": "no",
+        "utilization_pct": null,
+        "notes": "Every Intents balance frozen; no routes available."
+      },
+      "signal_role": "ponr",
+      "confidence": "high",
+      "notes": "Pause state bisected (pa_all_paused null -> ['ALL'] at block 218037076, 08:33:14). Post-mortem: identified 08:04, paused 08:33, near.com maintenance mode 08:40."
+    },
+    {
+      "id": "INC07-014",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T11:20:44Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view pa_all_paused on intents.near, change between blocks 218052216 and 218052217)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near pa_all_paused changed from ['ALL'] to ['mt_on_transfer'].",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "intents.near: global pause lifted; only mt_on_transfer (multi-token deposits, which covers HOT Omni-bridged assets such as BSC-USDT) remains paused.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "NEAR-native balances and intents work again; HOT-bridged deposits still paused, and the status page lists 11 networks (BSC, Polygon, TON, Optimism, Avalanche, Stellar, Monad, X Layer, ADI, Scroll, Plasma) unavailable."
+      },
+      "signal_role": "resolution",
+      "confidence": "high",
+      "notes": "Post-mortem: contract unpaused 11:20, near.com restored 14:00."
+    },
+    {
+      "id": "INC07-015",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T12:53:20Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "official_x",
+      "source_url": "https://x.com/near_intents/status/2105642219357241796",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2105642219357241796",
+      "author": "near_intents",
+      "verbatim_text": "Earlier today NEAR Intents services were stopped after a security incident was detected. The incident was caused by a bug in the Omni deposit and withdrawal infrastructure interaction with NEAR Intents smart contract.\n\nThe preliminary report indicates the total loss of",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Earlier today NEAR Intents services were stopped after a security incident was detected. The incident was caused by a bug in the Omni deposit and withdrawal infrastructure interaction with NEAR Intents smart contract.\n\nThe preliminary report indicates the total loss of",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "Global pause already lifted; affected networks still unavailable."
+      },
+      "signal_role": "first_signal",
+      "confidence": "high",
+      "notes": "First public text signal found. Long post, truncated by syndication; Cointelegraph quotes the rest ('compensate users in full', 'contract-side vulnerability has been patched'). Binance NEARUSDT fell from 5.09 to a 4.74 low in the 13:00 hour."
+    },
+    {
+      "id": "INC07-016",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T14:09:57Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "official_x",
+      "source_url": "https://x.com/chronear/status/2105661500329525617",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2105661500329525617",
+      "author": "chronear (NEAR Intents team)",
+      "verbatim_text": "NEAR Intents has been (and continues to be) intensely battle-tested. The exploit was swiftly detected, contained and patched and trading has already resumed across most networks.   Back to business as usual, grateful for all the messages of support.   Accelerate.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "NEAR Intents has been (and continues to be) intensely battle-tested. The exploit was swiftly detected, contained and patched and trading has already resumed across most networks.   Back to business as usual, grateful for all the messages of support.   Accelerate.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "Most routes back; affected networks still paused."
+      },
+      "signal_role": "resolution",
+      "confidence": "high",
+      "notes": "Account affiliation per Protos and thecoding. Not verified as an official protocol account."
+    },
+    {
+      "id": "INC07-017",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T14:18:14Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "article_published_meta",
+      "source_type": "news",
+      "source_url": "https://www.coindesk.com/tech/2026/10/01/near-intents-hit-by-usd3-8-million-exploit-as-crypto-s-rough-year-of-hacks-continues",
+      "via_url": null,
+      "author": "CoinDesk",
+      "verbatim_text": "NEAR Intents suffered a security exploit Thursday that caused about $3.8 million in losses and prompted the cross-chain trading platform to pause services and restrict deposits and withdrawals on several blockchains. The project attributed the exploit to a bug involving its Omni system and smart contract, said the vulnerability had been patched and pledged to reimburse affected funds in full.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "NEAR Intents suffered a security exploit Thursday that caused about $3.8 million in losses and prompted the cross-chain trading platform to pause services and restrict deposits and withdrawals on several blockchains. The project attributed the exploit to a bug involving its Omni system and smart contract, said the vulnerability had been patched and pledged to reimburse affected funds in full.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "As above."
+      },
+      "signal_role": "escalation",
+      "confidence": "high",
+      "notes": "The article was updated 2 Oct 18:52 UTC with the fund return. We quote only the opening, which matches the original framing. The Block's article (10:18 EDT = 14:18 UTC, via WebFetch) adds ZachXBT: 'the protocol's BSC hot wallet showed irregular outflows'. ZachXBT's own post time is unknown."
+    },
+    {
+      "id": "INC07-018",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-01T15:43:34Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "article_published_meta",
+      "source_type": "news",
+      "source_url": "https://cointelegraph.com/news/near-intents-exploit-assistance-bitget-hack",
+      "via_url": null,
+      "author": "Cointelegraph",
+      "verbatim_text": "NEAR said that it would compensate users in full for the lost funds, and the “contract-side vulnerability has been patched” to prevent similar attacks. “The incident has been reported to law enforcement, and we are working with security and blockchain analytics partners to trace the funds and pursue recovery,” said the platform.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "NEAR said that it would compensate users in full for the lost funds, and the “contract-side vulnerability has been patched” to prevent similar attacks. “The incident has been reported to law enforcement, and we are working with security and blockchain analytics partners to trace the funds and pursue recovery,” said the platform.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "As above."
+      },
+      "signal_role": "escalation",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "id": "INC07-019",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-02T00:00:00Z",
+      "timestamp_precision": "day",
+      "timestamp_basis": "inferred",
+      "source_type": "defillama",
+      "source_url": "https://api.llama.fi/hacks",
+      "via_url": null,
+      "author": "DeFiLlama hacks feed",
+      "verbatim_text": "{\"date\": 1790812800, \"name\": \"NEAR Intents\", \"classification\": \"Bridge & Cross-Chain\", \"technique\": \"Bridge Logic Flaw\", \"amount\": 3800000, \"chain\": [\"BSC\"], \"bridgeHack\": true}",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "{\"date\": 1790812800, \"name\": \"NEAR Intents\", \"classification\": \"Bridge & Cross-Chain\", \"technique\": \"Bridge Logic Flaw\", \"amount\": 3800000, \"chain\": [\"BSC\"], \"bridgeHack\": true}",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "As above."
+      },
+      "signal_role": "escalation",
+      "confidence": "low",
+      "notes": "Entry date 2026-10-01 (day precision). Time added unknown; placed at end of day to avoid leakage. returnedFunds is null even though the funds were returned."
+    },
+    {
+      "id": "INC07-020",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-02T15:52:28Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "official_x",
+      "source_url": "https://x.com/AlexAuroraDev/status/2106049685928677585",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2106049685928677585",
+      "author": "AlexAuroraDev (Alex Shevchenko, NEAR Intents GM)",
+      "verbatim_text": "The funds from the $3.8M NEAR Intents hack were sent back in full.  We are stopping the investigation.  Please use bug bounties instead of disrupting the services.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "The funds from the $3.8M NEAR Intents hack were sent back in full.  We are stopping the investigation.  Please use bug bounties instead of disrupting the services.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "Affected routes still being restored."
+      },
+      "signal_role": "resolution",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "id": "INC07-021",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-02T17:24:55Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "official_x",
+      "source_url": "https://x.com/ilblackdragon/status/2106072953570181155",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2106072953570181155",
+      "author": "ilblackdragon (Illia Polosukhin, NEAR co-founder)",
+      "verbatim_text": "The funds from the $3.8M NEAR Intents exploit have been returned, just one day later, and the investigation is closed.  Thanks to SHIELD, the AI security layer on Intents, along with some aggressive detective work, the Intents team identified the party responsible less than 24h",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "The funds from the $3.8M NEAR Intents exploit have been returned, just one day later, and the investigation is closed.  Thanks to SHIELD, the AI security layer on Intents, along with some aggressive detective work, the Intents team identified the party responsible less than 24h",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "partial",
+        "can_repay_and_withdraw_collateral": "partial",
+        "utilization_pct": null,
+        "notes": "As above."
+      },
+      "signal_role": "resolution",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "id": "INC07-022",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-02T20:38:15Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://archival-rpc.mainnet.fastnear.com (view pa_all_paused on intents.near, change at block 218252786; BSC-USDT gap closed around block 218249521)",
+      "via_url": null,
+      "author": "chain state (computed by us)",
+      "verbatim_text": "intents.near pa_all_paused changed from ['mt_on_transfer'] to null at 20:38:15. The BSC-USDT ledger-vs-held gap fell from 1.80M to 0.80M at 20:06:19, and was 0 by 23:59 (ledger 3,604,046 = held 3,604,046).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "intents.near: all features unpaused (pa_all_paused null). BSC-USDT ledger now fully backed again (held = ledger = 3.60M by 23:59).",
+      "observable_metrics": {
+        "bsc_usdt_gap_2006": 801832.62,
+        "bsc_usdt_ledger_2359": 3604046,
+        "bsc_usdt_held_2359": 3604046
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Fully restored; balances backed."
+      },
+      "signal_role": "resolution",
+      "confidence": "high",
+      "notes": "Matches the post-mortem: fix deployed 20:31, deposits unpaused 20:38. The backing came from returned or treasury funds; the post-mortem says users were made whole before recovery."
+    },
+    {
+      "id": "INC07-023",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-16T15:56:53Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "official_x",
+      "source_url": "https://x.com/AlexAuroraDev/status/2111124226962870770",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2111124226962870770",
+      "author": "AlexAuroraDev (X Article 'Postmortem: NEAR Intents October 1 Exploit')",
+      "verbatim_text": "TL;DR\nThe NEAR Intents contract contained a bug connected with interactions with third-party contracts.\nThe affected feature has been removed, and security monitoring has been hardened.\n100% of the",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "TL;DR\nThe NEAR Intents contract contained a bug connected with interactions with third-party contracts.\nThe affected feature has been removed, and security monitoring has been hardened.\n100% of the",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal."
+      },
+      "signal_role": "resolution",
+      "confidence": "high",
+      "notes": "Preview only. Details (23 failed deposits; withdrawals 29 Sep 16:14 to 1 Oct 05:54; identified 08:04; paused 08:33) come from ChainCatcher, thecoding.substack and CryptoTimes."
+    },
+    {
+      "id": "INC07-024",
+      "venue": "NEAR Intents (intents.near Verifier)",
+      "timestamp_utc": "2026-10-16T16:43:58Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "article_published_meta",
+      "source_type": "news",
+      "source_url": "https://www.chaincatcher.com/en/article/2296917",
+      "via_url": null,
+      "author": "ChainCatcher",
+      "verbatim_text": "The report noted that the vulnerability went undetected because monitoring only compared the original chain assets with the total balance of NEAR side tokens, without comparing the total internal user balances with the actual tokens held by the contract; the team has since added this check and will automatically pause the contract when there is a balance inconsistency.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "The report noted that the vulnerability went undetected because monitoring only compared the original chain assets with the total balance of NEAR side tokens, without comparing the total internal user balances with the actual tokens held by the contract; the team has since added this check and will automatically pause the contract when there is a balance inconsistency.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Normal."
+      },
+      "signal_role": "resolution",
+      "confidence": "high",
+      "notes": "This confirms that the invariant we computed (ledger vs held) is the one the team was not monitoring."
+    }
+  ],
+  "data_gaps": [
+    "The official post-mortem is an X Article (x.com/i/article/2111121048347291650). Only its preview is retrievable; minute times (16:14, 05:54, 08:04, 08:33, 08:40, 11:20, 20:31, 20:38) come from thecoding.substack and match our on-chain checks for 08:33, 11:20 and 20:38.",
+    "The 23 ghost-deposit txs and the attacker accounts were not identified; we measured the effect through the BSC-USDT ledger-vs-held invariant (hourly, 10-min around the drain).",
+    "ZachXBT's post (BSC hot-wallet outflows, KuCoin, BTC bridge) is cited by CoinDesk, The Block, Cointelegraph and Protos, but no status ID or time was found; it may be Telegram.",
+    "Whether the HOT Omni BSC hot wallet's outflows were visible on BNB Chain before 08:04 was not checked (not an allowlisted feed for this agent).",
+    "The NEAR Intents status page and near.com maintenance banner (08:40) were public but are not allowlisted and have no archived timestamp.",
+    "Affected networks per CoinDesk and Protos: BSC, Polygon, TON, Optimism, Avalanche, Stellar, Monad, X Layer, ADI, Scroll, Plasma. Restoration time per network unknown.",
+    "Loss figures: $3.8M (most sources) vs 3,865,000 USDT (TokenPost). Our measured gap is 3,801,832.62 BSC-USDT (peak 3,848,795)."
+  ],
+  "source_quality": "On-chain evidence is primary and strong: archival-RPC mt_supply vs held balances, exact pause, partial-unpause and full-unpause transitions. Official X posts are primary through snowflake IDs but long posts are truncated. The detailed timeline is secondhand from the official post-mortem via thecoding.substack, ChainCatcher and CryptoTimes (CryptoTimes returns 403 to curl). News publish times come from page meta (CoinDesk, Cointelegraph) or WebFetch (The Block). No allowlisted public text signal existed before the pause."
+}

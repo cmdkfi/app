@@ -1,0 +1,8 @@
+{
+  "experiment": "controls_a",
+  "req_sha256": "45aa8433ef0d05fb1d257a373c9a18009b036b9ef5084441b448e7c770f4e450",
+  "error_type": "ConnectionResetError",
+  "http_status": null,
+  "elapsed_s": 494.688,
+  "retry": false
+}

@@ -1,0 +1,884 @@
+{
+  "schema_version": "1.0",
+  "id": "CTL-01-aave-routine-day",
+  "kind": "control",
+  "title": "Aave V3 Ethereum Core, ordinary window 14–16 Jul 2026",
+  "venues": [
+    "Aave V3 Ethereum Core"
+  ],
+  "chains": [
+    "ethereum"
+  ],
+  "replay_window": {
+    "start_utc": "2026-07-14T00:00:00Z",
+    "end_utc": "2026-07-16T18:00:00Z"
+  },
+  "summary": "A 66-hour window with no risk event on Aave V3 Core. LlamaRisk posted and executed routine Risk Steward cap changes (Core USDT borrow cap, USDe, PT-srUSDe, sUSDe; cap reductions and a withdrawn increase on MegaETH), ether.fi proposed a V4 white-label instance, and Aave V4 launched on Avalanche. An unrelated $18–24M oracle-key exploit hit Ostium on Arbitrum. On-chain, WETH sat at 79–80% and USDT at 78–86%. Each night around 23:36 one address pulled ~$184–188M USDC and resupplied it ~30 minutes later, briefly pushing Core USDC to 100% and its borrow rate to 14%. That is a recurring false-alarm trap, not a risk event.",
+  "positions_considered": [
+    {
+      "archetype_id": "weth_supplier",
+      "description": "Supplies WETH on Aave V3 Core, no debt"
+    },
+    {
+      "archetype_id": "weth_coll_usdc_debt",
+      "description": "WETH collateral with USDC debt on Aave V3 Core, health factor about 1.6"
+    },
+    {
+      "archetype_id": "usdc_supplier",
+      "description": "Supplies USDC on Aave V3 Core, no debt"
+    }
+  ],
+  "ground_truth": {
+    "t_incident_start": {
+      "timestamp_utc": null,
+      "description": "No incident.",
+      "item_ids": [],
+      "confidence": "high"
+    },
+    "t_first_public_signal": {
+      "timestamp_utc": null,
+      "description": "No incident. Minor alerts: MegaETH cap reductions executed (14 Jul 15:36), nightly USDC utilization spikes (23:36 on 14 and 15 Jul), unrelated Ostium exploit (15 Jul 14:50).",
+      "item_ids": [],
+      "confidence": "high"
+    },
+    "t_point_of_no_return": {
+      "timestamp_utc": null,
+      "definition": "None. WETH utilization ≤ 80.2% throughout; USDC reached 100% for ~33 minutes per night, self-reverting.",
+      "item_ids": [],
+      "confidence": "high"
+    },
+    "t_protocol_first_ack": {
+      "timestamp_utc": null,
+      "description": "Not applicable.",
+      "item_ids": [],
+      "confidence": "high"
+    },
+    "other_markers": [
+      {
+        "name": "nightly_usdc_spike_1",
+        "timestamp_utc": "2026-07-14T23:35:47Z",
+        "description": "$183.9M USDC withdrawn, resupplied 00:08:59.",
+        "item_ids": [
+          "CTL01-007"
+        ],
+        "confidence": "high"
+      },
+      {
+        "name": "nightly_usdc_spike_2",
+        "timestamp_utc": "2026-07-15T23:36:11Z",
+        "description": "$188.0M USDC withdrawn by the same EOA.",
+        "item_ids": [
+          "CTL01-013"
+        ],
+        "confidence": "high"
+      },
+      {
+        "name": "unrelated_exploit_ostium",
+        "timestamp_utc": "2026-07-15T14:50:48Z",
+        "description": "Blockaid alert on the Ostium vault exploit (Arbitrum).",
+        "item_ids": [
+          "CTL01-009"
+        ],
+        "confidence": "high"
+      }
+    ],
+    "lead_time_minutes": {
+      "first_public_signal_to_ponr": null,
+      "incident_start_to_ponr": null,
+      "notes": "Control window."
+    },
+    "outcome_passive_holder": [
+      {
+        "archetype_id": "weth_supplier",
+        "outcome": "Nothing happened; WETH liquid (≥ 398k idle) throughout.",
+        "stuck_duration": "none",
+        "loss_estimate": "0%",
+        "confidence": "high"
+      },
+      {
+        "archetype_id": "weth_coll_usdc_debt",
+        "outcome": "Nothing happened. ETH rose from 1,774 to 1,866 (peak 1,926, DeFiLlama 6-hourly), so the HF improved. The nightly USDC spike briefly raised the USDC borrow rate to 14% for ~30 min (negligible cost).",
+        "stuck_duration": "none",
+        "loss_estimate": "0%",
+        "confidence": "high"
+      },
+      {
+        "archetype_id": "usdc_supplier",
+        "outcome": "Could not withdraw during ~33-minute windows around midnight UTC; otherwise $180–193M idle.",
+        "stuck_duration": "~30 min per night, self-reverting",
+        "loss_estimate": "0%",
+        "confidence": "high"
+      }
+    ],
+    "outcome_price_only_rule": "No trigger: ETH rose about 5% over the window (1,774 → 1,866, peak 1,926) and stablecoins held their pegs. A utilization-based rule (USDC ≥ 99%) would have fired falsely each night at about 23:36.",
+    "ideal_action": [
+      {
+        "archetype_id": "weth_supplier",
+        "action": "hold",
+        "latest_useful_time_utc": null,
+        "rationale": "Routine."
+      },
+      {
+        "archetype_id": "weth_coll_usdc_debt",
+        "action": "hold",
+        "latest_useful_time_utc": null,
+        "rationale": "Routine; HF improving."
+      },
+      {
+        "archetype_id": "usdc_supplier",
+        "action": "hold",
+        "latest_useful_time_utc": null,
+        "rationale": "The nightly spike is a single address's sweep that reverts within an hour."
+      }
+    ],
+    "expected_judge_labels": [
+      {
+        "from_utc": "2026-07-14T00:00:00Z",
+        "to_utc": "2026-07-16T18:00:00Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "weth_supplier",
+        "rationale": "Routine governance and readings; unrelated exploit elsewhere."
+      },
+      {
+        "from_utc": "2026-07-14T00:00:00Z",
+        "to_utc": "2026-07-16T18:00:00Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "weth_coll_usdc_debt",
+        "rationale": "Routine."
+      },
+      {
+        "from_utc": "2026-07-14T00:00:00Z",
+        "to_utc": "2026-07-14T23:35:47Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "usdc_supplier",
+        "rationale": "Routine (the 00:00 14 Jul spike from the previous night is already reverting at window start)."
+      },
+      {
+        "from_utc": "2026-07-14T23:35:47Z",
+        "to_utc": "2026-07-15T00:09:00Z",
+        "risk": "elevated",
+        "action": "hold",
+        "archetype_id": "usdc_supplier",
+        "rationale": "Genuinely illiquid for ~30 min, but caused by a single address with a repeating pattern; no solvency issue."
+      },
+      {
+        "from_utc": "2026-07-15T00:09:00Z",
+        "to_utc": "2026-07-15T23:36:11Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "usdc_supplier",
+        "rationale": "Liquidity back."
+      },
+      {
+        "from_utc": "2026-07-15T23:36:11Z",
+        "to_utc": "2026-07-16T03:00:00Z",
+        "risk": "elevated",
+        "action": "hold",
+        "archetype_id": "usdc_supplier",
+        "rationale": "Same nightly pattern (resupply time not pinned; back to 91% by 03:00)."
+      },
+      {
+        "from_utc": "2026-07-16T03:00:00Z",
+        "to_utc": "2026-07-16T18:00:00Z",
+        "risk": "low",
+        "action": "hold",
+        "archetype_id": "usdc_supplier",
+        "rationale": "Routine."
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "CTL01-001",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-14T03:00:11Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://etherscan.io/block/25528051",
+      "via_url": null,
+      "author": "Aave V3 Core reserve state (own archive eth_call)",
+      "verbatim_text": "Block 25,528,051: WETH utilization 79.67%, idle 410,637 WETH; USDC 91.09% (idle $190M); USDT 79.99%.",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "Aave V3 Core 03:00 UTC 14 Jul: WETH utilization 79.67% (idle 410.6k WETH), WETH borrow 2.04% APR; USDC 91.09% (idle $190M, borrow 3.96%); USDT 79.99%. No reserve frozen except rsETH (frozen since April).",
+      "observable_metrics": {
+        "block": 25528051,
+        "weth_util_pct": 79.67,
+        "weth_idle": 410637,
+        "weth_var_borrow_apr_pct": 2.035,
+        "usdc_util_pct": 91.09,
+        "usdc_idle_musd": 190.2,
+        "usdc_var_borrow_apr_pct": 3.96,
+        "usdt_util_pct": 79.99
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 79.67,
+        "notes": "Baseline."
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Utilization = variable debt / (variable debt + idle underlying in the aToken), from our archive eth_call series."
+    },
+    {
+      "id": "CTL01-002",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-14T07:46:25Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "post_created_at",
+      "source_type": "governance",
+      "source_url": "https://governance.aave.com/t/risk-stewards-supply-cap-increases-on-aave-v3-2026-07-11/25301/2",
+      "via_url": "https://governance.aave.com/t/25301.json",
+      "author": "LlamaRisk (Aave risk service provider)",
+      "verbatim_text": "Risk Stewards: Supply Cap Increases on Aave V3 / 2026.07.11 — Following a review of current market conditions on MegaETH, we will not be proceeding with the previously announced supply cap increase for stcUSD. We will continue monitoring the market and reassess as conditions evolve.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Risk Stewards: Supply Cap Increases on Aave V3 / 2026.07.11 — Following a review of current market conditions on MegaETH, we will not be proceeding with the previously announced supply cap increase for stcUSD. We will continue monitoring the market and reassess as conditions evolve.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Routine; all reserves liquid."
+      },
+      "signal_role": "noise",
+      "confidence": "high",
+      "notes": "Minor caution on another instance (MegaETH): a planned cap increase is withdrawn. Not relevant to Core positions."
+    },
+    {
+      "id": "CTL01-003",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-14T08:24:23Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://etherscan.io/tx/0x5e3434efbda291f44a5dac2cf0dba063183daab665439aa73adb99d4e7d19790",
+      "via_url": null,
+      "author": "Aave Risk Steward via PoolConfigurator",
+      "verbatim_text": "Block 25,529,668: BorrowCapChanged(USDT, 2,340,000,000 → 2,574,000,000).",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "08:24:23 UTC 14 Jul: Aave V3 Core USDT borrow cap raised 2.340B → 2.574B. WETH 79.8%, USDC 91.3%, USDT 77.6%.",
+      "observable_metrics": {
+        "old_cap": 2340000000,
+        "new_cap": 2574000000
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 79.85,
+        "notes": ""
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Executes LlamaRisk's 13 Jul recommendation (topic 25308), whose 'The changes have been executed' reply came at 15:36:43 the same day."
+    },
+    {
+      "id": "CTL01-004",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-14T15:36:15Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "post_created_at",
+      "source_type": "governance",
+      "source_url": "https://governance.aave.com/t/risk-stewards-supply-and-borrow-cap-reductions-on-aave-v3-2026-07-10/25296/2",
+      "via_url": "https://governance.aave.com/t/25296.json",
+      "author": "LlamaRisk (Aave risk service provider)",
+      "verbatim_text": "Risk Stewards: Supply and Borrow Cap Reductions on Aave V3 / 2026.07.10 — The changes have been executed.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Risk Stewards: Supply and Borrow Cap Reductions on Aave V3 / 2026.07.10 — The changes have been executed.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Routine; all reserves liquid."
+      },
+      "signal_role": "noise",
+      "confidence": "high",
+      "notes": "Minor alert (cap reductions) on Aave V3 MegaETH: USDm supply cap 1.0B → 300M, borrow 600M → 182M; USDe supply 800M → 123M, borrow 40M → 30M. Right-sizing headroom, not a risk event. Thread opened 10 Jul 18:49."
+    },
+    {
+      "id": "CTL01-005",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-14T18:40:29Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "post_created_at",
+      "source_type": "governance",
+      "source_url": "https://governance.aave.com/t/risk-stewards-supply-and-borrow-cap-increases-on-aave-v3-2026-07-14/25313",
+      "via_url": "https://governance.aave.com/t/25313.json",
+      "author": "LlamaRisk (Aave risk service provider)",
+      "verbatim_text": "Risk Stewards: Supply and Borrow Cap Increases on Aave V3 / 2026.07.14 — Summary LlamaRisk recommends the following parameter changes based on user behavior, on-chain liquidity, and position health observed in the latest review of Aave V3 reserves. Aave V3 Core: Increase supply cap for USDe from 626,000,000 to 751,200,000. Increase borrow cap for USDe from 366,000,000 to 475,800,000. Aave V3 Mantle: Increase supply cap for FBTC from 50 to 100. Aave V3 Base: Increase supply cap for cbETH from 39,900 to 50,000. USDe (Aave V3 Core) USDe has reached 98.0% supply cap utilization (613,233,329 /…",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Risk Stewards: Supply and Borrow Cap Increases on Aave V3 / 2026.07.14 — Summary LlamaRisk recommends the following parameter changes based on user behavior, on-chain liquidity, and position health observed in the latest review of Aave V3 reserves. Aave V3 Core: Increase supply cap for USDe from 626,000,000 to 751,200,000. Increase borrow cap for USDe from 366,000,000 to 475,800,000. Aave V3 Mantle: Increase supply cap for FBTC from 50 to 100. Aave V3 Base: Increase supply cap for cbETH from 39,900 to 50,000. USDe (Aave V3 Core) USDe has reached 98.0% supply cap utilization (613,233,329 /…",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Routine; all reserves liquid."
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Core USDe cap increases (executed on-chain 20:44:23 UTC 14 Jul, our PoolConfigurator log)."
+    },
+    {
+      "id": "CTL01-006",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-14T22:37:30Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "post_created_at",
+      "source_type": "governance",
+      "source_url": "https://governance.aave.com/t/arfc-deploy-a-dedicated-aave-v4-whitelabel-instance-fully-managed-by-etherfi-on-op-mainnet-to-power-ether-fi-cash/25314",
+      "via_url": "https://governance.aave.com/t/25314.json",
+      "author": "ether.fi",
+      "verbatim_text": "[ARFC] Deploy a Dedicated Aave V4 Whitelabel Instance fully managed by EtherFi on OP Mainnet to Power Ether.fi Cash — Author: Ether.Fi Date: 2026-07-14 Temp Check discussion: [TEMP CHECK] Deploy a Dedicated Aave V4 Whitelabel Instance fully managed by EtherFi on OP Mainnet to Power Ether.fi Cash Temp Check Snapshot (passed): Snapshot vote Summary Following the successful TEMP CHECK Snapshot, this ARFC formalizes the deployment of a dedicated, EtherFi-operated Aave V4 hub on OP Mainnet to serve as the credit backend for EtherFi Cash, our Visa card product used by tens of thousands of…",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "[ARFC] Deploy a Dedicated Aave V4 Whitelabel Instance fully managed by EtherFi on OP Mainnet to Power Ether.fi Cash — Author: Ether.Fi Date: 2026-07-14 Temp Check discussion: [TEMP CHECK] Deploy a Dedicated Aave V4 Whitelabel Instance fully managed by EtherFi on OP Mainnet to Power Ether.fi Cash Temp Check Snapshot (passed): Snapshot vote Summary Following the successful TEMP CHECK Snapshot, this ARFC formalizes the deployment of a dedicated, EtherFi-operated Aave V4 hub on OP Mainnet to serve as the credit backend for EtherFi Cash, our Visa card product used by tens of thousands of…",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Routine; all reserves liquid."
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "New-deployment governance proposal; no effect on Core."
+    },
+    {
+      "id": "CTL01-007",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-14T23:35:47Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://etherscan.io/tx/0x7295acfc0b4c8ab5e42941f38153aa861d6eafc4684122935d50f16c2b9f0970",
+      "via_url": null,
+      "author": "Aave V3 Core Pool events (USDC)",
+      "verbatim_text": "Block 25,534,203: Withdraw 183,900,000 USDC by EOA 0x56957e411ea83a0b4a0689c1fb0d1e5ea0d20149. Block 25,534,369 (00:08:59 15 Jul): Supply 183,937,581 USDC by the same address. USDC utilization 91.34% (23:35) → 100.0% (23:40) → 91.28% (00:10); variable borrow 3.97% → 14.00% → 3.97%.",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "Aave V3 Core 23:35:47 UTC 14 Jul: one address withdrew $183.9M USDC; USDC utilization 91.3% → 100.0%, idle USDC $184M → $0.09M, USDC borrow rate 3.97% → 14.0% APR. WETH 80.1%, USDT 83.7% unchanged. (Same address withdrew ~$184M at the same hour the previous night and resupplied ~30 min later.)",
+      "observable_metrics": {
+        "usdc_5min": {
+          "23:30": {
+            "util_pct": 91.34,
+            "idle_musd": 183.98,
+            "borrow_apr_pct": 3.971
+          },
+          "23:35": {
+            "util_pct": 91.34,
+            "idle_musd": 183.98,
+            "borrow_apr_pct": 3.971
+          },
+          "23:40": {
+            "util_pct": 100.0,
+            "idle_musd": 0.09,
+            "borrow_apr_pct": 13.996
+          },
+          "23:45": {
+            "util_pct": 100.0,
+            "idle_musd": 0.1,
+            "borrow_apr_pct": 13.996
+          },
+          "23:50": {
+            "util_pct": 99.98,
+            "idle_musd": 0.47,
+            "borrow_apr_pct": 13.972
+          },
+          "23:55": {
+            "util_pct": 99.92,
+            "idle_musd": 1.53,
+            "borrow_apr_pct": 13.904
+          },
+          "00:00": {
+            "util_pct": 99.92,
+            "idle_musd": 1.55,
+            "borrow_apr_pct": 13.902
+          },
+          "00:05": {
+            "util_pct": 99.92,
+            "idle_musd": 1.56,
+            "borrow_apr_pct": 13.902
+          },
+          "00:10": {
+            "util_pct": 91.27,
+            "idle_musd": 185.49,
+            "borrow_apr_pct": 3.968
+          },
+          "00:15": {
+            "util_pct": 91.27,
+            "idle_musd": 185.49,
+            "borrow_apr_pct": 3.968
+          },
+          "00:20": {
+            "util_pct": 91.29,
+            "idle_musd": 185.05,
+            "borrow_apr_pct": 3.969
+          },
+          "00:25": {
+            "util_pct": 91.29,
+            "idle_musd": 185.05,
+            "borrow_apr_pct": 3.969
+          },
+          "00:30": {
+            "util_pct": 91.29,
+            "idle_musd": 185.05,
+            "borrow_apr_pct": 3.969
+          }
+        },
+        "resupply_tx": "0x85c3a845366ef1e1726d70dcab1aed05d4336116c0e6400ea756af76a5d09261"
+      },
+      "holder_state": {
+        "can_withdraw_supply": "no",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 100.0,
+        "notes": "For ~33 minutes (23:36–00:09) a USDC supplier could not withdraw; WETH suppliers and WETH-collateral holders unaffected."
+      },
+      "signal_role": "noise",
+      "confidence": "high",
+      "notes": "Recurring nightly pattern (USDC ≥ 99.9% at the 00:00 samples on 14, 15 and 16 Jul; withdrawals of $183.9M at 23:35:47 14 Jul and $188.0M at 23:36:11 15 Jul by the same EOA). It looks like an end-of-day treasury sweep; the purpose is unknown. A naive utilization alarm fires every night: this is the false-alarm test of the window."
+    },
+    {
+      "id": "CTL01-008",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-15T12:00:11Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://etherscan.io/block/25537916",
+      "via_url": null,
+      "author": "Aave V3 Core reserve state (own archive eth_call)",
+      "verbatim_text": "Block 25,537,916: WETH utilization 78.96%, idle 428,082 WETH; USDC 91.40%; USDT 85.34%.",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "Aave V3 Core 12:00 UTC 15 Jul: WETH utilization 78.96% (idle 428k, +24k WETH supplied since 09:00); USDC 91.40% (idle $183M); USDT 85.34% (up from 77.6% on 14 Jul as the new borrow cap is used).",
+      "observable_metrics": {
+        "block": 25537916,
+        "weth_util_pct": 78.96,
+        "weth_idle": 428082,
+        "weth_var_borrow_apr_pct": 2.017,
+        "usdc_util_pct": 91.4,
+        "usdc_idle_musd": 182.6,
+        "usdc_var_borrow_apr_pct": 3.974,
+        "usdt_util_pct": 85.34
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 78.96,
+        "notes": ""
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Utilization = variable debt / (variable debt + idle underlying in the aToken), from our archive eth_call series."
+    },
+    {
+      "id": "CTL01-009",
+      "venue": "Ostium (Arbitrum), unrelated",
+      "timestamp_utc": "2026-07-15T14:50:48Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tweet_snowflake_id",
+      "source_type": "security_alert",
+      "source_url": "https://x.com/blockaid_/status/2077405527428989363",
+      "via_url": "https://cdn.syndication.twimg.com/tweet-result?id=2077405527428989363&token=a",
+      "author": "Blockaid (@blockaid_)",
+      "verbatim_text": "🚨 Blockaid detected an @Ostium Vault exploit on Arbitrum.\n\nAn attacker used a registered PriceUpKeep forwarder and future-dated authorized oracle reports to create artificial trade profit, triggering a ~$18M USDC payout from the vault.\nMore details in 🧵",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "🚨 Blockaid detected an @Ostium Vault exploit on Arbitrum.\n\nAn attacker used a registered PriceUpKeep forwarder and future-dated authorized oracle reports to create artificial trade profit, triggering a ~$18M USDC payout from the vault.\nMore details in 🧵",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 79.0,
+        "notes": "No Aave exposure."
+      },
+      "signal_role": "noise",
+      "confidence": "high",
+      "notes": "Unrelated exploit (Ostium perp DEX on Arbitrum, off-chain oracle signer compromise; Ostium said the loss ran 14:18–14:23 UTC). Ostium paused trading at 15:18:19 (X). DeFiLlama lists 'Ostium' 2026-07-15, $23.75M, Key Compromise."
+    },
+    {
+      "id": "CTL01-010",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-15T16:29:39Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "article_published_meta",
+      "source_type": "news",
+      "source_url": "https://cointelegraph.com/news/aave-brings-v4-to-avalanche-laying-groundwork-for-tokenized-asset-lending",
+      "via_url": null,
+      "author": "Cointelegraph (Nate Kostar)",
+      "verbatim_text": "Aave launches V4 on Avalanche, laying groundwork for tokenized credit markets. The deployment marks Aave V4’s first expansion beyond Ethereum and introduces lending infrastructure designed to support future markets for tokenized real-world assets.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Aave launches V4 on Avalanche, laying groundwork for tokenized credit markets. The deployment marks Aave V4’s first expansion beyond Ethereum and introduces lending infrastructure designed to support future markets for tokenized real-world assets.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 79.0,
+        "notes": ""
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Normal Aave product news. Crypto Briefing covered the same at 14:00:06Z."
+    },
+    {
+      "id": "CTL01-011",
+      "venue": "Ostium (Arbitrum), unrelated",
+      "timestamp_utc": "2026-07-15T17:01:25Z",
+      "timestamp_precision": "hour",
+      "timestamp_basis": "article_published_meta",
+      "source_type": "news",
+      "source_url": "https://decrypt.co/373566/defi-exploit-ostium-oracle-hack",
+      "via_url": null,
+      "author": "Decrypt",
+      "verbatim_text": "Another DeFi Exploit: Perp DEX Ostium Loses $18 Million in Oracle Attack. In brief Ostium lost about $18 million USDC in an oracle exploit on Wednesday. Attackers used a compromised oracle signer key to submit falsified future-dated price reports. The exploit drained nearly one-third of the protocol's liquidity.",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Another DeFi Exploit: Perp DEX Ostium Loses $18 Million in Oracle Attack. In brief Ostium lost about $18 million USDC in an oracle exploit on Wednesday. Attackers used a compromised oracle signer key to submit falsified future-dated price reports. The exploit drained nearly one-third of the protocol's liquidity.",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 79.3,
+        "notes": "No Aave exposure."
+      },
+      "signal_role": "noise",
+      "confidence": "medium",
+      "notes": "Meta published_time '2026-07-15T17:01:25' has no timezone; assumed UTC (hour precision)."
+    },
+    {
+      "id": "CTL01-012",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-15T18:42:58Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "post_created_at",
+      "source_type": "governance",
+      "source_url": "https://governance.aave.com/t/risk-stewards-supply-and-borrow-cap-increases-on-aave-v3-2026-07-15/25323",
+      "via_url": "https://governance.aave.com/t/25323.json",
+      "author": "LlamaRisk (Aave risk service provider)",
+      "verbatim_text": "Risk Stewards: Supply and Borrow Cap Increases on Aave V3 / 2026.07.15 — Summary LlamaRisk recommends the following parameter changes based on user behavior, on-chain liquidity, and position health observed in the latest review of Aave V3 reserves. Aave V3 Core: Increase supply cap for PT-srUSDe-22OCT2026 from 25,000,000 to 50,000,000. Aave V3 Monad: Increase supply cap for USDT0 from 100,000,000 to 200,000,000. Increase borrow cap for USDT0 from 100,000,000 to 180,000,000. PT-srUSDe-22OCT2026 (Aave V3 Core) PT-srUSDe-22OCT2026 has reached 98.3% supply cap utilization (24,585,380 /…",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Risk Stewards: Supply and Borrow Cap Increases on Aave V3 / 2026.07.15 — Summary LlamaRisk recommends the following parameter changes based on user behavior, on-chain liquidity, and position health observed in the latest review of Aave V3 reserves. Aave V3 Core: Increase supply cap for PT-srUSDe-22OCT2026 from 25,000,000 to 50,000,000. Aave V3 Monad: Increase supply cap for USDT0 from 100,000,000 to 200,000,000. Increase borrow cap for USDT0 from 100,000,000 to 180,000,000. PT-srUSDe-22OCT2026 (Aave V3 Core) PT-srUSDe-22OCT2026 has reached 98.3% supply cap utilization (24,585,380 /…",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Routine; all reserves liquid."
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Core PT-srUSDe-22OCT2026 supply cap 25M → 50M (executed 21:25:35 UTC 15 Jul per our PoolConfigurator log)."
+    },
+    {
+      "id": "CTL01-013",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-15T23:36:11Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://etherscan.io/tx/0x140091fdea6ccb136181faca60da640b921a48db11ff41e99df492973d23183a",
+      "via_url": null,
+      "author": "Aave V3 Core Pool events (USDC)",
+      "verbatim_text": "Block 25,541,381: Withdraw 188,000,000 USDC by EOA 0x56957e41…0149. USDC utilization 99.97% at 00:00:11 16 Jul (idle $1.0M), 91.18% at 03:00:11.",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "Aave V3 Core 23:36:11 UTC 15 Jul: the same address withdrew $188.0M USDC; USDC utilization ~91% → ~100%, USDC borrow rate → ~14% APR. Second night in a row; last night's identical withdrawal was resupplied after ~33 minutes. WETH 79.3%, USDT 82.3%.",
+      "observable_metrics": {
+        "usdc_util_pct_0000": 99.97,
+        "usdc_idle_musd_0000": 0.6,
+        "usdc_util_pct_0300": 91.18
+      },
+      "holder_state": {
+        "can_withdraw_supply": "no",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 99.97,
+        "notes": "USDC supplier briefly illiquid; back to 91% by the 03:00 sample."
+      },
+      "signal_role": "noise",
+      "confidence": "high",
+      "notes": "We did not pin the resupply tx for this night (5-minute scan done only for 14→15 Jul)."
+    },
+    {
+      "id": "CTL01-014",
+      "venue": "Ostium (Arbitrum), unrelated",
+      "timestamp_utc": "2026-07-16T00:00:00Z",
+      "timestamp_precision": "day",
+      "timestamp_basis": "inferred",
+      "source_type": "defillama",
+      "source_url": "https://api.llama.fi/hacks",
+      "via_url": null,
+      "author": "DeFiLlama hacks feed",
+      "verbatim_text": "{\"date\": 2026-07-15, \"name\": \"Ostium\", \"classification\": \"Key Compromise\", \"amount\": 23750000, \"chain\": [\"Arbitrum\"]}",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "{\"date\": 2026-07-15, \"name\": \"Ostium\", \"classification\": \"Key Compromise\", \"amount\": 23750000, \"chain\": [\"Arbitrum\"]}",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 79.3,
+        "notes": ""
+      },
+      "signal_role": "noise",
+      "confidence": "low",
+      "notes": "Entry dated 2026-07-15 (day precision); when it was added is unknown. Placed at the end of that day (inferred). Same feed also lists BarnBridge (2026-07-14, $776k, Governance, Ethereum) and Cascade Liquidity Strategy (2026-07-15, $1.34M, Arbitrum). None involve Aave."
+    },
+    {
+      "id": "CTL01-015",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-16T12:00:11Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "tx_block_time",
+      "source_type": "onchain",
+      "source_url": "https://etherscan.io/block/25545088",
+      "via_url": null,
+      "author": "Aave V3 Core reserve state (own archive eth_call, 3-hourly)",
+      "verbatim_text": "3-hourly series 14 Jul 00:00 – 16 Jul 18:00: WETH 78.96–80.16%; USDT 77.56–85.85%; USDC 90.94–91.63% except 99.92–99.97% at each 00:00 sample.",
+      "is_paraphrase": true,
+      "is_secondhand": false,
+      "replay_text": "Aave V3 Core 12:00 UTC 16 Jul: WETH utilization 79.29% (idle 421k WETH), USDC 90.94% (idle $193M), USDT 82.39%. 60-hour ranges: WETH 79.0–80.2%, USDT 77.6–85.9%, USDC ~91% (brief ~100% each night around midnight).",
+      "observable_metrics": {
+        "series_3h": [
+          {
+            "utc": "2026-07-14T00:00:11Z",
+            "weth_util_pct": 79.66,
+            "weth_idle": 410805,
+            "usdc_util_pct": 99.94,
+            "usdt_util_pct": 80.07,
+            "usdc_var_borrow_apr_pct": 13.927
+          },
+          {
+            "utc": "2026-07-14T03:00:11Z",
+            "weth_util_pct": 79.67,
+            "weth_idle": 410637,
+            "usdc_util_pct": 91.09,
+            "usdt_util_pct": 79.99,
+            "usdc_var_borrow_apr_pct": 3.96
+          },
+          {
+            "utc": "2026-07-14T06:00:11Z",
+            "weth_util_pct": 79.71,
+            "weth_idle": 409682,
+            "usdc_util_pct": 91.25,
+            "usdt_util_pct": 77.64,
+            "usdc_var_borrow_apr_pct": 3.967
+          },
+          {
+            "utc": "2026-07-14T09:00:11Z",
+            "weth_util_pct": 79.85,
+            "weth_idle": 406125,
+            "usdc_util_pct": 91.26,
+            "usdt_util_pct": 77.56,
+            "usdc_var_borrow_apr_pct": 3.968
+          },
+          {
+            "utc": "2026-07-14T12:00:11Z",
+            "weth_util_pct": 79.93,
+            "weth_idle": 404121,
+            "usdc_util_pct": 91.12,
+            "usdt_util_pct": 77.67,
+            "usdc_var_borrow_apr_pct": 3.962
+          },
+          {
+            "utc": "2026-07-14T15:00:11Z",
+            "weth_util_pct": 80.16,
+            "weth_idle": 398772,
+            "usdc_util_pct": 91.04,
+            "usdt_util_pct": 80.05,
+            "usdc_var_borrow_apr_pct": 3.958
+          },
+          {
+            "utc": "2026-07-14T18:00:11Z",
+            "weth_util_pct": 80.07,
+            "weth_idle": 400536,
+            "usdc_util_pct": 91.33,
+            "usdt_util_pct": 80.19,
+            "usdc_var_borrow_apr_pct": 3.971
+          },
+          {
+            "utc": "2026-07-14T21:00:11Z",
+            "weth_util_pct": 80.11,
+            "weth_idle": 399794,
+            "usdc_util_pct": 91.43,
+            "usdt_util_pct": 80.21,
+            "usdc_var_borrow_apr_pct": 3.975
+          },
+          {
+            "utc": "2026-07-15T00:00:11Z",
+            "weth_util_pct": 80.12,
+            "weth_idle": 399504,
+            "usdc_util_pct": 99.92,
+            "usdt_util_pct": 83.69,
+            "usdc_var_borrow_apr_pct": 13.902
+          },
+          {
+            "utc": "2026-07-15T03:00:11Z",
+            "weth_util_pct": 80.12,
+            "weth_idle": 399577,
+            "usdc_util_pct": 91.31,
+            "usdt_util_pct": 83.66,
+            "usdc_var_borrow_apr_pct": 3.97
+          },
+          {
+            "utc": "2026-07-15T06:00:11Z",
+            "weth_util_pct": 80.12,
+            "weth_idle": 399556,
+            "usdc_util_pct": 91.38,
+            "usdt_util_pct": 83.66,
+            "usdc_var_borrow_apr_pct": 3.973
+          },
+          {
+            "utc": "2026-07-15T09:00:11Z",
+            "weth_util_pct": 79.94,
+            "weth_idle": 404249,
+            "usdc_util_pct": 91.51,
+            "usdt_util_pct": 84.25,
+            "usdc_var_borrow_apr_pct": 3.979
+          },
+          {
+            "utc": "2026-07-15T12:00:11Z",
+            "weth_util_pct": 78.96,
+            "weth_idle": 428082,
+            "usdc_util_pct": 91.4,
+            "usdt_util_pct": 85.34,
+            "usdc_var_borrow_apr_pct": 3.974
+          },
+          {
+            "utc": "2026-07-15T15:00:11Z",
+            "weth_util_pct": 79.03,
+            "weth_idle": 426498,
+            "usdc_util_pct": 91.45,
+            "usdt_util_pct": 85.85,
+            "usdc_var_borrow_apr_pct": 3.976
+          },
+          {
+            "utc": "2026-07-15T18:00:11Z",
+            "weth_util_pct": 79.3,
+            "weth_idle": 421003,
+            "usdc_util_pct": 91.63,
+            "usdt_util_pct": 82.35,
+            "usdc_var_borrow_apr_pct": 3.984
+          },
+          {
+            "utc": "2026-07-15T21:00:11Z",
+            "weth_util_pct": 79.3,
+            "weth_idle": 420937,
+            "usdc_util_pct": 91.2,
+            "usdt_util_pct": 82.34,
+            "usdc_var_borrow_apr_pct": 3.965
+          },
+          {
+            "utc": "2026-07-16T00:00:11Z",
+            "weth_util_pct": 79.32,
+            "weth_idle": 420569,
+            "usdc_util_pct": 99.97,
+            "usdt_util_pct": 82.36,
+            "usdc_var_borrow_apr_pct": 13.963
+          },
+          {
+            "utc": "2026-07-16T03:00:11Z",
+            "weth_util_pct": 79.38,
+            "weth_idle": 419505,
+            "usdc_util_pct": 91.18,
+            "usdt_util_pct": 82.36,
+            "usdc_var_borrow_apr_pct": 3.964
+          },
+          {
+            "utc": "2026-07-16T06:00:11Z",
+            "weth_util_pct": 79.39,
+            "weth_idle": 419172,
+            "usdc_util_pct": 91.28,
+            "usdt_util_pct": 82.36,
+            "usdc_var_borrow_apr_pct": 3.969
+          },
+          {
+            "utc": "2026-07-16T09:00:11Z",
+            "weth_util_pct": 79.27,
+            "weth_idle": 421752,
+            "usdc_util_pct": 90.96,
+            "usdt_util_pct": 82.46,
+            "usdc_var_borrow_apr_pct": 3.955
+          },
+          {
+            "utc": "2026-07-16T12:00:11Z",
+            "weth_util_pct": 79.29,
+            "weth_idle": 421332,
+            "usdc_util_pct": 90.94,
+            "usdt_util_pct": 82.39,
+            "usdc_var_borrow_apr_pct": 3.954
+          },
+          {
+            "utc": "2026-07-16T15:00:11Z",
+            "weth_util_pct": 79.17,
+            "weth_idle": 423411,
+            "usdc_util_pct": 90.95,
+            "usdt_util_pct": 82.74,
+            "usdc_var_borrow_apr_pct": 3.954
+          },
+          {
+            "utc": "2026-07-16T18:00:11Z",
+            "weth_util_pct": 79.18,
+            "weth_idle": 423306,
+            "usdc_util_pct": 90.95,
+            "usdt_util_pct": 82.75,
+            "usdc_var_borrow_apr_pct": 3.954
+          }
+        ]
+      },
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": 79.29,
+        "notes": ""
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Utilization = variable debt / (variable debt + idle underlying in the aToken), from our archive eth_call series."
+    },
+    {
+      "id": "CTL01-016",
+      "venue": "Aave V3 Ethereum Core",
+      "timestamp_utc": "2026-07-16T17:53:32Z",
+      "timestamp_precision": "second",
+      "timestamp_basis": "post_created_at",
+      "source_type": "governance",
+      "source_url": "https://governance.aave.com/t/risk-stewards-supply-cap-increases-on-aave-v3-2026-07-16/25330",
+      "via_url": "https://governance.aave.com/t/25330.json",
+      "author": "LlamaRisk (Aave risk service provider)",
+      "verbatim_text": "Risk Stewards: Supply Cap Increases on Aave V3 / 2026.07.16 — Summary LlamaRisk recommends the following parameter changes based on user behavior, on-chain liquidity, and position health observed in the latest review of Aave V3 reserves. Aave V3 Monad: Increase supply cap for USDC from 75,000,000 to 150,000,000. Aave V3 Core: Increase supply cap for sUSDe from 300,000,000 to 450,000,000. USDC (Aave V3 Monad) USDC has reached 96.5% supply cap utilization (72,365,094 / 75,000,000) on the Aave V3 Monad instance. Supply Distribution Source: LlamaRisk, July 16, 2026 All top twenty USDC suppliers…",
+      "is_paraphrase": false,
+      "is_secondhand": false,
+      "replay_text": "Risk Stewards: Supply Cap Increases on Aave V3 / 2026.07.16 — Summary LlamaRisk recommends the following parameter changes based on user behavior, on-chain liquidity, and position health observed in the latest review of Aave V3 reserves. Aave V3 Monad: Increase supply cap for USDC from 75,000,000 to 150,000,000. Aave V3 Core: Increase supply cap for sUSDe from 300,000,000 to 450,000,000. USDC (Aave V3 Monad) USDC has reached 96.5% supply cap utilization (72,365,094 / 75,000,000) on the Aave V3 Monad instance. Supply Distribution Source: LlamaRisk, July 16, 2026 All top twenty USDC suppliers…",
+      "observable_metrics": {},
+      "holder_state": {
+        "can_withdraw_supply": "yes",
+        "can_repay_and_withdraw_collateral": "yes",
+        "utilization_pct": null,
+        "notes": "Routine; all reserves liquid."
+      },
+      "signal_role": "routine",
+      "confidence": "high",
+      "notes": "Core sUSDe supply cap 300M → 450M; Monad USDC cap increase."
+    }
+  ],
+  "data_gaps": [
+    "The resupply time for the 15→16 Jul night was not pinned (3-hourly samples only).",
+    "The identity and purpose of EOA 0x56957e41…0149 are unknown.",
+    "No Aave official X posts with decodable IDs were collected for this window.",
+    "Ostium hack amount differs between sources ($18M Blockaid/Decrypt vs $23.75M DeFiLlama/Ostium post-mortem).",
+    "Decrypt's published_time has no timezone."
+  ],
+  "source_quality": "High. On-chain readings and the nightly USDC pattern come from our own archive RPC reads, cross-checked at 5-minute resolution for one night. Governance times come from Discourse JSON, X times from snowflakes, news times from page meta. The window was chosen for being ordinary (two months after the rsETH incident, far from 10 Mar), and the forum shows normal Risk Steward cadence."
+}

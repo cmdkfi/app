@@ -1,0 +1,13 @@
+{
+  "error_type": "CurlTransportError",
+  "curl_exit": 16,
+  "http_status": 0,
+  "experiment": "controls_e",
+  "req_sha256": "99ee16f8ec70715989acc07bc82cae71b065995915e048a2e99ddea86ce1c93e",
+  "attempt": 3,
+  "transport_try": 1,
+  "budget_key": "controls_e/99ee16f8ec70715989acc07bc82cae71b065995915e048a2e99ddea86ce1c93e/attempt301",
+  "elapsed_s": 600.219,
+  "retry": true,
+  "recorded_utc": "2026-10-27T21:53:19.471835+00:00"
+}

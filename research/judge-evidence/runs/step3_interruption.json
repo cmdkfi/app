@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-28T21:49:04.995492+00:00",
+  "reason": "HTTP 402 burst; stopped new dispatch with SIGINT; executor drains active workers",
+  "pid": 89352,
+  "status": "incomplete_account_exhausted",
+  "process_stopped": true,
+  "saved_responses": 2076,
+  "missing_responses": 543,
+  "user_reported_account_totals": {
+    "spent_usd": 5.07,
+    "tokens": 15129148,
+    "requests": 4138
+  },
+  "error_http_counts": {
+    "402": 492,
+    "0": 5,
+    "None": 2
+  },
+  "budget": {
+    "cap_usd": 6.0,
+    "returned_token_cost_usd": 2.64411808,
+    "charged_plus_reserved_usd": 5.697985640000001,
+    "unknown_cost_upper_bound_usd": 3.05386756,
+    "unknown_attempts": 500,
+    "probe_cost_usd": 0.00013344
+  },
+  "recommendation": null
+}
