@@ -12,7 +12,7 @@ One page for a reviewer who cannot run everything: which artifact was rebuilt fr
 | Web app (`cmdkfi/cmdk-app` `main`) | deployed at https://testnet.cmdk.fi | Build of `main` byte-identical to the live bundle and config: rehearsals 5 (c1d28f5's predecessor), 7 (c1d28f5) | — |
 | Landing (`cmdkfi/landing`) | https://cmdk.fi | Build of 68e91ec identical to the live HTML: rehearsal 7 | — |
 
-Test suites: executor 64, vault 15 unit and 8 sandbox, agent 65 (1 ignored), web app 162 unit and 88 browser, all passing in rehearsal 5 (Claude Code, Mac). In the container runs without a browser or Docker: executor 64, vault 15 unit, web app 162 unit; the sandbox tests sign locally, so a reviewer under a "sign nothing" rule skips them.
+Test suites: executor 64, vault 15 unit and 8 sandbox, agent 65 (1 ignored), web app 162 unit and 88 browser, all passing in rehearsal 5 (Claude Code, Mac); since the light design of 11 Nov (cmdk-app #85) the browser suite has 179 scenarios, desktop and mobile, run by its CI on every push. In the container runs without a browser or Docker: executor 64, vault 15 unit, web app 162 unit; the sandbox tests sign locally, so a reviewer under a "sign nothing" rule skips them.
 
 "Verify it" steps 1 to 12 of the README: all PASS or corroborated read-only in rehearsals 5 to 7. Step 7 sends transactions; its five reverts are on chain (`attacks.txt`), reproduced by read-only replay of the recorded calldata in every rehearsal, and 5 of 5 on a local anvil fork with a fresh key (`scripts/ATTACKS.md`; team on 10 Nov, Claude Code in rehearsal 5). Transcripts: every entry of the live index matched its hash and size each time (690 on 10 Nov, 747 on 11 Nov).
 
