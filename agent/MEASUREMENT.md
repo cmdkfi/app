@@ -42,9 +42,10 @@ Expected on Phala `tdx.small` (1 vCPU, 2 GB) with `--image dstack-0.5.12 --no-de
   running another image;
 - **names the operator on the command line**: `--operator cmdk`. Command-line arguments are part of
   `docker_compose_file` inside `app-compose.json`, so they are in the compose hash; environment variables are not
-  (Phala encrypts them and they are outside the measurement). The owner's approval therefore means "this code, run
-  by this operator", and a stranger's copy with another operator name has another compose hash, which the vault
-  refuses. The prototype did not pass an operator: its compose had only `--mode` (P3 `app-compose.json`, compose
+  (Phala encrypts them and they are outside the measurement). The owner's approval therefore means "this code, started with this operator string": a stranger's copy with another
+  operator name has another compose hash, which the vault refuses, while a copy started with the same string has the
+  same hash. The string binds the configuration, not who operates it; what tells operators apart after that is the key
+  made inside each enclave and the vault's approval of it. The prototype did not pass an operator: its compose had only `--mode` (P3 `app-compose.json`, compose
   hashes 448c5504…, 511f4e86…, 5f3820c4…); `--operator` is new in this build (31 Oct decision);
 - **names the factory on the command line**: `--factory <account>` (decided 3 Nov; the placeholder
   `REPLACE_WITH_THE_FACTORY_ACCOUNT` until the factory exists). The agent watches every vault `v1..vN.<factory>`
