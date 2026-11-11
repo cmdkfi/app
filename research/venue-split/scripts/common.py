@@ -10,7 +10,7 @@ import os
 # The minute file is a release asset: research/liquidation-dataset/DATA.md, `data/binance_1m_ext.parquet`
 # (81.1 MB, SHA-256 3b411dbd…), downloaded to that path. Override with $CMDK_BINANCE_1M.
 PARQUET = os.environ.get("CMDK_BINANCE_1M", os.path.join(os.path.dirname(__file__), "../../liquidation-dataset/data/binance_1m_ext.parquet"))
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
+OUT = os.environ.get("CMDK_OUT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "out"))  # override to write outside the checkout
 os.makedirs(OUT, exist_ok=True)
 
 # Corridor (docs/build-scope.md defaults as given in the brief)
