@@ -4,7 +4,7 @@
 
 ## What it does
 
-You sign in with the wallet you already have and deposit the ETH or BTC you want to borrow against, from any chain, through Confidential Intents (in the first production release; this testnet build takes WETH on Base Sepolia). It becomes collateral on Morpho Blue on Base with a USDC credit line at the LTV you choose, and you move the USDC to your wallet or to a supported chain with one signed message. If you start from stablecoins, they can be swapped into the collateral first.
+You sign in with the wallet you already have and deposit the ETH or BTC you want to borrow against, from any chain, through Confidential Intents (in the first production release; this testnet build takes WETH on Base Sepolia). It becomes collateral on Morpho Blue on Base with a USDC credit line at the LTV you choose (the web app's guided flow uses the preset of 50%; the command line takes any value inside the corridor's bounds), and you move the USDC to your wallet or to a supported chain with one signed message. If you start from stablecoins, they can be swapped into the collateral first.
 
 **What the hackathon build runs.** NEAR testnet and Base Sepolia, with WETH deposited directly on Base Sepolia. NEAR Intents and Confidential Intents have no testnet, so any-chain and private deposits and withdrawals ship in the first production release and are not demonstrated here. Of the rest, the live evidence covers registration, the protective `reduce`, the `migrate`, the `exit`, revocation, `close` and `withdraw` (steps 6 to 12); the owner's `open_from_stables` has executor and vault tests but no live transaction in the evidence.
 
