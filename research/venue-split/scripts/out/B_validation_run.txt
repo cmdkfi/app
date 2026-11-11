@@ -1,0 +1,15 @@
+                                           0                          1
+symbol                               ETHUSDT                    BTCUSDT
+feed                  eth ETH/USD 0.5%/3600s    base BTC/USD 0.1%/1200s
+real_rounds_20_23                         55                        150
+sim_posts_20_23                           47                        102
+real_min                           3464.3966                  105107.25
+real_min_t         2025-10-10 21:20:47+00:00  2025-10-10 21:20:31+00:00
+sim_min                               3500.6                  103975.26
+sim_min_t          2025-10-10 21:20:00+00:00  2025-10-10 21:20:00+00:00
+binance_min_low                       3435.0                   102000.0
+binance_min_close                    3488.88                  103975.26
+real_median_gap_s                      102.0                       32.0
+real_max_gap_s                         600.0                      390.0
+real_max_step_pct                   4.060289                   2.501802
+sim_max_step_pct                    4.269268                   4.289804

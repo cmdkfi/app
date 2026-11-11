@@ -22,3 +22,6 @@ dist/
 
 # agent image build logs
 agent/build-*.log
+
+# the research scripts' outputs are part of the published note
+!research/venue-split/scripts/out/

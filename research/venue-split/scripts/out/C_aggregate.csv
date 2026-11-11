@@ -1,0 +1,13 @@
+corridor,fill_rule,latency_s,windows,single_liq_frac_sum,split_liq_frac_sum,single_penalty,split_penalty
+default,always,30,15,0.0,0.0,0.0,0.0
+default,always,120,15,0.0,0.0,0.0,0.0
+default,always,300,15,0.0,0.0,0.0,0.0
+default,revert_1pct,30,15,0.0,0.0,0.0,0.0
+default,revert_1pct,120,15,0.0,0.0,0.0,0.0
+default,revert_1pct,300,15,0.0,0.0,0.0,0.0
+thin,always,30,5,0.0,0.0,0.0,0.0
+thin,always,120,5,0.0,0.0,0.0,0.0
+thin,always,300,5,0.0,0.0,0.0,0.0
+thin,revert_1pct,30,5,0.0,1.0,0.0,111.61045511482278
+thin,revert_1pct,120,5,0.0,1.0,0.0,111.61045511482278
+thin,revert_1pct,300,5,0.0,1.0,0.0,111.61045511482278

@@ -1,0 +1,100 @@
+ETHUSDT minutes 1205112 segments 36 span 2024-01-07 12:59:00+00:00 2026-10-25 23:00:00+00:00
+BTCUSDT minutes 871298 segments 19 span 2024-09-28 19:59:00+00:00 2026-10-25 23:00:00+00:00
+     symbol  horizon_min         measure  n_windows  max_drop_pct                        at  ltv_from_50  ltv_from_60  ltv_from_70
+0   ETHUSDT            1    close_to_low    1205076      9.942423 2025-02-03 02:06:00+00:00    55.520037    66.624044    77.728052
+1   ETHUSDT            1  close_to_close    1205076      9.588996 2025-02-03 02:06:00+00:00    55.303002    66.363603    77.424203
+2   ETHUSDT            2    close_to_low    1205040     12.336312 2025-02-03 02:05:00+00:00    57.036158    68.443390    79.850622
+3   ETHUSDT            2  close_to_close    1205040     11.992279 2025-02-03 02:05:00+00:00    56.813197    68.175837    79.538476
+4   ETHUSDT            5    close_to_low    1204932     16.019541 2024-08-05 01:05:00+00:00    59.537660    71.445192    83.352724
+5   ETHUSDT            5  close_to_close    1204932     14.841985 2024-08-05 01:05:00+00:00    58.714379    70.457255    82.200131
+6   ETHUSDT           10    close_to_low    1204752     16.839119 2025-02-03 02:00:00+00:00    60.124423    72.149308    84.174192
+7   ETHUSDT           10  close_to_close    1204752     15.461141 2024-08-05 01:00:00+00:00    59.144399    70.973279    82.802158
+8   ETHUSDT           30    close_to_low    1204032     23.615470 2025-02-03 01:40:00+00:00    65.458280    78.549936    91.641592
+9   ETHUSDT           30  close_to_close    1204032     21.400107 2025-02-03 01:37:00+00:00    63.613319    76.335982    89.058646
+10  ETHUSDT           60    close_to_low    1202952     24.961687 2025-02-03 01:12:00+00:00    66.632628    79.959153    93.285679
+11  ETHUSDT           60  close_to_close    1202952     22.930421 2025-02-03 01:07:00+00:00    64.876441    77.851729    90.827017
+12  BTCUSDT            1    close_to_low     871279      5.917342 2024-12-05 22:27:00+00:00    53.144757    63.773708    74.402660
+13  BTCUSDT            1  close_to_close     871279      4.289804 2025-10-10 21:18:00+00:00    52.241038    62.689245    73.137453
+14  BTCUSDT            2    close_to_low     871260      6.834517 2024-12-05 22:26:00+00:00    53.667945    64.401534    75.135123
+15  BTCUSDT            2  close_to_close     871260      4.614594 2024-12-05 22:26:00+00:00    52.418921    62.902705    73.386489
+16  BTCUSDT            5    close_to_low     871203      8.188216 2025-10-10 21:15:00+00:00    54.459240    65.351088    76.242936
+17  BTCUSDT            5  close_to_close     871203      7.338158 2025-10-10 21:14:00+00:00    53.959644    64.751573    75.543501
+18  BTCUSDT           10    close_to_low     871108     10.792397 2025-10-10 21:10:00+00:00    56.049034    67.258841    78.468648
+19  BTCUSDT           10  close_to_close     871108      9.142318 2025-10-10 21:09:00+00:00    55.031120    66.037344    77.043568
+20  BTCUSDT           30    close_to_low     870728     12.397768 2025-10-10 20:50:00+00:00    57.076172    68.491406    79.906640
+21  BTCUSDT           30  close_to_close     870728     11.049236 2025-10-10 20:49:00+00:00    56.210872    67.453046    78.695220
+22  BTCUSDT           60    close_to_low     870158     12.909011 2025-10-10 20:27:00+00:00    57.411221    68.893465    80.375709
+23  BTCUSDT           60  close_to_close     870158     10.958732 2025-10-10 20:19:00+00:00    56.153738    67.384486    78.615233
+     symbol  horizon_min         measure  start_ltv  act_drop_pct  liq_drop_pct     n_cross_act  n_cross_liq
+0   ETHUSDT            1    close_to_low        0.5     28.571429     41.860465               0            0
+1   ETHUSDT            1    close_to_low        0.6     14.285714     30.232558               0            0
+2   ETHUSDT            1    close_to_low        0.7      0.000000     18.604651  starts at line            0
+3   ETHUSDT            1  close_to_close        0.5     28.571429     41.860465               0            0
+4   ETHUSDT            1  close_to_close        0.6     14.285714     30.232558               0            0
+5   ETHUSDT            1  close_to_close        0.7      0.000000     18.604651  starts at line            0
+6   ETHUSDT            2    close_to_low        0.5     28.571429     41.860465               0            0
+7   ETHUSDT            2    close_to_low        0.6     14.285714     30.232558               0            0
+8   ETHUSDT            2    close_to_low        0.7      0.000000     18.604651  starts at line            0
+9   ETHUSDT            2  close_to_close        0.5     28.571429     41.860465               0            0
+10  ETHUSDT            2  close_to_close        0.6     14.285714     30.232558               0            0
+11  ETHUSDT            2  close_to_close        0.7      0.000000     18.604651  starts at line            0
+12  ETHUSDT            5    close_to_low        0.5     28.571429     41.860465               0            0
+13  ETHUSDT            5    close_to_low        0.6     14.285714     30.232558               3            0
+14  ETHUSDT            5    close_to_low        0.7      0.000000     18.604651  starts at line            0
+15  ETHUSDT            5  close_to_close        0.5     28.571429     41.860465               0            0
+16  ETHUSDT            5  close_to_close        0.6     14.285714     30.232558               1            0
+17  ETHUSDT            5  close_to_close        0.7      0.000000     18.604651  starts at line            0
+18  ETHUSDT           10    close_to_low        0.5     28.571429     41.860465               0            0
+19  ETHUSDT           10    close_to_low        0.6     14.285714     30.232558              13            0
+20  ETHUSDT           10    close_to_low        0.7      0.000000     18.604651  starts at line            0
+21  ETHUSDT           10  close_to_close        0.5     28.571429     41.860465               0            0
+22  ETHUSDT           10  close_to_close        0.6     14.285714     30.232558               1            0
+23  ETHUSDT           10  close_to_close        0.7      0.000000     18.604651  starts at line            0
+24  ETHUSDT           30    close_to_low        0.5     28.571429     41.860465               0            0
+25  ETHUSDT           30    close_to_low        0.6     14.285714     30.232558              53            0
+26  ETHUSDT           30    close_to_low        0.7      0.000000     18.604651  starts at line           31
+27  ETHUSDT           30  close_to_close        0.5     28.571429     41.860465               0            0
+28  ETHUSDT           30  close_to_close        0.6     14.285714     30.232558               5            0
+29  ETHUSDT           30  close_to_close        0.7      0.000000     18.604651  starts at line            1
+30  ETHUSDT           60    close_to_low        0.5     28.571429     41.860465               0            0
+31  ETHUSDT           60    close_to_low        0.6     14.285714     30.232558             153            0
+32  ETHUSDT           60    close_to_low        0.7      0.000000     18.604651  starts at line           91
+33  ETHUSDT           60  close_to_close        0.5     28.571429     41.860465               0            0
+34  ETHUSDT           60  close_to_close        0.6     14.285714     30.232558              12            0
+35  ETHUSDT           60  close_to_close        0.7      0.000000     18.604651  starts at line            3
+36  BTCUSDT            1    close_to_low        0.5     28.571429     41.860465               0            0
+37  BTCUSDT            1    close_to_low        0.6     14.285714     30.232558               0            0
+38  BTCUSDT            1    close_to_low        0.7      0.000000     18.604651  starts at line            0
+39  BTCUSDT            1  close_to_close        0.5     28.571429     41.860465               0            0
+40  BTCUSDT            1  close_to_close        0.6     14.285714     30.232558               0            0
+41  BTCUSDT            1  close_to_close        0.7      0.000000     18.604651  starts at line            0
+42  BTCUSDT            2    close_to_low        0.5     28.571429     41.860465               0            0
+43  BTCUSDT            2    close_to_low        0.6     14.285714     30.232558               0            0
+44  BTCUSDT            2    close_to_low        0.7      0.000000     18.604651  starts at line            0
+45  BTCUSDT            2  close_to_close        0.5     28.571429     41.860465               0            0
+46  BTCUSDT            2  close_to_close        0.6     14.285714     30.232558               0            0
+47  BTCUSDT            2  close_to_close        0.7      0.000000     18.604651  starts at line            0
+48  BTCUSDT            5    close_to_low        0.5     28.571429     41.860465               0            0
+49  BTCUSDT            5    close_to_low        0.6     14.285714     30.232558               0            0
+50  BTCUSDT            5    close_to_low        0.7      0.000000     18.604651  starts at line            0
+51  BTCUSDT            5  close_to_close        0.5     28.571429     41.860465               0            0
+52  BTCUSDT            5  close_to_close        0.6     14.285714     30.232558               0            0
+53  BTCUSDT            5  close_to_close        0.7      0.000000     18.604651  starts at line            0
+54  BTCUSDT           10    close_to_low        0.5     28.571429     41.860465               0            0
+55  BTCUSDT           10    close_to_low        0.6     14.285714     30.232558               0            0
+56  BTCUSDT           10    close_to_low        0.7      0.000000     18.604651  starts at line            0
+57  BTCUSDT           10  close_to_close        0.5     28.571429     41.860465               0            0
+58  BTCUSDT           10  close_to_close        0.6     14.285714     30.232558               0            0
+59  BTCUSDT           10  close_to_close        0.7      0.000000     18.604651  starts at line            0
+60  BTCUSDT           30    close_to_low        0.5     28.571429     41.860465               0            0
+61  BTCUSDT           30    close_to_low        0.6     14.285714     30.232558               0            0
+62  BTCUSDT           30    close_to_low        0.7      0.000000     18.604651  starts at line            0
+63  BTCUSDT           30  close_to_close        0.5     28.571429     41.860465               0            0
+64  BTCUSDT           30  close_to_close        0.6     14.285714     30.232558               0            0
+65  BTCUSDT           30  close_to_close        0.7      0.000000     18.604651  starts at line            0
+66  BTCUSDT           60    close_to_low        0.5     28.571429     41.860465               0            0
+67  BTCUSDT           60    close_to_low        0.6     14.285714     30.232558               0            0
+68  BTCUSDT           60    close_to_low        0.7      0.000000     18.604651  starts at line            0
+69  BTCUSDT           60  close_to_close        0.5     28.571429     41.860465               0            0
+70  BTCUSDT           60  close_to_close        0.6     14.285714     30.232558               0            0
+71  BTCUSDT           60  close_to_close        0.7      0.000000     18.604651  starts at line            0
