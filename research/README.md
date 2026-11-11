@@ -15,6 +15,28 @@ Copies of the research notes that the claims in `../README.md` rest on, taken fr
 
 Paths inside the notes are the planning repository's: `research_notes/<topic>/` is the folder in the second column, and commands written "from the repository root" ran there. Files a note mentions that are not in this folder (other planning notes, design documents, large caches) were not copied. `liquidation-backtest/backtest_data/` and `backtest_scripts/` hold only the files the liquidation-dataset scripts read (`binance_1h.parquet`, `binance_1m.parquet` from the release, `fetch_aave_liqs.py`); the other backtest scripts and their `raw/` and `data/` folders were not kept, and `fetch_aave_liqs.py` imports an `rpc.py` helper that is not among them. Step 3 of the judge evidence (thinking budgets and other models), which the README does not cite, is described in its note but its runs are not included.
 
+## Sources of the market and incident figures in the main README
+
+The main README cites figures that come from public sources quoted in the planning notes, which are not all copied here. The sources, one line per figure, as the notes record them:
+
+| Figure in `README.md` | Source |
+|---|---|
+| Coinbase's Morpho-powered loans: about 53,000 borrowers, about $1.56B outstanding (September 2026) | Bitcoin.com News, 22 Sep 2026, https://news.bitcoin.com/crypto-news/coinbase-and-morpho-make-bitcoin-backed-loans-more-predictable/ ; Crypto Briefing, mid-Sep 2026 ($1.57B, 53,000 active borrowers), https://cryptobriefing.com/base-morpho-coinbase-financing-growth/ |
+| Coinbase's FAQ: it "cannot prevent collateral liquidation on Morpho" | The Block, quoting the FAQ, https://www.theblock.co/post/335007/coinbase-bitcoin-backed-onchain-loans-morpho |
+| About 3,300 Coinbase borrowers liquidated in one week of February 2026 | Decrypt, https://decrypt.co/357265/coinbases-loans-record-liquidations-bitcoin-ethereum-plunge |
+| About $394M liquidated on the Base cbBTC/USDC market between November 2025 and July 2026 | Steakhouse Financial, DeFi markets update of 2 Jul 2026 ("almost $394m of liquidations" since November 2025), https://kitchen.steakhouse.financial/p/defi-markets-update-2026-07-02 |
+| DeFi Saver automation covers fewer than 1,000 positions | DeFi Saver newsletters: 997 automated positions at the end of September 2026, just over 1,000 at the end of August, https://blog.defisaver.com/defi-saver-newsletter-october-2026/ and https://blog.defisaver.com/defi-saver-newsletter-august-2026/ |
+| TEE.fail (October 2025): forged TDX quotes with a DDR5 interposer under $1,000; Phala's dstack among the affected systems | The Hacker News, https://thehackernews.com/2025/10/new-teefail-side-channel-attack.html ; CyberInsider, https://cyberinsider.com/1000-attack-breaks-trusted-execution-on-intel-and-amd-server-hardware/ ; the Shade Agent Framework's own security page names it, https://github.com/NearDeFi/shade-agent-framework/blob/main/docs/concepts/security.md |
+| Aave's wstETH CAPO incident (10 March 2026): about $27M liquidated across 34 accounts on a bad parameter | Aave governance post-mortem, https://governance.aave.com/t/post-mortem-exchange-rate-misallignment-on-wsteth-core-and-prime-instances/24269 ; CoinDesk, https://www.coindesk.com/business/2026/03/10/defi-lending-platform-aave-sees-a-rare-usd27-million-liquidations-after-a-p |
+| NEAR Intents halted after a $3.8M deposit bug (late September 2026), funds returned | The Block, 1 Oct 2026, https://theblock.co/news/ecosystems/2026-10-01-near-intents-halts-services-after-3-8-million-exploit-promises- ; The Crypto Times, 17 Oct 2026 (traced to a deposit-notification contract bug), https://www.cryptotimes.io/2026/10/17/near-intents-traces-3-8m-exploit-to-smart-contract-deposit-bug/ |
+| Vitalik Buterin's April 2026 design for LLM wallets (a human above a daily limit) | https://vitalik.eth.limo/general/2026/04/02/secure_llms.html |
+| Simon Willison: per-action approvals train users to click yes; "once an LLM agent has ingested untrusted input…" | "The lethal trifecta for AI agents", 16 Jun 2025, https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/ ; on CaMeL and approval fatigue, 11 Apr 2025, https://simonwillison.net/2025/Apr/11/camel/ |
+| OpenAI: prompt injection is "unlikely to ever be fully 'solved'" | OpenAI, "Continuously hardening ChatGPT Atlas against prompt injection", 22 Dec 2025 (the page answered 403 to our fetch; the quotation is as reported by Fortune, https://fortune.com/2025/12/23/openai-ai-browser-prompt-injections-cybersecurity-hackers/ and The Decoder, https://the-decoder.com/openai-admits-prompt-injection-may-never-be-fully-solved-casting-doubt-on-the-agentic-ai-vision/) |
+| Anthropic: "a 1% attack success rate … still represents meaningful risk" | Anthropic, "Mitigating the risk of prompt injections in browser use", 24 Nov 2025, https://www.anthropic.com/research/prompt-injection-defenses |
+| OutLayer: TDX workers, an enclave key store with value-based policies, checked on-chain on 21 October 2026 | OutLayer's documentation, https://app.outlayer.ai/docs/getting-started and https://docs.near.org/primitives/off-chain-compute/outlayer ; repository https://github.com/out-layer/outlayer ; the team's reads of its worker registry (`worker.outlayer.*`) and keystore approvals on 21 Oct 2026, planning note "OutLayer and hackathon partners" (internal) |
+
+Market-size and adoption figures are those sources' numbers as of their dates, not ours; none of them is a measurement of this build.
+
 ## What stays internal, and what we will do with it
 
 The notes here are the findings. The material behind them is ours and is not published:
