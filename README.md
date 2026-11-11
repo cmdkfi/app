@@ -37,7 +37,7 @@ The agent's main job is to keep this buffer in calm times, selling small slices 
 | Setting | Default | What it bounds |
 |---|---|---|
 | Target / act line | 50% / 70% | Crossing the act line starts protective selling back to target; it stops at target, including when the price recovers |
-| Floor | 30% | Sales are sized at the oracle price to stay at or above this line; a fill better than the oracle can end a few hundredths of a point under it |
+| Floor | 30% | Sales are sized at the oracle price to stay at or above this line; a fill better than the oracle can end a few hundredths of a point under it. An exit, if you allowed it, repays all debt and is not sized by the floor |
 | Daily sell budget | 20% of collateral | Discretionary selling below the act line, rolling 24 hours |
 | Agent may migrate | yes | Moves only between markets you set a corridor for; at most two a day |
 | Agent may exit | yes | Whether the agent may close the position at all; after an exit, only you can re-open. The agent's code tries `migrate` first while an approved market can take the position; the executor enforces only this switch |
