@@ -122,7 +122,7 @@ python3 -I 'research/liquidation-dataset/scripts/close_step1.py' replacement_ora
 'research/liquidation-dataset/scripts/.venv/bin/python3' -I 'research/liquidation-dataset/scripts/report.py'
 ```
 
-Successful exact HTTP pages are immutable and reused on restart. Do not restart the failed Aave attempt without a new instruction; `close_step1.py aave` is the recorded attempt command. All table assembly and validation are offline. No Step 3 or Step 4 code has run.
+Successful exact HTTP pages are immutable and reused on restart. Do not restart the failed Aave attempt without a new instruction; `close_step1.py aave` is the recorded attempt command. All table assembly and validation are offline. (Written at the end of Step 2; Steps 3 and 4 follow below.)
 
 ## Step 2 result
 

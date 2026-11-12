@@ -2,7 +2,7 @@
 
 # Incident replay: LLM risk judge results (2026-10-23, thinking-on run added 2026-10-26)
 
-We replayed the 14 windows in `incident_replay/` (8 incidents, 6 calm controls) through three judges. Each judge saw the timeline step by step with no look-ahead. The script is `backtest_scripts/incident_replay_llm.py`. Raw calls (`calls.jsonl`), `results.json` and `tables.md` are in `/private/tmp/claude-501/-Users-vf-uniswap-tracker/81e399f6-8590-4c77-8f25-ab5cee7268f3/scratchpad/replay/`, a temporary folder. Re-running the script with `--out` there reuses the cached calls.
+We replayed the 14 windows in `incident_replay/` (8 incidents, 6 calm controls) through three judges. Each judge saw the timeline step by step with no look-ahead. The script is `backtest_scripts/incident_replay_llm.py`. Raw calls (`calls.jsonl`), `results.json` and `tables.md` are in `<tmp>/replay/`, a temporary folder. Re-running the script with `--out` there reuses the cached calls.
 
 ## Headline
 
