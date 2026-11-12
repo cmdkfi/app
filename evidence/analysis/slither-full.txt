@@ -1,0 +1,249 @@
+'forge config --json' running
+
+Detector: incorrect-equality
+Executor._call(address,bytes) (src/Executor.sol#624-627) uses a dangerous strict equality:
+	- require(bool,string)(ok && (ret.length == 0 || abi.decode(ret,(bool))) && token.code.length > 0,token transfer) (src/Executor.sol#626)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+Detector: reentrancy-no-eth
+Reentrancy in Executor.exit(bytes32,uint256) (src/Executor.sol#362-384):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#368)
+	- (repaid,None) = MORPHO.repay(mp,0,shares,msg.sender,abi.encode(Op.ExitRepay,msg.sender,id,price)) (src/Executor.sol#375)
+	- MORPHO.withdrawCollateral(mp,coll,msg.sender,msg.sender) (src/Executor.sol#378)
+	State variables written after the call(s):
+	- closedForAgent[msg.sender][id] = true (src/Executor.sol#379)
+	Executor.closedForAgent (src/Executor.sol#67) can be used in cross function reentrancies:
+	- Executor.closedForAgent (src/Executor.sol#67)
+	- lastAgentCall[msg.sender] = block.timestamp (src/Executor.sol#381)
+	Executor.lastAgentCall (src/Executor.sol#68) can be used in cross function reentrancies:
+	- Executor.lastAgentCall (src/Executor.sol#68)
+Reentrancy in Executor.migrate(bytes32,bytes32,uint256,uint256) (src/Executor.sol#306-358):
+	External calls:
+	- MORPHO.accrueInterest(a) (src/Executor.sol#320)
+	- MORPHO.accrueInterest(b) (src/Executor.sol#321)
+	- MORPHO.flashLoan(a.loanToken,assets,abi.encode(Op.Migrate,msg.sender,from,to,sharesMove,collMove)) (src/Executor.sol#345)
+	State variables written after the call(s):
+	- lastAgentCall[msg.sender] = block.timestamp (src/Executor.sol#355)
+	Executor.lastAgentCall (src/Executor.sol#68) can be used in cross function reentrancies:
+	- Executor.lastAgentCall (src/Executor.sol#68)
+Reentrancy in Executor.reduce(bytes32,uint256,uint256) (src/Executor.sol#245-303):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#250)
+	State variables written after the call(s):
+	- lastAgentCall[msg.sender] = block.timestamp (src/Executor.sol#286)
+	Executor.lastAgentCall (src/Executor.sol#68) can be used in cross function reentrancies:
+	- Executor.lastAgentCall (src/Executor.sol#68)
+Reentrancy in Executor.reduce(bytes32,uint256,uint256) (src/Executor.sol#245-303):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#250)
+	- MORPHO.repay(mp,amount,0,msg.sender,abi.encode(Op.SellForRepay,msg.sender,id,price)) (src/Executor.sol#294)
+	State variables written after the call(s):
+	- _recordSale(msg.sender,mp.collateralToken,sold) (src/Executor.sol#296)
+		- slot.time = uint64(block.timestamp) (src/Executor.sol#591)
+		- slot.collateral = uint192(collateral) (src/Executor.sol#592)
+	Executor._sales (src/Executor.sol#71) can be used in cross function reentrancies:
+	- Executor._soldInWindow(address,address) (src/Executor.sol#579-584)
+	- lastAgentCall[msg.sender] = block.timestamp (src/Executor.sol#297)
+	Executor.lastAgentCall (src/Executor.sol#68) can be used in cross function reentrancies:
+	- Executor.lastAgentCall (src/Executor.sol#68)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+Detector: uninitialized-local
+Executor.close(bytes32,uint256).repaid (src/Executor.sol#231) is a local variable never initialized
+Executor.exit(bytes32,uint256).repaid (src/Executor.sol#370) is a local variable never initialized
+Executor._borrowTo(bytes32,MarketParams,uint256,uint256).borrowed (src/Executor.sol#527) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+Detector: unused-return
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) ignores return value by (None,None,None,None,lastUpdate,None) = IMorpho(morpho).market(id) (src/Executor.sol#133)
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) ignores return value by IERC20(c.params.loanToken).approve(morpho,type()(uint256).max) (src/Executor.sol#143)
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) ignores return value by IERC20(c.params.collateralToken).approve(morpho,type()(uint256).max) (src/Executor.sol#144)
+Executor.repay(bytes32,uint256,uint256) (src/Executor.sol#211-223) ignores return value by (repaid,None) = MORPHO.repay(mp,0,shares,msg.sender,cb) (src/Executor.sol#219)
+Executor.repay(bytes32,uint256,uint256) (src/Executor.sol#211-223) ignores return value by (repaid,None) = MORPHO.repay(mp,amount,0,msg.sender,cb) (src/Executor.sol#220)
+Executor.close(bytes32,uint256) (src/Executor.sol#226-240) ignores return value by (repaid,None) = MORPHO.repay(mp,0,shares,msg.sender,abi.encode(Op.PullRepay,msg.sender,id,uint256(0))) (src/Executor.sol#233)
+Executor.reduce(bytes32,uint256,uint256) (src/Executor.sol#245-303) ignores return value by MORPHO.repay(mp,amount,0,msg.sender,abi.encode(Op.SellForRepay,msg.sender,id,price)) (src/Executor.sol#294)
+Executor.migrate(bytes32,bytes32,uint256,uint256) (src/Executor.sol#306-358) ignores return value by (None,None,tba,tbs,None,None) = MORPHO.market(from) (src/Executor.sol#325)
+Executor.migrate(bytes32,bytes32,uint256,uint256) (src/Executor.sol#306-358) ignores return value by vTo_ = CorridorMath.value(collToBefore + collMove,IOracle(b.oracle).price()) (src/Executor.sol#352)
+Executor.exit(bytes32,uint256) (src/Executor.sol#362-384) ignores return value by (repaid,None) = MORPHO.repay(mp,0,shares,msg.sender,abi.encode(Op.ExitRepay,msg.sender,id,price)) (src/Executor.sol#375)
+Executor.onMorphoFlashLoan(uint256,bytes) (src/Executor.sol#406-419) ignores return value by (repaid,None) = MORPHO.repay(a,0,sharesMove,user,) (src/Executor.sol#413)
+Executor.onMorphoFlashLoan(uint256,bytes) (src/Executor.sol#406-419) ignores return value by MORPHO.borrow(b,assets,0,user,address(this)) (src/Executor.sol#417)
+Executor.ltvOf(address,bytes32) (src/Executor.sol#449-454) ignores return value by v_ = CorridorMath.value(_collateral(id,user),IOracle(mp.oracle).price()) (src/Executor.sol#452)
+Executor._requireFresh(bytes32) (src/Executor.sol#484-492) ignores return value by (None,answer,None,updatedAt,None) = IChainlinkFeed(f).latestRoundData() (src/Executor.sol#489)
+Executor._borrow(bytes32,address) (src/Executor.sol#494-498) ignores return value by (None,bs,None) = MORPHO.position(id,user) (src/Executor.sol#495)
+Executor._borrow(bytes32,address) (src/Executor.sol#494-498) ignores return value by (None,None,tba,tbs,None,None) = MORPHO.market(id) (src/Executor.sol#496)
+Executor._collateral(bytes32,address) (src/Executor.sol#500-503) ignores return value by (None,None,coll) = MORPHO.position(id,user) (src/Executor.sol#501)
+Executor._borrowTo(bytes32,MarketParams,uint256,uint256) (src/Executor.sol#522-539) ignores return value by MORPHO.borrow(mp,borrowed,0,msg.sender,msg.sender) (src/Executor.sol#531)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+Detector: calls-loop
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) has external calls inside a loop: (None,None,None,None,lastUpdate,None) = IMorpho(morpho).market(id) (src/Executor.sol#133)
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) has external calls inside a loop: t0 = IUniswapV3Pool(c.pool).token0() (src/Executor.sol#135)
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) has external calls inside a loop: t1 = IUniswapV3Pool(c.pool).token1() (src/Executor.sol#136)
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) has external calls inside a loop: IERC20(c.params.loanToken).approve(morpho,type()(uint256).max) (src/Executor.sol#143)
+Executor.constructor(address,uint256,Executor.MarketConfig[]) (src/Executor.sol#126-146) has external calls inside a loop: IERC20(c.params.collateralToken).approve(morpho,type()(uint256).max) (src/Executor.sol#144)
+Executor._requireFresh(bytes32) (src/Executor.sol#484-492) has external calls inside a loop: (None,answer,None,updatedAt,None) = IChainlinkFeed(f).latestRoundData() (src/Executor.sol#489)
+	Calls stack containing the loop:
+		Executor.open(bytes32,uint256,uint256,uint256)
+Executor._requireFresh(bytes32) (src/Executor.sol#484-492) has external calls inside a loop: (None,answer,None,updatedAt,None) = IChainlinkFeed(f).latestRoundData() (src/Executor.sol#489)
+	Calls stack containing the loop:
+		Executor.openFromStables(bytes32,uint256,uint256,uint256)
+Executor._requireFresh(bytes32) (src/Executor.sol#484-492) has external calls inside a loop: (None,answer,None,updatedAt,None) = IChainlinkFeed(f).latestRoundData() (src/Executor.sol#489)
+	Calls stack containing the loop:
+		Executor.migrate(bytes32,bytes32,uint256,uint256)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+
+Detector: reentrancy-benign
+Reentrancy in Executor._borrowTo(bytes32,MarketParams,uint256,uint256) (src/Executor.sol#522-539):
+	External calls:
+	- MORPHO.borrow(mp,borrowed,0,msg.sender,msg.sender) (src/Executor.sol#531)
+	State variables written after the call(s):
+	- closedForAgent[msg.sender][id] = false (src/Executor.sol#536)
+	- delete sessionStart[msg.sender][id] (src/Executor.sol#537)
+Reentrancy in Executor._buyCollateral(bytes32,MarketParams,uint256,uint256) (src/Executor.sol#559-577):
+	External calls:
+	- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,int256(amountIn),MIN_SQRT_RATIO + 1,abi.encode(false,address(0),id,mp.loanToken,uint256(0))) (src/Executor.sol#566-572)
+	- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,int256(amountIn),MAX_SQRT_RATIO - 1,abi.encode(false,address(0),id,mp.loanToken,uint256(0))) (src/Executor.sol#566-572)
+	State variables written after the call(s):
+	- _pool = address(0) (src/Executor.sol#573)
+Reentrancy in Executor._sellCollateralFor(bytes32,MarketParams,address,uint256,uint256) (src/Executor.sol#543-556):
+	External calls:
+	- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,- int256(out),MIN_SQRT_RATIO + 1,abi.encode(true,user,id,address(0),CorridorMath.maxCollateralIn(out,price))) (src/Executor.sol#547-553)
+	- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,- int256(out),MAX_SQRT_RATIO - 1,abi.encode(true,user,id,address(0),CorridorMath.maxCollateralIn(out,price))) (src/Executor.sol#547-553)
+	State variables written after the call(s):
+	- _pool = address(0) (src/Executor.sol#554)
+Reentrancy in Executor.close(bytes32,uint256) (src/Executor.sol#226-240):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#229)
+	- (repaid,None) = MORPHO.repay(mp,0,shares,msg.sender,abi.encode(Op.PullRepay,msg.sender,id,uint256(0))) (src/Executor.sol#233)
+	- MORPHO.withdrawCollateral(mp,coll,msg.sender,msg.sender) (src/Executor.sol#236)
+	State variables written after the call(s):
+	- delete sessionStart[msg.sender][id] (src/Executor.sol#237)
+Reentrancy in Executor.exit(bytes32,uint256) (src/Executor.sol#362-384):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#368)
+	State variables written after the call(s):
+	- _collateralSold = 0 (src/Executor.sol#372)
+Reentrancy in Executor.exit(bytes32,uint256) (src/Executor.sol#362-384):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#368)
+	- (repaid,None) = MORPHO.repay(mp,0,shares,msg.sender,abi.encode(Op.ExitRepay,msg.sender,id,price)) (src/Executor.sol#375)
+	- MORPHO.withdrawCollateral(mp,coll,msg.sender,msg.sender) (src/Executor.sol#378)
+	State variables written after the call(s):
+	- delete sessionStart[msg.sender][id] (src/Executor.sol#380)
+Reentrancy in Executor.migrate(bytes32,bytes32,uint256,uint256) (src/Executor.sol#306-358):
+	External calls:
+	- MORPHO.accrueInterest(a) (src/Executor.sol#320)
+	- MORPHO.accrueInterest(b) (src/Executor.sol#321)
+	State variables written after the call(s):
+	- delete sessionStart[msg.sender][from] (src/Executor.sol#343)
+	- delete sessionStart[msg.sender][to] (src/Executor.sol#344)
+Reentrancy in Executor.onMorphoRepay(uint256,bytes) (src/Executor.sol#388-404):
+	External calls:
+	- _pull(mp.loanToken,user,idle) (src/Executor.sol#396)
+		- (ok,ret) = token.call(data) (src/Executor.sol#625)
+	- _sellCollateralFor(id,mp,user,assets - idle,price) (src/Executor.sol#397)
+		- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,- int256(out),MIN_SQRT_RATIO + 1,abi.encode(true,user,id,address(0),CorridorMath.maxCollateralIn(out,price))) (src/Executor.sol#547-553)
+		- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,- int256(out),MAX_SQRT_RATIO - 1,abi.encode(true,user,id,address(0),CorridorMath.maxCollateralIn(out,price))) (src/Executor.sol#547-553)
+	State variables written after the call(s):
+	- _sellCollateralFor(id,mp,user,assets - idle,price) (src/Executor.sol#397)
+		- _pool = pool (src/Executor.sol#546)
+		- _pool = address(0) (src/Executor.sol#554)
+Reentrancy in Executor.open(bytes32,uint256,uint256,uint256) (src/Executor.sol#172-188):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#181)
+	- _pull(mp.collateralToken,msg.sender,collateralIn) (src/Executor.sol#183)
+		- (ok,ret) = token.call(data) (src/Executor.sol#625)
+	- MORPHO.supplyCollateral(mp,collateralIn,msg.sender,) (src/Executor.sol#184)
+	- _borrowTo(id,mp,collateralIn,targetLtv) (src/Executor.sol#186)
+		- MORPHO.borrow(mp,borrowed,0,msg.sender,msg.sender) (src/Executor.sol#531)
+	State variables written after the call(s):
+	- _borrowTo(id,mp,collateralIn,targetLtv) (src/Executor.sol#186)
+		- closedForAgent[msg.sender][id] = false (src/Executor.sol#536)
+Reentrancy in Executor.openFromStables(bytes32,uint256,uint256,uint256) (src/Executor.sol#192-208):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#201)
+	- _pull(mp.loanToken,msg.sender,stablesIn) (src/Executor.sol#202)
+		- (ok,ret) = token.call(data) (src/Executor.sol#625)
+	- received = _buyCollateral(id,mp,stablesIn,CorridorMath.minCollateralOut(stablesIn,price)) (src/Executor.sol#204)
+		- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,int256(amountIn),MIN_SQRT_RATIO + 1,abi.encode(false,address(0),id,mp.loanToken,uint256(0))) (src/Executor.sol#566-572)
+		- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,int256(amountIn),MAX_SQRT_RATIO - 1,abi.encode(false,address(0),id,mp.loanToken,uint256(0))) (src/Executor.sol#566-572)
+	State variables written after the call(s):
+	- received = _buyCollateral(id,mp,stablesIn,CorridorMath.minCollateralOut(stablesIn,price)) (src/Executor.sol#204)
+		- _pool = pool (src/Executor.sol#565)
+		- _pool = address(0) (src/Executor.sol#573)
+Reentrancy in Executor.openFromStables(bytes32,uint256,uint256,uint256) (src/Executor.sol#192-208):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#201)
+	- _pull(mp.loanToken,msg.sender,stablesIn) (src/Executor.sol#202)
+		- (ok,ret) = token.call(data) (src/Executor.sol#625)
+	- received = _buyCollateral(id,mp,stablesIn,CorridorMath.minCollateralOut(stablesIn,price)) (src/Executor.sol#204)
+		- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,int256(amountIn),MIN_SQRT_RATIO + 1,abi.encode(false,address(0),id,mp.loanToken,uint256(0))) (src/Executor.sol#566-572)
+		- (a0,a1) = IUniswapV3Pool(pool).swap(address(this),zeroForOne,int256(amountIn),MAX_SQRT_RATIO - 1,abi.encode(false,address(0),id,mp.loanToken,uint256(0))) (src/Executor.sol#566-572)
+	- MORPHO.supplyCollateral(mp,received,msg.sender,) (src/Executor.sol#205)
+	- _borrowTo(id,mp,received,targetLtv) (src/Executor.sol#206)
+		- MORPHO.borrow(mp,borrowed,0,msg.sender,msg.sender) (src/Executor.sol#531)
+	State variables written after the call(s):
+	- _borrowTo(id,mp,received,targetLtv) (src/Executor.sol#206)
+		- closedForAgent[msg.sender][id] = false (src/Executor.sol#536)
+Reentrancy in Executor.reduce(bytes32,uint256,uint256) (src/Executor.sol#245-303):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#250)
+	State variables written after the call(s):
+	- _collateralSold = 0 (src/Executor.sol#293)
+	- sessionStart[msg.sender][id] = start (src/Executor.sol#265)
+	- delete sessionStart[msg.sender][id] (src/Executor.sol#272)
+Reentrancy in Executor.reduce(bytes32,uint256,uint256) (src/Executor.sol#245-303):
+	External calls:
+	- MORPHO.accrueInterest(mp) (src/Executor.sol#250)
+	- MORPHO.repay(mp,amount,0,msg.sender,abi.encode(Op.SellForRepay,msg.sender,id,price)) (src/Executor.sol#294)
+	State variables written after the call(s):
+	- _recordSale(msg.sender,mp.collateralToken,sold) (src/Executor.sol#296)
+		- _saleHead[user][token] = (h + 1) % SALE_SLOTS (src/Executor.sol#593)
+Reentrancy in Executor.uniswapV3SwapCallback(int256,int256,bytes) (src/Executor.sol#422-436):
+	External calls:
+	- MORPHO.withdrawCollateral(_config[id].params,owed,user,pool) (src/Executor.sol#431)
+	State variables written after the call(s):
+	- _collateralSold += owed (src/Executor.sol#432)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+Detector: timestamp
+Executor.reduce(bytes32,uint256,uint256) (src/Executor.sol#245-303) uses timestamp for comparisons
+	Dangerous comparisons:
+	- start != 0 && block.timestamp >= start + SESSION (src/Executor.sol#259)
+	- start == 0 && ltvBefore > c.act (src/Executor.sol#260)
+	- protective = start != 0 && ltvBefore > c.target + CorridorMath.TARGET_TOLERANCE (src/Executor.sol#261)
+Executor.movesInWindow(address) (src/Executor.sol#460-465) uses timestamp for comparisons
+	Dangerous comparisons:
+	- m[i] != 0 && block.timestamp < m[i] + WINDOW (src/Executor.sol#463)
+Executor._cooldown(address) (src/Executor.sol#479-482) uses timestamp for comparisons
+	Dangerous comparisons:
+	- last != 0 && block.timestamp < last + COOLDOWN (src/Executor.sol#481)
+Executor._requireFresh(bytes32) (src/Executor.sol#484-492) uses timestamp for comparisons
+	Dangerous comparisons:
+	- answer <= 0 || block.timestamp > updatedAt + c.maxAges[i] (src/Executor.sol#490)
+Executor._soldInWindow(address,address) (src/Executor.sol#579-584) uses timestamp for comparisons
+	Dangerous comparisons:
+	- s[i].time != 0 && block.timestamp < uint256(s[i].time) + WINDOW (src/Executor.sol#582)
+Executor._recordSale(address,address,uint256) (src/Executor.sol#586-594) uses timestamp for comparisons
+	Dangerous comparisons:
+	- slot.time != 0 && block.timestamp < uint256(slot.time) + WINDOW (src/Executor.sol#590)
+Executor._recordMove(address) (src/Executor.sol#596-602) uses timestamp for comparisons
+	Dangerous comparisons:
+	- t != 0 && block.timestamp < uint256(t) + WINDOW (src/Executor.sol#599)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+
+Detector: low-level-calls
+Low level call in Executor._call(address,bytes) (src/Executor.sol#624-627):
+	- (ok,ret) = token.call(data) (src/Executor.sol#625)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+Detector: naming-convention
+Variable Executor.MORPHO (src/Executor.sol#57) is not in mixedCase
+Variable Executor.COOLDOWN (src/Executor.sol#58) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+Detector: cache-array-length
+Loop condition i < marketIds.length (src/Executor.sol#509) should use cached array length instead of referencing `length` member of the storage array.
+ Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cache-array-length
+. analyzed (7 contracts with 102 detectors), 59 result(s) found

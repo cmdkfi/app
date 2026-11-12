@@ -1,0 +1,32 @@
+--- a/executor/src/Executor.sol
++++ b/executor/src/Executor.sol
+@@ -297,7 +297,8 @@
+         lastAgentCall[msg.sender] = block.timestamp;
+ 
+         (, uint256 debtAfter,) = _borrow(id, msg.sender);
+-        emit Reduced(msg.sender, id, amount, sold, ltvBefore, M.ltv(debtAfter, M.value(coll - sold, price)), protective);
++        uint256 vAfter_ = M.value(coll - sold, price);
++        emit Reduced(msg.sender, id, amount, sold, ltvBefore, M.ltv(debtAfter, vAfter_), protective);
+         _check(mp, snap);
+     }
+ 
+@@ -348,7 +349,8 @@
+         if (_collateral(to, msg.sender) != collToBefore + collMove) revert MigrationMismatch();
+         if (debtToAfter > debtToBefore + assets + 1) revert MigrationMismatch();
+         // a move may not land a position above the destination's act line; above it the agent reduces first
+-        uint256 ltvTo = M.ltv(debtToAfter, M.value(collToBefore + collMove, IOracle(b.oracle).price()));
++        uint256 vTo_ = M.value(collToBefore + collMove, IOracle(b.oracle).price());
++        uint256 ltvTo = M.ltv(debtToAfter, vTo_);
+         if (ltvTo > ct.act) revert AboveActLine();
+         lastAgentCall[msg.sender] = block.timestamp;
+         emit Migrated(msg.sender, from, to, fraction, assets, collMove);
+@@ -447,7 +449,8 @@
+     function ltvOf(address user, bytes32 id) external view returns (uint256) {
+         MarketParams memory mp = _params(id);
+         (, uint256 debt,) = _borrow(id, user);
+-        return M.ltv(debt, M.value(_collateral(id, user), IOracle(mp.oracle).price()));
++        uint256 v_ = M.value(_collateral(id, user), IOracle(mp.oracle).price());
++        return M.ltv(debt, v_);
+     }
+ 
+     function soldInWindow(address user, address token) external view returns (uint256) {
