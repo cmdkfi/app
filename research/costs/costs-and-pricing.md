@@ -2,7 +2,7 @@
 
 ## 11. Costs and pricing
 
-Mainnet estimates from `research_notes/Codex review fixes/costs_and_fees.md` (21 October 2026; ETH about $2,460, NEAR about $5.19). On testnet all chain costs are faucet tokens; the hackathon build pays only Phala (about $44 a month; [internal credit detail removed]), NEAR AI inference (cents) and RPC free tiers.
+Mainnet estimates from our cost note of 21 October 2026 (ETH about $2,460, NEAR about $5.19). On testnet all chain costs are faucet tokens; the hackathon build pays only Phala (about $44 a month; [internal credit detail removed]), NEAR AI inference (cents) and RPC free tiers.
 
 One agent loop in one enclave serves all vaults; there is no machine per user. The smallest Phala TDX machine is estimated to handle on the order of 1,000 positions at one check every 5 minutes (untested).
 

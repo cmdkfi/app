@@ -1,7 +1,6 @@
 # Deploying the vault Global Contract and the factory to NEAR testnet
 
-Written for Fri 6 Nov 2026 with near-cli-rs 0.30.1; **run on Wed 4 Nov 2026** by C with the founder's go (decided
-4 Nov: the schedule is not fixed, reviews come after everything is ready). Testnet only. The same sequence (publish
+Written for Fri 6 Nov 2026 with near-cli-rs 0.30.1; **run on Wed 4 Nov 2026**. Testnet only. The same sequence (publish
 by hash, factory `init`, key deletion, `create_vault`, and the raw-RPC checks of steps 2 and 7) runs in the sandbox
 test `factory` in `vault/tests/sandbox.rs`.
 
