@@ -1,8 +1,7 @@
 # The agent's measurement: what the owner approves, how to reproduce it, and how to run your own agent
 
-Testnet build (NEAR testnet, Base Sepolia). Design: `docs/01-design-and-feasibility.md` §4.4 in the planning
-repository. Prototype findings referred to below: P3 in `research_notes/Prototype/results.md` (items 32, 34–38, 43,
-49 of its consolidated list); the register reproduction is measurement H.
+Testnet build (NEAR testnet, Base Sepolia). The prototype findings referred to below (items 32, 34–38, 43 and 49)
+are from the team's prototype notes, which are not in this repository; the register reproduction is measurement H.
 
 ## 1. The six values the owner approves
 
@@ -220,7 +219,7 @@ The vault checks which code runs, not who runs it. To run the published agent un
    `apt-get update` because Docker's disk was full (46 of 47 GB used; apt reports this as "At least one invalid
    signature"); the archive's `InRelease` itself verifies with the image's keyring (gpgv, 3 Nov, on the snapshot copy).
 
-   **Push and pin our image (Friday, in this order, from `agent/`):**
+   **Push and pin the image (from `agent/`, in this order):**
    ```
    ./build.sh                                   # REPRODUCIBLE image sha256:d3b51d67… (rebuild only if src changed)
    docker tag cmdk-agent:repro-1 ghcr.io/cmdkfi/agent:4171c10

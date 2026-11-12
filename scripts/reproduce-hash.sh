@@ -100,7 +100,11 @@ else
   echo "                 different hash; only --reproducible can be expected to match bit for bit)"
 fi
 echo "commit           $COMMIT ($DIRTY uncommitted or untracked paths in the checkout)"
-echo "toolchain        $RUSTC; $(cargo near --version 2>/dev/null)"
+if [ "$MODE" = reproducible-wasm ]; then
+  echo "host toolchain   $RUSTC; $(cargo near --version 2>/dev/null) (the build itself ran in the image, with its own Rust)"
+else
+  echo "toolchain        $RUSTC; $(cargo near --version 2>/dev/null)"
+fi
 echo "wasm             $WASM"
 echo "size             $SIZE bytes"
 echo "sha256 (hex)     $HEX"
