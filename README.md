@@ -48,7 +48,7 @@ The production release adds buy-back (`relever`) with a ceiling LTV, a daily buy
 
 | Case | Numeric rules alone (the deterministic twin) | Rules plus the model | What the model added |
 |---|---|---|---|
-| Incident replay, 8 real incidents, 6 calm windows (`research/judge-evidence/incident-replay-results.md`) | The replay's own screen set (the note's, not the live agent's four screens) exited in time in 6 of 8 | Exited in time in 6 of 8, earlier in 5 of them, same minute in the sixth; one false exit each in the calm windows | Lead time: 136 versus 25 minutes in the widest case, 5.7 versus 3.5 days in the one counted in days |
+| Incident replay, 8 real incidents, 6 calm windows (`research/judge-evidence/incident-replay-results.md`) | The replay's own rules (the note's screen set, not the live agent's four screens) exited in time in 6 of 8 | Exited in time in 6 of 8, earlier in 5 of them, same minute in the sixth; one false exit each in the calm windows | Lead time: 136 versus 25 minutes in the widest case, 5.7 versus 3.5 days in the one counted in days |
 | Gradual 45% crash (step 10) | −1.76 USD | −1.76 USD (unprotected twin −2.11) | Nothing: the act line did the work |
 | One-block gap −25% → −45% (step 10) | −2.23 USD, liquidated | −2.23 USD, liquidated | Nothing: no loop can run between two prices one block apart |
 | Whipsaw (step 10) | −0.59 USD | −0.59 USD (unprotected 0.00) | Nothing: the rule sells on the way down either way |
