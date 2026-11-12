@@ -37,7 +37,7 @@ https://raw.githubusercontent.com/cmdkfi/app/main/feeds/governance.json
 
 General shape: `https://raw.githubusercontent.com/<org>/<repo>/<branch>/feeds/<file>.json`. The two URLs go into the
 agent's allowlist (agent row, `docs/03-plan.md`), labelled as demo feeds; the agent records each item's URL, fetch
-time and content hash in its transcript. The URLs return 404 while the repository is private (checked 3 Nov).
+time and content hash in its transcript. The URLs served 404 while the repository was private (3 Nov); since it went public on 4 Nov they serve.
 
 ## Publishing an item
 

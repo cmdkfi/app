@@ -1,6 +1,6 @@
 # Evidence: what is here and what has been verified where
 
-One page for a reviewer who cannot run everything: which artifact was rebuilt from source and compared, on which machine, and which checks need no Docker at all. "Reproduced" means built again from the named commit on another machine and compared byte for byte; "identity" means the deployed bytes compared with the published hash. The full reports are in `screening/` (rehearsals 1 to 13, 5 to 11 Nov 2026, Claude Code and Codex, each on a fresh clone; rehearsal 13 is the final state).
+One page for a reviewer who cannot run everything: which artifact was rebuilt from source and compared, on which machine, and which checks need no Docker at all. "Reproduced" means built again from the named commit on another machine and compared byte for byte; "identity" means the deployed bytes compared with the published hash. The full reports are in `screening/` (rehearsals 1 to 16, 5 to 12 Nov 2026, Claude Code and Codex, each on a fresh clone).
 
 | Artifact | Published value | Reproduced from source | Identity and provenance, no Docker needed |
 |---|---|---|---|
