@@ -43,7 +43,6 @@ Base Sepolia (chain 84532) and NEAR testnet. Nothing here touches mainnet.
   `GET /transcripts` on the enclave lists the 34 transcripts of the two earlier boots and the Worker proxies them at
   `relayer.cmdk.fi/agent/transcripts`; one fetched through the proxy matched the index's SHA-256 and passed
   `agent/verify-transcript.sh` (`ALL PASS`). Step 7's record `evidence/attacks.txt` was made the same day (5 PASS on chain).
-  Step 11 (screening rehearsal) waits for the judges' README decision. The "Known gaps" at the end were closed on 3 Nov.
   **9 Nov, third image:** commit `4171c10` (the agent's NEAR reads go to FastNear, dRPC and Intear before
   rpc.testnet.near.org, which answered the enclave `-429 … DEPRECATED` on about 95% of calls), image id `d3b51d67…`,
   pushed as `@sha256:e72564a8…`, CVM `5a5e66d3…` updated in place (`phala deploy --cvm-id … --wait`, 61 s), boot
@@ -576,19 +575,3 @@ log.
 
 None of them holds a key: the signed owner messages stay in `~/.local/state/cmdk/*.signed.json`. Commit only when
 asked.
-
-## 11. AI screening rehearsal 1 (C)
-
-Make a fresh clone in an empty directory. Give Claude Code and Codex each the Q-017 wording (planning repo,
-`research_notes/Hackathon rules/`) as the prompt, over the contracts and the README's verify steps. The key-attack
-step was dropped from the judges' README on 3 Nov. Save both reports under `evidence/screening/2026-11-06-*.md`.
-Anything they cannot reproduce goes into the todo.
-
-## Known gaps to close before step 11
-
-- **View names.** The judges' README names `get_owner`, `get_policy`, `get_position` and `get_agent` on the vault.
-  The vault exposes `get_state` and `check_transaction` (3 Nov). Either add the views or rewrite the steps to use
-  `get_state` fields.
-- **Script paths.** The judges' README names `./scripts/reproduce-measurements.sh` and
-  `./scripts/verify-transcript.sh`. The files are `scripts/p3_reproduce_measurements.sh` and
-  `agent/verify-transcript.sh`.
