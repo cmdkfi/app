@@ -2,6 +2,8 @@
 
 Step 1 is closed under the founder's reduced scope. Aave is excluded from Steps 2–4. Steps 2–4 are complete; stopped after Step 4. Generated 2026-10-27T17:52:25.814086+00:00.
 
+The headline counts below (20,479 Morpho liquidations; saved versus observed liquidations per cohort and split) recompute from the files in `data/` in about a minute, no release asset needed: `python3 -I scripts/verify_headlines.py` with pandas and pyarrow installed (`scripts/requirements.txt`); it prints each figure next to the README's value and exits 1 on any difference (added 12 Nov 2026).
+
 All writes are confined to this folder. All Python commands use `-I`; sources are public and free. No secrets, mainnet transactions, commits, or changes to the original backtest files.
 
 ## Step 1 closure

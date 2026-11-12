@@ -1,4 +1,4 @@
-<!-- Published 5 Nov 2026 as part of the research subset in cmdkfi/app. The note is unchanged; paths in it are the private planning repository's (`incident_replay/`, `backtest_scripts/`, `incident_replay_raw/`), which stay internal (see ../README.md). -->
+<!-- Published 5 Nov 2026 as part of the research subset in cmdkfi/app. The note is unchanged; paths in it are the private planning repository's. Since 12 Nov the 14 replay windows are published beside it in `incident_replay/` and the harness in `scripts/incident_replay_llm.py` (run from this folder: `python3 -I scripts/incident_replay_llm.py` with `NEARAI_API_KEY` set; it writes its call cache and results next to the script); `incident_replay_raw/`, the raw model outputs of the October runs, stays internal (see ../README.md). -->
 
 # Incident replay: LLM risk judge results (2026-10-23, thinking-on run added 2026-10-26)
 
