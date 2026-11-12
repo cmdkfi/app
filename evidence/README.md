@@ -27,5 +27,16 @@ Test suites: executor 64, vault 15 unit and 8 sandbox, agent 65 (1 ignored), web
 - `revoke.txt`: step 12, revocation, close and withdrawal on vault v2.
 - `scenes/`: step 10, the price scenes, the venue stress and the exit, each with its data file, transaction table and transcripts.
 - `screening/`: the AI screening rehearsals, prompts and reports.
+- `analysis/`: outputs of the automated checks of 12 Nov 2026 (below), with the harnesses used.
 - `transcripts/`: the archived transcript index of the first enclave (4 to 6 Nov) and the transcripts the scenes cite.
 - `venue/`: the venue setup and the pool-band rebalancing logs of 3 Nov.
+
+## Automated checks (12 Nov 2026)
+
+Free, open-source tools run on the code as deployed, at commit `48d1ff1`, with every output in `analysis/` (local paths removed, nothing else edited). Not an audit: these tools match known patterns and fuzz stated properties; the vault's signature and attestation logic and the corridor accounting still need a human review.
+
+- Solidity executor: Slither 0.11.6 (60 results), Aderyn 0.6.8 (9) and Semgrep's `p/smart-contracts` rules (28). None survived reading at the cited line: the reentrancy warnings meet a transient lock on every entry point and on the callbacks, the "uninitialized" state is a mapping, the unsafe cast is unreachable, the Uniswap callback is bound to the executor's own swap, and Slither's "dead code" claim about the functions that record sales and moves is wrong (they are called at three sites). The one item a paid audit would ask about: the two `approve` return values the constructor ignores, harmless on WETH and USDC.
+- Corridor arithmetic: Medusa 1.5.1 fuzzed the seven properties of `CorridorMath` for 30 minutes, 51.8 million calls, no failure; Halmos 0.3.3 proved the two linear ones (`corridorValid`, `remainingBudget`) for every input and timed out, without a counterexample, on the six that multiply and divide symbolic values.
+- Executor on the fork: the invariant suite at 6000 runs of depth 50 (CI runs 64 of 25) broke once on a dust position, a 1-unit debt repaid in full by a protective reduce after its collateral's value rounded to 1 unit; the cap "repay at most the debt" working as designed, the test corrected the same day, and a second 6000-run pass held all invariants.
+- Rust: cargo-audit's advisories in the vault are all in the sandbox tests' dependencies except `crypto-bigint` (timing variability; the vault only verifies public signatures) and near-sdk's own allocator; clippy with the pedantic and nursery groups reports nothing at the default level in the vault or the agent. Rustle, the one NEAR-specific analyzer, pins a 2023 toolchain and cannot build against near-sdk 5.
+

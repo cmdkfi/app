@@ -1,0 +1,34 @@
+# Long invariant run, 6000 runs x depth 50, scratch copy of the executor at 48d1ff1 (12 Nov 2026)
+
+ ExecutorInvariant invariants (block: 50578525) (runs: 6000, calls: 300000, reverts: 0)
+Fuzz seed: 0x848897a480b8b3be8748e229084101f2fba86e307f11e56179799054b5f1a172 (use `--fuzz-seed` to reproduce)
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 504.03s (503.51s CPU time)
+[FAIL: protective reduce went below target] invariant_noViolation
+[PASS] invariant_callSummary
+[PASS] invariant_executorHoldsNothing
+
+## Shrunk sequence (persisted by Foundry, replayed with -vvvv)
+		sender=0xa73cdF1e48B91B9c2C7B75acCA6717A838B4264d addr=[test/Invariant.t.sol:ExecutorInvariant]0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496 calldata=h_altPrice(uint256) args=[40]
+		sender=0xa73cdF1e48B91B9c2C7B75acCA6717A838B4264d addr=[test/Invariant.t.sol:ExecutorInvariant]0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496 calldata=h_open(uint256,uint256,uint256,uint256) args=[1000, 10710 [1.071e4], 32750779856 [3.275e10], 7]
+		sender=0xa73cdF1e48B91B9c2C7B75acCA6717A838B4264d addr=[test/Invariant.t.sol:ExecutorInvariant]0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496 calldata=h_altPrice(uint256) args=[2]
+		sender=0xa73cdF1e48B91B9c2C7B75acCA6717A838B4264d addr=[test/Invariant.t.sol:ExecutorInvariant]0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496 calldata=h_reduce(uint256,uint256,uint256) args=[4000, 1461446703485210103287273052203988822378723970342 [1.461e48], 8493]
+
+## Trace of the sequence
+  [467556] ExecutorInvariant::h_altPrice(40)
+    ├─ [26421] TestOracle::setPrice(231000000000000000000000000 [2.31e26])
+  [508265] ExecutorInvariant::h_open(1000, 10710 [1.071e4], 32750779856 [3.275e10], 7)
+    │   ├─ emit Opened(caller: alice: [0x328809Bc894f92807417D2dAD6b7C998c1aFdac6], market: 0x073bbe7f18b533c48ea546f5e1a67bde733c8596a83e6fdcf8ccb8f99d268b2c, collateralIn: 32750779856 [3.275e10], borrowed: 1, ltv: 142857142857142858 [1.428e17])
+  [690084] ExecutorInvariant::h_altPrice(2)
+    ├─ [26421] TestOracle::setPrice(41000000000000000000000000 [4.1e25])
+  [1212876] ExecutorInvariant::h_reduce(4000, 1461446703485210103287273052203988822378723970342 [1.461e48], 8493)
+    ├─ [254475] Executor::reduce(0x073bbe7f18b533c48ea546f5e1a67bde733c8596a83e6fdcf8ccb8f99d268b2c, 8493, 1793038173 [1.793e9])
+    │   │   │   │   ├─ emit Swap(param0: Executor: [0x13aa49bAc059d709dd0a18D6bb63290076a702D7], param1: Executor: [0x13aa49bAc059d709dd0a18D6bb63290076a702D7], param2: 24392683172 [2.439e10], param3: -1, param4: 507307767680770081058179 [5.073e23], 
+    │   ├─ emit Reduced(caller: alice: [0x328809Bc894f92807417D2dAD6b7C998c1aFdac6], market: 0x073bbe7f18b533c48ea546f5e1a67bde733c8596a83e6fdcf8ccb8f99d268b2c, repaid: 1, collateralSold: 24392683172 [2.439e10], ltvBefore: 1000000000000000000 [1e18], ltvAfter: 0, protective: true)
+
+## Second pass, same 6000 x 50, protective check tolerating debtAfter == 0 (scratch copy of the test only)
+ ExecutorInvariant invariants (runs: 6000, calls: 300000, reverts: 0)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 755.26s (754.46s CPU time)
+[PASS]
+[PASS] invariant_callSummary
+[PASS] invariant_executorHoldsNothing
+[PASS] invariant_noViolation

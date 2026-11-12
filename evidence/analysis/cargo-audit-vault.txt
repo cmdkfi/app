@@ -1,0 +1,207 @@
+    Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
+    Updating crates.io index
+    Scanning Cargo.lock for vulnerabilities (487 crate dependencies)
+Crate:     crypto-bigint
+Version:   0.5.5
+Title:     Multiple timing variability issues in operations intended to be constant-time
+Date:      2026-10-23
+ID:        RUSTSEC-2026-0387
+URL:       https://github.com/RustCrypto/crypto-bigint/pull/1365
+Solution:  Upgrade to >=0.7.6 (patched)
+
+Crate:     rustls
+Version:   0.23.43
+Title:     `Debug` impls for client session values expose TLS secrets
+Date:      2026-10-14
+ID:        RUSTSEC-2026-0346
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0346
+Severity:  4 (medium)
+Solution:  Upgrade to >=0.23.46 (patched)
+
+Crate:     rustls
+Version:   0.23.43
+Title:     TLS 1.3 handshake messages incorrectly accepted across encryption level boundaries
+Date:      2026-09-14
+ID:        RUSTSEC-2026-0285
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0285
+Severity:  5.3 (medium)
+Solution:  Upgrade to >=0.23.45 (patched)
+
+Crate:     rustls
+Version:   0.23.43
+Title:     Brotli certificate decompression can allocate up to 1 GiB before authentication
+Date:      2026-10-14
+ID:        RUSTSEC-2026-0348
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0348
+Severity:  3.7 (low)
+Solution:  Upgrade to >=0.23.46 (patched)
+
+Crate:     rustls
+Version:   0.23.43
+Title:     Unauthenticated ServerHello can downgrade later connections to classical key exchange
+Date:      2026-10-14
+ID:        RUSTSEC-2026-0349
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0349
+Severity:  3.7 (low)
+Solution:  Upgrade to >=0.23.46 (patched)
+
+Crate:     rustls-webpki
+Version:   0.103.13
+Title:     Certificate verification may accept distrusted intermediates
+Date:      2026-10-20
+ID:        RUSTSEC-2026-0382
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0382
+Solution:  Upgrade to >=0.103.16, <0.104.0-alpha.1 OR >=0.104.0-alpha.8 (patched)
+
+Crate:     zstd
+Version:   0.13.3
+Title:     Data from an abandoned stream leaks into the next stream on a reused context
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0391
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0391
+Solution:  Upgrade to ^0.13.4 OR >=0.14.3 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Title:     Uninitialized memory exposed when streaming decompression of a legacy frame fails
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0403
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0403
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Title:     `Seekable::decompress` sets a `Vec` length beyond its capacity for offsets past the end
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0398
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0398
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     unsafe-libyaml
+Version:   0.2.11
+Warning:   unmaintained
+Title:     unsafe-libyaml is unmaintained
+Date:      2024-03-25
+ID:        RUSTSEC-2024-0449
+URL:       https://rustsec.org/advisories/RUSTSEC-2024-0449
+Solution:  No fixed upgrade is available!
+
+Crate:     wee_alloc
+Version:   0.4.5
+Warning:   unmaintained
+Title:     wee_alloc is Unmaintained
+Date:      2022-05-11
+ID:        RUSTSEC-2022-0054
+URL:       https://rustsec.org/advisories/RUSTSEC-2022-0054
+Solution:  No fixed upgrade is available!
+
+Crate:     lru
+Version:   0.16.4
+Warning:   unsound
+Title:     Potential use-after-free due to lack of panic safety in `LruCache::pop()`
+Date:      2026-05-12
+ID:        RUSTSEC-2026-0253
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0253
+Solution:  Upgrade to >=0.18.2 (patched)
+
+Crate:     rustix
+Version:   1.1.5
+Warning:   unsound
+Title:     xattr functions mark unwritten bytes as initialized when given a zero-length buffer
+Date:      2026-10-27
+ID:        RUSTSEC-2026-0486
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0486
+Solution:  Upgrade to >=1.1.6 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Use-after-free with `CParameter::StableInBuffer`
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0395
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0395
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Heap buffer overflow in `CCtx::try_clone` on a multithreaded context
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0402
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0402
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Use-after-free when changing a multithreaded context with an unfinished frame
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0406
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0406
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Double free in `DCtx::try_clone`
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0404
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0404
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Use-after-free of a dictionary after a one-shot call on a context with an open stream
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0400
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0400
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Use-after-free through `init_using_cdict` and `init_using_ddict`
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0399
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0399
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Out-of-bounds read in `train_from_buffer` when sample sizes overflow
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0401
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0401
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     Out-of-bounds read with an out-of-range `InBuffer::pos`
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0405
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0405
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     `OutBuffer::around_pos` exposes uninitialized memory
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0397
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0397
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+Crate:     zstd-safe
+Version:   7.3.0
+Warning:   unsound
+Title:     `Seekable` reads a NULL or out-of-bounds seek table
+Date:      2026-10-16
+ID:        RUSTSEC-2026-0396
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0396
+Solution:  Upgrade to ^7.4.0 OR >=8.2.0 (patched)
+
+error: 9 vulnerabilities found!
+warning: 14 allowed warnings found

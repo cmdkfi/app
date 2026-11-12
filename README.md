@@ -231,4 +231,4 @@ The commit tagged `pre-hackathon` is a prototype of the mechanics (executor on B
 | `cloud/` | TypeScript. The Cloudflare Worker and container that host the relayer and the rebalancer timer at relayer.cmdk.fi |
 | `feeds/` | The allowlisted text feeds the agent reads; two of the three are ours and say so (`feeds/README.md`) |
 | `deployments/` | Addresses and ids of the testnet deployment (`testnet.json`) |
-| `evidence/` | Deployment transcripts, the enclave's measurement files, screening reports, the first CVM's archived decision transcripts (`transcripts/`) and the note on Phala's KMS incident of 6 Nov (`incident-2026-11-06-phala-kms.md`) |
+| `evidence/` | Deployment transcripts, the enclave's measurement files, screening reports, the outputs of the automated checks of 12 Nov (`analysis/`: Slither, Aderyn, Semgrep, Medusa, Halmos, a 6000-run invariant pass, cargo-audit, clippy), the first CVM's archived decision transcripts (`transcripts/`) and the note on Phala's KMS incident of 6 Nov (`incident-2026-11-06-phala-kms.md`) |

@@ -1,0 +1,19 @@
+# Halmos 0.3.3, CorridorMathHalmos (full ranges of the fuzz tests), solver timeout 300 s per query, 4 threads (12 Nov 2026)
+[PASS] check_corridorValid(uint256,uint256,uint256,uint256) (paths: 5, time: 0.11s (paths: 0.11s, models: 0.00s), bounds: [])
+[TIMEOUT] check_ltv_rounds_up_and_bounds(uint256,uint256) (paths: 11, time: 300.98s (paths: 0.15s, models: 300.83s), bounds: [])
+[TIMEOUT] check_maxCollateralIn_bound(uint256,uint256) (paths: 13, time: 302.05s (paths: 2.04s, models: 300.01s), bounds: [])
+[PASS] check_remainingBudget(uint256,uint256,uint256) (paths: 6, time: 0.17s (paths: 0.17s, models: 0.00s), bounds: [])
+[TIMEOUT] check_repayToLtv_stops_at_line(uint256,uint256,uint256) (paths: 36, time: 300.85s (paths: 0.86s, models: 299.99s), bounds: [])
+[TIMEOUT] check_repayToLtv_zero_at_or_below_line(uint256,uint256,uint256) (paths: 12, time: 300.38s (paths: 0.21s, models: 300.17s), bounds: [])
+[TIMEOUT] check_toAssetsUp(uint128,uint128,uint128) (paths: 14, time: 300.34s (paths: 0.23s, models: 300.11s), bounds: [])
+[TIMEOUT] check_worstCaseOut_within_budget(uint256,uint256) (paths: 7, time: 300.39s (paths: 0.21s, models: 300.18s), bounds: [])
+Symbolic test result: 2 passed; 6 failed; time: 1805.50s
+
+# Halmos 0.3.3, CorridorMathHalmosNarrow (64-bit amounts, 80-bit prices), solver timeout 600 s per query
+[TIMEOUT] check_ltv_rounds_up_and_bounds(uint64,uint64) (paths: 14, time: 600.22s, bounds: [])
+[TIMEOUT] check_maxCollateralIn_bound(uint64,uint80) (paths: 14, time: 600.32s, bounds: [])
+[TIMEOUT] check_repayToLtv_stops_at_line(uint64,uint64,uint64) (paths: 39, time: 600.64s, bounds: [])
+[TIMEOUT] check_repayToLtv_zero_at_or_below_line(uint64,uint64,uint64) (paths: 12, time: 600.20s, bounds: [])
+[TIMEOUT] check_toAssetsUp(uint64,uint64,uint64) (paths: 13, time: 600.27s, bounds: [])
+[TIMEOUT] check_worstCaseOut_within_budget(uint64,uint80) (paths: 9, time: 600.30s, bounds: [])
+Symbolic test result: 0 passed; 6 failed; time: 3602.07s

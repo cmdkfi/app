@@ -1,0 +1,10 @@
+# Medusa 1.5.1, assertion mode, 4 workers, 30 min, harness MedusaMath.t.sol over CorridorMath (12 Nov 2026)
+⇾ [PASSED] Assertion Test: CorridorMathMedusa.corridorValid(uint256,uint256,uint256,uint256)
+⇾ [PASSED] Assertion Test: CorridorMathMedusa.maxCollateralIn_bound(uint256,uint256)
+⇾ [PASSED] Assertion Test: CorridorMathMedusa.remainingBudget(uint256,uint256,uint256)
+⇾ [PASSED] Assertion Test: CorridorMathMedusa.repayToLtv_stops_at_line(uint256,uint256,uint256)
+⇾ [PASSED] Assertion Test: CorridorMathMedusa.repayToLtv_zero_at_or_below_line(uint256,uint256,uint256)
+⇾ [PASSED] Assertion Test: CorridorMathMedusa.toAssetsUp(uint128,uint128,uint128)
+⇾ [PASSED] Assertion Test: CorridorMathMedusa.worstCaseOut_within_budget(uint256,uint256)
+⇾ Test summary: 7 test(s) passed, 0 test(s) failed
+⇾ fuzz: elapsed:   29m58s, calls:   51839010 ( 29316/sec), seq/s:    292, branches:    214, corpus:    13, failures: 0/518388, gas/s:    703635970

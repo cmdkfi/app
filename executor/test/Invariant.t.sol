@@ -223,7 +223,7 @@ contract ExecutorInvariant is ForkBase {
             _count(F_REDUCE, true);
             _agentOk(u);
             _expect(_same(mb, _balances(u)), "reduce moved the caller's wallet balances");
-            (uint256 collAfter,) = _pos(u, ids[i]);
+            (uint256 collAfter, uint256 debtAfter) = _pos(u, ids[i]);
             uint256 ltvAfter = exec.ltvOf(u, ids[i]);
             uint256 sold = exec.soldInWindow(u, ct);
             Executor.Corridor memory c = _corr(u, i);
@@ -235,7 +235,10 @@ contract ExecutorInvariant is ForkBase {
                 _expect(sold == soldBefore, "reduce without a sale changed soldInWindow");
             } else if (exec.sessionStart(u, ids[i]) != 0) {
                 protectiveOk++;
-                _expect(ltvAfter >= c.target, "protective reduce went below target");
+                // repayToLtv is capped at the debt, so a position whose collateral is worth no more than its debt at the
+                // oracle (LTV at or above 100%) is repaid in full and ends at 0%: found by a 6000-run pass on a 1-unit
+                // debt whose collateral value rounded to 1 unit after a price drop (evidence/analysis/, 12 Nov 2026)
+                _expect(ltvAfter >= c.target || debtAfter == 0, "protective reduce went below target");
                 _expect(sold == soldBefore, "protective reduce changed soldInWindow");
             } else {
                 discretionaryOk++;
