@@ -130,6 +130,14 @@ ETH / BTC (or stables), any chain ──Confidential Intents (production release
 
 ## Verify it
 
+**What has been checked, in short.**
+
+- 446 automated tests pass: executor 64, vault 23 (15 unit, 8 sandbox), agent 65, Python scripts 120, web app 174 (in `cmdkfi/cmdk-app`). On top of them, the executor's three invariants ran over 6,000 random sequences of 50 calls, Medusa ran the corridor math 51.8 million times with 7 of 7 properties holding, and Halmos proved two of its properties for every input in range (`evidence/analysis/`, with the one invariant break, a dust position, explained there).
+- Five attacks a compromised agent could try are refused by the deployed executor: `Expired`, `MoveLimit`, `UnapprovedMarket`, `BelowFloor`, `SellBudget` (`evidence/attacks.txt`, step 7).
+- The vault's code rebuilds to its published hash in a pinned image (step 2), the agent's image rebuilds to its published id, and the enclave's measurements recompute from the public OS image (step 6).
+- Simulated on a sample: 20 real liquidated positions, 10 from 10 October 2025 and 10 from February 2026, replayed under the corridor; all 20 survive and $2.65M of penalties is avoided. The corridor saved them, not the model: the plain rule inside the same corridor did too (row 2 of the table above).
+- The whole flow without a wallet, including a market crash and a venue under stress: the sandbox at https://testnet.cmdk.fi/#sandbox/start.
+
 **Five checks in five minutes, no wallet, no Docker** (from the repository root; needs near-cli-rs, Foundry's `cast`, `jq`, and pandas with pyarrow for the last one):
 
 ```sh
