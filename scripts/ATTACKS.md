@@ -246,15 +246,3 @@ The script needs a key it can sign with. The build's vaults have no full-access 
 key is the agent's, made inside the CVM, so outside the CVM there is nothing to sign with. (a) and (b) depend
 only on the key's permission, so any key with the `register_agent` permission on that vault shows them. (c)
 needs the registered agent key.
-
-## Names against the judges' README (planning repo `docs/02-judges-README.md`, steps 7 and 8)
-
-| README | Code | Note |
-|---|---|---|
-| `BelowFloor`, `SellBudget`, `MoveLimit`, `UnapprovedMarket`, `Expired` | the same custom errors in `executor/src/Executor.sol` | match |
-| `InvalidAccessKeyError::ReceiverMismatch`, `MethodNameMismatch` | RPC: `InvalidTxError` → `InvalidAccessKeyError` → `ReceiverMismatch {ak_receiver, tx_receiver}` / `MethodNameMismatch {method_name}` | names match; the RPC nests them in JSON |
-| `PolicyViolation::SliceMax` on NEAR | `Smart contract panicked: amount above the slice maximum` (`vault/src/lib.rs` `reduce`; amount 0 gets `zero amount` since 3 Nov) | no `PolicyViolation` type exists; the README string does not appear anywhere |
-| step 8 lists `PolicyViolation::SliceMax` with the executor reverts | it is a NEAR panic, run by `attack-key.sh` (c) | different script |
-| step 8: "Same test vault, the agent key with all model-side checks bypassed" | `attack-corridor.sh` uses a wallet's own executor position (P5 B) | the vault and agent key are not involved |
-| step 8: `Expired` "including after `revoke_agent`" | the script's Expired is a wallet-signed call published after its deadline | a vault-signed transaction held past `revoke_agent` is not covered (README step 13 / `evidence/revoke.txt`) |
-| "Recorded in `evidence/attacks.txt`" | the scripts print to stdout | `tee evidence/attacks.txt` on the testnet run |

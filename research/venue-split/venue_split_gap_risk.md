@@ -17,8 +17,10 @@ The founder's hypothesis: "one loan of 1 ETH on one venue liquidated in the same
 
 | symbol | first | last | minutes | segments | days_covered | span_days |
 |---|---|---|---|---|---|---|
-| ETHUSDT | 2024-01-07 12:59 | 2026-10-25 23:00 | 1205112 | 36 | 836.90 | 1022 |
-| BTCUSDT | 2024-09-28 19:59 | 2026-10-25 23:00 | 871298 | 19 | 605.10 | 757 |
+| ETHUSDT | 2024-01-07 12:59 | 2026-10-25 23:00 | 1205112 | 36 | 836.9 | 1022 |
+| BTCUSDT | 2024-09-28 19:59 | 2026-10-25 23:00 | 871298 | 19 | 605.1 | 757 |
+
+`days_covered` is minutes / 1440, rounded to 0.1 day by `scripts/make_tables.py` (its generated `scripts/out/tables.md` prints it with a trailing zero); `span_days` is last minus first in whole days.
 
 Because the sample is built around liquidation events, it over-represents volatile periods. That is the right sample for extremes (part A's maxima) but the counts in A2 are not rates per year. The 10 Oct 2025 crash and 31 Jan–6 Feb 2026 are inside contiguous segments (ETH segments 2025-10-06 16:59 to 2025-10-23 00:00 and 2026-01-01 22:59 to 2026-02-09 07:00).
 
