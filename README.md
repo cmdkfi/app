@@ -228,7 +228,7 @@ Our claim, stated precisely: among the designs we compared, the tightest limits 
 Two co-founders, with AI assistants.
 
 - **Vadim Filimonov**, co-founder ([LinkedIn](https://www.linkedin.com/in/vadim-filimonov-56542823a/), [GitHub](https://github.com/fffilimonov)). Previously at NEAR MetaBUILD III (2022): dTelecom, an Honorable Mention in the Native Track ([Devpost](https://devpost.com/software/dtelecom)).
-- **Vlada One**, co-founder ([LinkedIn](https://www.linkedin.com/in/vlada-one/), [GitHub](https://github.com/vladaone)). Previously on the team of Roketo, a token streaming service on NEAR and a grand prize winner of NEAR MetaBUIDL (2021) ([Roketo's post](https://medium.com/@roke.to/how-to-win-a-near-hackathon-7-tips-from-co-founder-of-roketo-947fbc80ad80)).
+- **Vlada One**, co-founder ([LinkedIn](https://www.linkedin.com/in/vlada-one/), [GitHub](https://github.com/vladaone)). Previously on the teams of Roketo, a token streaming service on NEAR and a grand prize winner of NEAR MetaBUIDL (2021) ([Roketo's post](https://medium.com/@roke.to/how-to-win-a-near-hackathon-7-tips-from-co-founder-of-roketo-947fbc80ad80)), and NearPay, the first bridge from NEAR to a fiat debit card ([NEAR blog, March 2022](https://near.org/blog/introducing-nearpay-the-first-bridge-to-fiat-debit-card-on-near)).
 
 The web app (https://github.com/cmdkfi/cmdk-app, deployed from `main` to https://testnet.cmdk.fi) and the landing page (https://github.com/cmdkfi/landing, https://cmdk.fi) are public too; the landing copy carries source comments that point to this README and `research/`.
 
